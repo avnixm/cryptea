@@ -1,0 +1,9 @@
+textview.notes-editor text {
+  font-family: "Source Code Pro", monospace;
+  font-size: 12pt;
+}
+
+textview.notes-preview text {
+  font-family: "Cantarell", sans-serif;
+  font-size: 11pt;
+}

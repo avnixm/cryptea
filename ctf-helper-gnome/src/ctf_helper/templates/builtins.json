@@ -1,0 +1,16 @@
+{
+  "warmup-crypto": {
+    "name": "Warmup Crypto",
+    "category": "Crypto",
+    "difficulty": "Easy",
+    "description": "Apply the Caesar tool with shift 13 to decode the provided ciphertext.",
+    "notes": "Remember to document the decoded plaintext and the steps taken."
+  },
+  "pcap-inspection": {
+    "name": "PCAP Inspection",
+    "category": "Forensics",
+    "difficulty": "Medium",
+    "description": "Use tshark or the built-in tools to enumerate credentials in the capture.",
+    "notes": "Look for HTTP basic auth and DNS exfiltration patterns."
+  }
+}

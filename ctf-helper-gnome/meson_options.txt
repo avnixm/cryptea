@@ -1,0 +1,2 @@
+option('offline-build', type: 'boolean', value: true, description: 'Enable offline-only guards and features')
+option('dev-profile', type: 'boolean', value: false, description: 'Seed the local database with sample content for development')

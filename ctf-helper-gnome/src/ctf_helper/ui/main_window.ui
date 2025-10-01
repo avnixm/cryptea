@@ -1,0 +1,367 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="adw" version="1.0"/>
+
+  <object class="AdwApplicationWindow" id="main_window">
+    <property name="default-width">1200</property>
+    <property name="default-height">780</property>
+    <property name="title">GNOME CTF Helper</property>
+    <child>
+      <object class="AdwToastOverlay" id="toast_overlay">
+        <child>
+          <object class="AdwToolbarView">
+            <child type="top">
+              <object class="AdwHeaderBar" id="header_bar">
+                <property name="title-widget">
+                  <object class="AdwWindowTitle">
+                    <property name="title">GNOME CTF Helper</property>
+                    <property name="subtitle">Offline Workspace</property>
+                  </object>
+                </property>
+                <child type="start">
+                  <object class="GtkButton" id="add_challenge_button">
+                    <property name="icon-name">list-add-symbolic</property>
+                    <property name="tooltip-text">Create new challenge</property>
+                  </object>
+                </child>
+                <child type="start">
+                  <object class="GtkButton" id="import_button">
+                    <property name="icon-name">document-open-symbolic</property>
+                    <property name="tooltip-text">Import challenges</property>
+                  </object>
+                </child>
+                <child type="end">
+                  <object class="GtkButton" id="export_button">
+                    <property name="icon-name">document-save-symbolic</property>
+                    <property name="tooltip-text">Export workspace</property>
+                  </object>
+                </child>
+                <child type="end">
+                  <object class="GtkMenuButton" id="menu_button">
+                    <property name="icon-name">emblem-system-symbolic</property>
+                    <property name="tooltip-text">More actions</property>
+                    <property name="menu-model">options_menu</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkOverlay" id="content_overlay">
+                <property name="hexpand">True</property>
+                <property name="vexpand">True</property>
+                <child>
+                  <object class="AdwNavigationSplitView" id="split_view">
+                    <property name="sidebar">
+                      <object class="GtkBox" id="sidebar_box">
+                        <property name="orientation">vertical</property>
+                        <property name="spacing">6</property>
+                        <property name="margin-start">12</property>
+                        <property name="margin-end">12</property>
+                        <property name="margin-top">12</property>
+                        <property name="margin-bottom">12</property>
+                        <child>
+                          <object class="GtkSearchEntry" id="search_entry">
+                            <property name="placeholder-text">Search challenges…</property>
+                          </object>
+                        </child>
+                        <child>
+                          <object class="GtkScrolledWindow">
+                            <property name="hexpand">True</property>
+                            <property name="vexpand">True</property>
+                            <child>
+                              <object class="GtkListBox" id="challenge_list">
+                                <property name="selection-mode">GTK_SELECTION_SINGLE</property>
+                                <style>
+                                  <class name="boxed-list"/>
+                                </style>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </property>
+                    <property name="content">
+                      <object class="GtkScrolledWindow" id="detail_scroller">
+                        <property name="hexpand">True</property>
+                        <property name="vexpand">True</property>
+                        <child>
+                          <object class="GtkBox" id="detail_root">
+                            <property name="orientation">vertical</property>
+                            <property name="spacing">12</property>
+                            <property name="margin-start">24</property>
+                            <property name="margin-end">24</property>
+                            <property name="margin-top">24</property>
+                            <property name="margin-bottom">24</property>
+                            <child>
+                              <object class="GtkLabel" id="detail_heading">
+                                <property name="label">Challenge details</property>
+                                <property name="xalign">0</property>
+                                <style>
+                                  <class name="title-3"/>
+                                </style>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkBox" id="metadata_box">
+                                <property name="orientation">vertical</property>
+                                <property name="spacing">10</property>
+                                <child>
+                                  <object class="GtkBox">
+                                    <property name="orientation">vertical</property>
+                                    <property name="spacing">4</property>
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <property name="label">Title</property>
+                                        <property name="xalign">0</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkEntry" id="title_entry">
+                                        <property name="hexpand">True</property>
+                                        <property name="placeholder-text">Challenge title</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkBox">
+                                    <property name="orientation">vertical</property>
+                                    <property name="spacing">4</property>
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <property name="label">Project</property>
+                                        <property name="xalign">0</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkEntry" id="project_entry">
+                                        <property name="placeholder-text">Track or project</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkBox">
+                                    <property name="orientation">vertical</property>
+                                    <property name="spacing">4</property>
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <property name="label">Category</property>
+                                        <property name="xalign">0</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkEntry" id="category_entry">
+                                        <property name="placeholder-text">Category</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkBox">
+                                    <property name="orientation">vertical</property>
+                                    <property name="spacing">4</property>
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <property name="label">Status</property>
+                                        <property name="xalign">0</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkComboBoxText" id="status_combo"/>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkBox">
+                                    <property name="orientation">vertical</property>
+                                    <property name="spacing">4</property>
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <property name="label">Difficulty</property>
+                                        <property name="xalign">0</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkComboBoxText" id="difficulty_combo">
+                                        <items>
+                                          <item id="easy">Easy</item>
+                                          <item id="medium">Medium</item>
+                                          <item id="hard">Hard</item>
+                                        </items>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkBox">
+                                    <property name="orientation">vertical</property>
+                                    <property name="spacing">4</property>
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <property name="label">Flag</property>
+                                        <property name="xalign">0</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkEntry" id="flag_entry">
+                                        <property name="placeholder-text">flag{example}</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkBox">
+                                    <property name="orientation">vertical</property>
+                                    <property name="spacing">4</property>
+                                    <child>
+                                      <object class="GtkLabel">
+                                        <property name="label">Description</property>
+                                        <property name="xalign">0</property>
+                                      </object>
+                                    </child>
+                                    <child>
+                                      <object class="GtkScrolledWindow">
+                                        <property name="hexpand">True</property>
+                                        <property name="vexpand">True</property>
+                                        <child>
+                                          <object class="GtkTextView" id="description_view">
+                                            <property name="wrap-mode">word</property>
+                                          </object>
+                                        </child>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="label">Notes</property>
+                                <property name="xalign">0</property>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkPaned" id="notes_paned">
+                                <property name="orientation">horizontal</property>
+                                <child>
+                                  <object class="GtkScrolledWindow">
+                                    <property name="hexpand">True</property>
+                                    <property name="vexpand">True</property>
+                                    <child>
+                                      <object class="GtkTextView" id="notes_view">
+                                        <property name="wrap-mode">word</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkScrolledWindow">
+                                    <property name="hexpand">True</property>
+                                    <property name="vexpand">True</property>
+                                    <child>
+                                      <object class="GtkTextView" id="notes_preview">
+                                        <property name="editable">False</property>
+                                        <property name="wrap-mode">word</property>
+                                      </object>
+                                    </child>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkBox" id="actions_box">
+                                <property name="orientation">horizontal</property>
+                                <property name="spacing">12</property>
+                                <child>
+                                  <object class="GtkButton" id="run_tool_button">
+                                    <property name="label">Run tool…</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkComboBoxText" id="tool_selector">
+                                    <property name="hexpand">False</property>
+                                  </object>
+                                </child>
+                                <child>
+                                  <object class="GtkLabel" id="status_label">
+                                    <property name="hexpand">True</property>
+                                    <property name="xalign">1</property>
+                                    <property name="wrap">True</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkScrolledWindow" id="tool_result_scroller">
+                                <property name="hexpand">True</property>
+                                <property name="vexpand">True</property>
+                                <child>
+                                  <object class="GtkTextView" id="tool_result_view">
+                                    <property name="editable">False</property>
+                                    <property name="wrap-mode">word</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkScrolledWindow" id="help_scroller">
+                                <property name="hexpand">True</property>
+                                <property name="vexpand">True</property>
+                                <child>
+                                  <object class="GtkTextView" id="help_view">
+                                    <property name="editable">False</property>
+                                    <property name="wrap-mode">word</property>
+                                  </object>
+                                </child>
+                              </object>
+                            </child>
+                          </object>
+                        </child>
+                      </object>
+                    </property>
+                  </object>
+                </child>
+                <child type="overlay">
+                  <object class="AdwStatusPage" id="empty_state">
+                    <property name="hexpand">True</property>
+                    <property name="vexpand">True</property>
+                    <property name="icon-name">system-run-symbolic</property>
+                    <property name="title">No challenges yet</property>
+                    <property name="description">Create your first challenge to begin tracking progress.</property>
+                    <child>
+                      <object class="GtkButton" id="empty_create_button">
+                        <property name="label">Create a challenge</property>
+                        <style>
+                          <class name="suggested-action"/>
+                        </style>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+
+  <menu id="options_menu">
+    <section>
+      <item>
+        <attribute name="label">Copy diagnostics</attribute>
+        <attribute name="action">app.copy_diagnostics</attribute>
+      </item>
+      <item>
+        <attribute name="label">Open logs folder</attribute>
+        <attribute name="action">app.open_logs</attribute>
+      </item>
+      <item>
+        <attribute name="label">About</attribute>
+        <attribute name="action">app.about</attribute>
+      </item>
+    </section>
+  </menu>
+</interface>

@@ -1,0 +1,5 @@
+{
+  "include": ["ctf-helper-gnome/src"],
+  "stubPath": "ctf-helper-gnome/typings",
+  "typeCheckingMode": "basic"
+}

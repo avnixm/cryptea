@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=GNOME CTF Helper
+Comment=Offline-first toolbox for Capture the Flag exercises
+Exec=ctf-helper
+Icon=org.example.CTFHelper
+Terminal=false
+Categories=Utility;Education;
+StartupNotify=true

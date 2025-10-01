@@ -1,0 +1,8 @@
+"""Build-time configuration for GNOME CTF Helper."""
+
+OFFLINE_BUILD: bool = @OFFLINE_BUILD@
+DEV_PROFILE_ENABLED: bool = @DEV_PROFILE_ENABLED@
+
+APP_ID = "org.example.CTFHelper"
+APP_NAME = "GNOME CTF Helper"
+APP_VERSION = "0.1.0"

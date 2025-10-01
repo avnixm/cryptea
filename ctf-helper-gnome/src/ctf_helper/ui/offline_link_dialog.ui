@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="adw" version="1"/>
+
+  <template class="OfflineLinkDialog" parent="AdwMessageDialog">
+    <property name="heading">External Link</property>
+    <property name="body-use-markup">True</property>
+    <property name="body">Copy the link below manually if you need to visit it later. Network access is disabled.</property>
+    <child>
+      <object class="GtkEntry" id="link_entry">
+        <property name="editable">False</property>
+        <property name="hexpand">True</property>
+        <property name="text-halign">start</property>
+        <style>
+          <class name="monospace"/>
+        </style>
+      </object>
+    </child>
+    <response appearance="suggested" id="close">Close</response>
+  </template>
+</interface>

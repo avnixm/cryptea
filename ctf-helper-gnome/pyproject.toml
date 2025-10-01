@@ -1,0 +1,16 @@
+[project]
+name = "ctf-helper-gnome"
+version = "0.1.0"
+description = "Offline GNOME helper for Capture the Flag study"
+requires-python = ">=3.11"
+authors = [{ name = "GNOME CTF Helper Team" }]
+license = { text = "GPL-3.0-or-later" }
+readme = "README.md"
+dependencies = [
+  "markdown2",
+  "PyNaCl",
+  "cryptography"
+]
+
+[tool.meson-python.metadata]
+requires = ["meson>=1.1.0"]

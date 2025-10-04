@@ -1,5 +1,5 @@
 {
-  "include": ["ctf-helper-gnome/src"],
-  "stubPath": "ctf-helper-gnome/typings",
+  "include": ["cryptea/src"],
+  "stubPath": "cryptea/typings",
   "typeCheckingMode": "basic"
 }

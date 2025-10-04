@@ -1,8 +1,0 @@
-"""Build-time configuration for Cryptea."""
-
-OFFLINE_BUILD: bool = @OFFLINE_BUILD@
-DEV_PROFILE_ENABLED: bool = @DEV_PROFILE_ENABLED@
-
-APP_ID = "org.example.Cryptea"
-APP_NAME = "Cryptea"
-APP_VERSION = "0.1.0"

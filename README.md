@@ -17,6 +17,9 @@
 
 ---
 
+<img width="1800" height="1123" alt="image" src="https://github.com/user-attachments/assets/fafe015e-c0cd-4d15-8f4d-132641d05243" />
+
+
 ## 📖 Overview
 
 **Cryptea** is a 100% offline desktop application for Capture The Flag (CTF) challenge management and security tool integration. Built with GTK4 and Libadwaita, it provides a modern, native Linux experience for CTF players and security researchers who need a secure, air-gapped environment.

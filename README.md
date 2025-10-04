@@ -1,4 +1,4 @@
-# Cryptea
+# CRYPTEA
 
 <div align="center">
 

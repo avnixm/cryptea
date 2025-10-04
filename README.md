@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Cryptea Logo](data/icons/org.avnixm.Cryptea.svg)
+![Cryptea Logo](cryptea/data/icons/org.avnixm.Cryptea.svg)
 
 **100% Offline CTF Challenge Manager & Security Toolkit**
 

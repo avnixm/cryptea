@@ -1,17 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
-  <defs>
-    <linearGradient id="bg" x1="0%" x2="100%" y1="0%" y2="100%">
-      <stop offset="0%" stop-color="#4c1d95"/>
-      <stop offset="100%" stop-color="#7c3aed"/>
-    </linearGradient>
-  </defs>
-  <rect width="128" height="128" rx="26" fill="url(#bg)"/>
-  <g fill="#f9fafb">
-    <path d="M40 36h48v12H40z" opacity="0.75"/>
-    <path d="M32 54h64l-6 38H38z" opacity="0.9"/>
-    <path d="M50 92a14 14 0 0 0 28 0z"/>
-  </g>
-  <circle cx="64" cy="64" r="18" fill="#312e81" opacity="0.5"/>
-  <text x="64" y="70" text-anchor="middle" font-size="16" font-family="Cantarell" fill="#f9fafb">CTF</text>
+  <!-- Black background with rounded corners for app icon -->
+  <rect width="128" height="128" rx="26" fill="#000000"/>
+  
+  <!-- CTF Helper icon elements -->
+  <rect x="40" y="96" width="48" height="12" rx="2" fill="#5c5c5c"/>
+  <rect x="62" y="32" width="4" height="64" fill="#707070"/>
+  <polygon points="66,36 100,52 66,68" fill="#e01b24"/>
 </svg>

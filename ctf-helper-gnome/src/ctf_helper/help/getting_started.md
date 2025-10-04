@@ -1,4 +1,4 @@
-# Welcome to GNOME CTF Helper
+# Welcome to Cryptea
 
 This handbook ships with the application so you can stay productive while offline.
 

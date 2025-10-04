@@ -1,6 +1,6 @@
 [Desktop Entry]
 Type=Application
-Name=GNOME CTF Helper
+Name=Cryptea
 Comment=Offline-first toolbox for Capture the Flag exercises
 Exec=ctf-helper
 Icon=org.example.CTFHelper

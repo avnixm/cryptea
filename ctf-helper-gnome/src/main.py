@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Entry point for GNOME CTF Helper."""
+"""Entry point for Cryptea."""
 
 from ctf_helper import run
 

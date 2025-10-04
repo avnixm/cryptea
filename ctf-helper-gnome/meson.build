@@ -1,4 +1,4 @@
-project('ctf-helper-gnome', 'python',
+project('ctf-helper-gnome',
   version: '0.1.0',
   license: 'GPL-3.0-or-later',
   meson_version: '>=0.64.0',

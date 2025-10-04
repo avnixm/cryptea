@@ -12,7 +12,7 @@ from .logger import configure_logging
 
 _LOG = configure_logging()
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
 
 BASE_SQL = """
 PRAGMA journal_mode=WAL;
@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS meta (
 );
 """
 
-SCHEMA_SQL_V2 = """
+SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS challenges (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS challenges (
     status TEXT NOT NULL DEFAULT 'Not Started',
     description TEXT NOT NULL DEFAULT '',
     notes TEXT NOT NULL DEFAULT '',
+    favorite INTEGER NOT NULL DEFAULT 0,
     flag TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -88,8 +89,11 @@ class Database:
             version = self._schema_version(cur)
             if version is None or version < 2:
                 self._migrate_to_v2(cur)
+                version = 2
             else:
-                cur.executescript(SCHEMA_SQL_V2)
+                cur.executescript(SCHEMA_SQL)
+            if version < 3:
+                self._migrate_to_v3(cur)
             cur.execute(
                 "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
                 ("schema_version", str(SCHEMA_VERSION)),
@@ -125,14 +129,14 @@ class Database:
         cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='challenges'")
         if cur.fetchone():
             cur.execute("ALTER TABLE challenges RENAME TO challenges_legacy")
-        cur.executescript(SCHEMA_SQL_V2)
+        cur.executescript(SCHEMA_SQL)
 
         cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='challenges_legacy'")
         if cur.fetchone():
             _LOG.info("Migrating existing challenges to new schema")
             cur.execute(
                 """
-                INSERT INTO challenges (id, title, project, category, difficulty, status, description, notes, flag, created_at, updated_at)
+                INSERT INTO challenges (id, title, project, category, difficulty, status, description, notes, favorite, flag, created_at, updated_at)
                 SELECT c.id,
                        c.name,
                        'General',
@@ -141,6 +145,7 @@ class Database:
                        'Not Started',
                        c.description,
                        COALESCE(n.markdown, ''),
+                       0,
                        c.flag,
                        c.created_at,
                        c.updated_at
@@ -150,4 +155,12 @@ class Database:
             )
             cur.execute("DROP TABLE IF EXISTS challenges_legacy")
         cur.execute("DROP TABLE IF EXISTS notes")
-        cur.executescript(SCHEMA_SQL_V2)
+        cur.executescript(SCHEMA_SQL)
+
+    def _migrate_to_v3(self, cur: sqlite3.Cursor) -> None:
+        _LOG.info("Upgrading database schema to version 3")
+        cur.execute("PRAGMA table_info(challenges)")
+        columns = {row[1] for row in cur.fetchall()}
+        if "favorite" not in columns:
+            cur.execute("ALTER TABLE challenges ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0")
+        cur.executescript(SCHEMA_SQL)

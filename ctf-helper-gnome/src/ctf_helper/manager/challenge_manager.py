@@ -155,13 +155,14 @@ class ChallengeManager:
         project: Optional[str] = None,
         status: Optional[str] = None,
         category: Optional[str] = None,
+        favorite: Optional[bool] = None,
         order_by: str = "updated_at DESC",
     ) -> List[Challenge]:
         sql = (
-            "SELECT id, title, project, category, difficulty, status, description, notes, flag, created_at, updated_at "
+            "SELECT id, title, project, category, difficulty, status, description, notes, favorite, flag, created_at, updated_at "
             "FROM challenges WHERE 1=1"
         )
-        params: List[str] = []
+        params: List[Any] = []
         if search:
             like = f"%{search.lower()}%"
             sql += " AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(project) LIKE ?)"
@@ -175,6 +176,9 @@ class ChallengeManager:
         if category:
             sql += " AND category = ?"
             params.append(category)
+        if favorite is not None:
+            sql += " AND favorite = ?"
+            params.append(1 if favorite else 0)
         if order_by not in {"created_at ASC", "created_at DESC", "updated_at ASC", "updated_at DESC", "title COLLATE NOCASE"}:
             order_by = "updated_at DESC"
         sql += f" ORDER BY {order_by}"
@@ -217,7 +221,7 @@ class ChallengeManager:
         with self.db.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, title, project, category, difficulty, status, description, notes, flag, created_at, updated_at
+                SELECT id, title, project, category, difficulty, status, description, notes, favorite, flag, created_at, updated_at
                   FROM challenges
                  WHERE status = 'In Progress'
               ORDER BY updated_at DESC
@@ -239,6 +243,7 @@ class ChallengeManager:
         description: str = "",
         notes: str = "",
         flag: Optional[str] = None,
+        favorite: bool = False,
     ) -> Challenge:
         if status not in STATUSES:
             status = "Not Started"
@@ -247,10 +252,22 @@ class ChallengeManager:
         with self.db.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO challenges (title, project, category, difficulty, status, description, notes, flag, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO challenges (title, project, category, difficulty, status, description, notes, favorite, flag, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (title, project, category, difficulty, status, description, notes, stored_flag, now, now),
+                (
+                    title,
+                    project,
+                    category,
+                    difficulty,
+                    status,
+                    description,
+                    notes,
+                    1 if favorite else 0,
+                    stored_flag,
+                    now,
+                    now,
+                ),
             )
             challenge_id = cur.lastrowid
         if challenge_id is None:  # pragma: no cover - defensive
@@ -260,16 +277,20 @@ class ChallengeManager:
     def update_challenge(self, challenge_id: int, **fields: str) -> Challenge:
         if not fields:
             return self.get_challenge(challenge_id)
-        allowed = {"title", "project", "category", "difficulty", "status", "description", "notes"}
+        allowed = {"title", "project", "category", "difficulty", "status", "description", "notes", "favorite"}
         assignments: List[str] = []
-        values: List[str] = []
+        values: List[Any] = []
         for key, value in fields.items():
             if key not in allowed:
                 continue
             if key == "status" and value not in STATUSES:
                 continue
-            assignments.append(f"{key} = ?")
-            values.append(value)
+            if key == "favorite":
+                assignments.append("favorite = ?")
+                values.append(1 if bool(value) else 0)
+            else:
+                assignments.append(f"{key} = ?")
+                values.append(value)
         if not assignments:
             return self.get_challenge(challenge_id)
         values.append(datetime.now(UTC).isoformat())
@@ -288,6 +309,14 @@ class ChallengeManager:
             )
         return self.get_challenge(challenge_id)
 
+    def set_favorite(self, challenge_id: int, favorite: bool) -> Challenge:
+        with self.db.cursor() as cur:
+            cur.execute(
+                "UPDATE challenges SET favorite = ?, updated_at = ? WHERE id = ?",
+                (1 if favorite else 0, datetime.now(UTC).isoformat(), challenge_id),
+            )
+        return self.get_challenge(challenge_id)
+
     def get_flag(self, challenge_id: int) -> Optional[str]:
         with self.db.cursor() as cur:
             cur.execute("SELECT flag FROM challenges WHERE id = ?", (challenge_id,))
@@ -300,7 +329,7 @@ class ChallengeManager:
         with self.db.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, title, project, category, difficulty, status, description, notes, flag, created_at, updated_at
+                SELECT id, title, project, category, difficulty, status, description, notes, favorite, flag, created_at, updated_at
                   FROM challenges
                  WHERE id = ?
                 """,
@@ -346,6 +375,7 @@ class ChallengeManager:
                     "status": challenge.status,
                     "description": challenge.description,
                     "notes": challenge.notes,
+                    "favorite": challenge.favorite,
                     "created_at": challenge.created_at.isoformat(),
                     "updated_at": challenge.updated_at.isoformat(),
                     "flag": self.get_flag(challenge.id),
@@ -371,6 +401,7 @@ class ChallengeManager:
                 status=entry.get("status", "Not Started"),
                 description=entry.get("description", ""),
                 notes=str(notes_value or ""),
+                favorite=bool(entry.get("favorite", False)),
             )
             flag = entry.get("flag")
             if flag:
@@ -394,6 +425,7 @@ class ChallengeManager:
             created_at=datetime.fromisoformat(row["created_at"]),
             updated_at=datetime.fromisoformat(row["updated_at"]),
             flag=self._decrypt_flag(row["flag"]),
+            favorite=bool(row["favorite"]),
         )
 
 

@@ -20,6 +20,7 @@ class Challenge:
     created_at: datetime
     updated_at: datetime
     flag: Optional[str] = None
+    favorite: bool = False
 
 
 @dataclass(slots=True)

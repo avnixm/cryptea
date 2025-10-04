@@ -1,4 +1,4 @@
-"""Notes subsystem for GNOME CTF Helper."""
+"""Notes subsystem for Cryptea."""
 
 from .manager import NoteManager
 from .editor import MarkdownRenderer

@@ -1,9 +1,9 @@
 [project]
-name = "ctf-helper-gnome"
+name = "Cryptea"
 version = "0.1.0"
-description = "Offline GNOME helper for Capture the Flag study"
+description = "Offline CTF helper for Capture the Flag study"
 requires-python = ">=3.11"
-authors = [{ name = "GNOME CTF Helper Team" }]
+authors = [{ name = "avnixm" }]
 license = { text = "GPL-3.0-or-later" }
 readme = "README.md"
 dependencies = [

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Helper entry point to run the GNOME CTF Helper from a source checkout."""
+"""Helper entry point to run Cryptea from a source checkout."""
 
 from __future__ import annotations
 

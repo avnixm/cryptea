@@ -7,3 +7,173 @@ textview.notes-preview text {
   font-family: "Cantarell", sans-serif;
   font-size: 11pt;
 }
+
+/* ============================================================================
+   GLOBAL MODERN GNOME STYLING - Applied to ALL inputs across the entire app
+   ============================================================================ */
+
+/* All ScrolledWindows containing TextViews - rounded corners and accent border */
+scrolledwindow,
+window scrolledwindow,
+box scrolledwindow,
+clamp scrolledwindow {
+  border-radius: 12px;
+  border: 2px solid alpha(@borders, 0.6);
+  background-color: @view_bg_color;
+  transition: all 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  margin: 2px;
+}
+
+scrolledwindow:focus-within,
+window scrolledwindow:focus-within,
+box scrolledwindow:focus-within,
+clamp scrolledwindow:focus-within {
+  border-color: @accent_bg_color;
+  border-width: 2px;
+  box-shadow: inset 0 0 0 1px @accent_bg_color;
+  background-color: @view_bg_color;
+}
+
+/* All TextViews inside ScrolledWindows */
+scrolledwindow textview,
+scrolledwindow textview text {
+  background: transparent;
+  padding: 12px;
+}
+
+/* All Entry fields - rounded corners and accent border */
+entry,
+window entry,
+box entry {
+  border-radius: 8px;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 2px solid alpha(@borders, 0.6);
+  background-color: @view_bg_color;
+  transition: all 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  margin: 2px;
+}
+
+entry:focus,
+window entry:focus,
+box entry:focus {
+  border-color: @accent_bg_color;
+  border-width: 2px;
+  box-shadow: inset 0 0 0 1px @accent_bg_color;
+  background-color: @view_bg_color;
+}
+
+/* ComboBoxText - rounded styling */
+combobox button {
+  border-radius: 8px;
+}
+
+combobox entry {
+  border-radius: 8px 0 0 8px;
+}
+
+/* SpinButton - rounded styling */
+spinbutton {
+  border-radius: 8px;
+}
+
+spinbutton entry {
+  border-radius: 8px 0 0 8px;
+}
+
+/* ============================================================================
+   SPECIFIC STYLING CLASSES (for fine-tuning)
+   ============================================================================ */
+
+/* Modern GNOME input styling with rounded corners and accent colors */
+scrolledwindow.input-box {
+  border-radius: 8px;
+  border: 1px solid alpha(@borders, 0.5);
+  background-color: @view_bg_color;
+  transition: all 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+scrolledwindow.input-box:focus-within {
+  border-color: @accent_bg_color;
+  box-shadow: inset 0 0 0 1px @accent_bg_color;
+  background-color: @view_bg_color;
+}
+
+textview.input-text {
+  background: transparent;
+  padding: 8px;
+  font-family: "Source Code Pro", "Monospace", monospace;
+  font-size: 10.5pt;
+}
+
+textview.input-text text {
+  background: transparent;
+}
+
+/* Entry fields styling */
+entry.modern-entry {
+  border-radius: 6px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid alpha(@borders, 0.5);
+  background-color: @view_bg_color;
+  transition: all 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+entry.modern-entry:focus {
+  border-color: @accent_bg_color;
+  box-shadow: inset 0 0 0 1px @accent_bg_color;
+  background-color: @view_bg_color;
+}
+
+/* Result/output text views - slightly different styling */
+scrolledwindow.output-box {
+  border-radius: 8px;
+  border: 1px solid alpha(@borders, 0.3);
+  background-color: alpha(@view_bg_color, 0.5);
+}
+
+textview.output-text {
+  background: transparent;
+  padding: 8px;
+  font-family: "Source Code Pro", "Monospace", monospace;
+  font-size: 10pt;
+}
+
+textview.output-text text {
+  background: transparent;
+}
+
+/* Hash Suite tabs - completely hide close buttons (tabs are permanent UI elements) */
+.hash-suite-tabs tab button.close-button {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Fallback - hide all close buttons in tab bars */
+tabbar.hash-suite-tabs button.close-button {
+  display: none !important;
+}
+
+/* Another selector variant */
+.hash-suite-tabs > * button.close-button {
+  display: none !important;
+}
+
+/* Ultimate fix - hide ALL buttons in Hash Suite tabs */
+tabbar.hash-suite-tabs tab button,
+.hash-suite-tabs tab button,
+tabbar.hash-suite-tabs button,
+.hash-suite-tabs button {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0px !important;
+  min-width: 0px !important;
+  height: 0px !important;
+  min-height: 0px !important;
+}

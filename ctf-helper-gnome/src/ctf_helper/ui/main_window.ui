@@ -6,7 +6,7 @@
   <object class="AdwApplicationWindow" id="main_window">
     <property name="default-width">1200</property>
     <property name="default-height">780</property>
-    <property name="title">GNOME CTF Helper</property>
+  <property name="title">Cryptea</property>
     <child>
       <object class="AdwToastOverlay" id="toast_overlay">
         <child>
@@ -15,7 +15,7 @@
               <object class="AdwHeaderBar" id="header_bar">
                 <property name="title-widget">
                   <object class="AdwWindowTitle">
-                    <property name="title">GNOME CTF Helper</property>
+                    <property name="title">Cryptea</property>
                     <property name="subtitle">Offline Workspace</property>
                   </object>
                 </property>

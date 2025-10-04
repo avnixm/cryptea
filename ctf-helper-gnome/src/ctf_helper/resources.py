@@ -71,15 +71,9 @@ class Resources:
             _LOG.info("Extracted %s help topics to %s", len(extracted), destination)
         return extracted
 
-
-def _require_gtk() -> GtkType:
-    if Gtk is None:
-        raise RuntimeError("GTK is not available in this environment.")
-    return cast(GtkType, Gtk)
-
     def template_index(self) -> Mapping[str, Mapping[str, str]]:
         content = (resources.files(self._template_pkg) / 'builtins.json').read_text(encoding='utf-8')
-        data = json.loads(content)
+        data: Mapping[str, Mapping[str, str]] = json.loads(content)
         return data
 
     def ensure_templates_extracted(self) -> List[Path]:
@@ -95,3 +89,9 @@ def _require_gtk() -> GtkType:
         if extracted:
             _LOG.info("Extracted %s templates to %s", len(extracted), destination)
         return extracted
+
+
+def _require_gtk() -> GtkType:
+    if Gtk is None:
+        raise RuntimeError("GTK is not available in this environment.")
+    return cast(GtkType, Gtk)

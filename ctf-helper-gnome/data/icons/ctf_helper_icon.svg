@@ -1,5 +1,9 @@
 <?xml version="1.0" ?>
 <svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <!-- Black background -->
+  <rect x="0" y="0" width="128" height="128" fill="#000000"/>
+  
+  <!-- Original icon elements -->
   <rect x="40" y="96" width="48" height="12" rx="2" fill="#5c5c5c"/>
   <rect x="62" y="32" width="4" height="64" fill="#707070"/>
   <polygon points="66,36 100,52 66,68" fill="#e01b24"/>

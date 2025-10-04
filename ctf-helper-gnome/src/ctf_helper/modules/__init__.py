@@ -1,4 +1,4 @@
-"""Offline modules packaged with the GNOME CTF Helper."""
+"""Offline modules packaged with Cryptea."""
 
 from .registry import ModuleRegistry
 

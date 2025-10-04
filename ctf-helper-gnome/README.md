@@ -1,6 +1,24 @@
-# GNOME CTF Helper (Offline Edition)
+# Cryptea (Offline Edition)
 
-GNOME CTF Helper is a 100% offline desktop companion for Capture the Flag training. It ships challenge management, Markdown note taking, offline tool modules, and bundled documentation without ever touching the network.
+Cryptea is a 100% offline desktop companion for Capture the Flag training. It ships challenge management, Markdown note taking, offline tool modules, and bundled documentation without ever touching the network.
+
+## Installation
+
+### Quick Setup (Fedora)
+
+```bash
+./setup.sh
+```
+
+This interactive script will check dependencies and guide you through installation.
+
+For detailed instructions, see [BUILD.md](BUILD.md) and [INSTALL.md](INSTALL.md).
+
+### Running from Source
+
+```bash
+python run.py
+```
 
 ## Features
 
@@ -10,6 +28,69 @@ GNOME CTF Helper is a 100% offline desktop companion for Capture the Flag traini
 - **Local tooling** for crypto, forensics, reverse engineering, and web exploitation drills.
 - **Export/Import** via `.ctfpack` archives for air-gapped transfers.
 - **Bundled docs and templates** stored locally and rendered in-app.
+
+## Available Tools
+
+Cryptea includes 40+ offline tools organized by category:
+
+### Crypto & Encoding
+- **Caesar Cipher** - Encrypt, decrypt, or brute force Caesar shifts
+- **Vigenère Cipher** - Encrypt/decrypt with autokey and custom alphabets
+- **Morse Decoder** - Decode Morse code from text or audio
+- **XOR Analyzer** - Recover keystreams from known-plaintext
+- **RSA Toolkit** - Analyze moduli and detect small-e issues
+- **Decoder Workbench** - Chain base64, hex, ROT, gzip, URL and XOR transforms
+- **Hash Suite** - Comprehensive hash identification, cracking, and management
+- **Hash Digest** - Compute message digests using Python's hashlib
+- **Hash Workspace** - Hash identification, parsing, and batch analysis
+- **Hash Identifier** - Quick hash type identification
+- **Hash Cracker Pro** - Advanced hash cracking with multiple attack modes
+- **Hash Benchmark** - Performance testing and time estimation
+- **Hash Format Converter** - Convert between hash formats
+- **htpasswd Generator** - Generate Apache htpasswd entries
+- **Hashcat/John Builder** - Compose cracking commands offline
+
+### Forensics
+- **PCAP Viewer** - Summarize PCAP/PCAPNG captures and conversations
+- **Timeline Builder** - Generate file timestamp timelines (CSV/JSON)
+- **Disk Image Tools** - Parse partition tables and layouts
+- **Memory Analyzer** - Scan memory dumps for suspicious strings
+- **File Inspector** - Analyze file metadata, hashes, and magic bytes
+
+### Reverse Engineering
+- **PE/ELF Inspector** - Inspect headers, sections, and security flags
+- **Quick Disassembly** - Disassemble code using objdump/radare2/rizin
+- **EXE Decompiler** - Decompile executables to C-like pseudocode (Ghidra/Rizin)
+- **Disassembler Launcher** - Launch Ghidra, IDA, Cutter, or rizin
+- **ROP Gadget Finder** - Find ROP gadgets in binaries
+- **Binary Diff** - Compare binaries via radiff2 or hash
+- **Extract Strings** - Run strings utility on binaries
+- **GDB Runner** - Execute scripted GDB sessions
+- **Radare/Rizin Console** - Run scripted rizin/radare2 commands
+
+### Media Analysis
+- **EXIF Metadata Viewer** - Inspect photo metadata and GPS data
+- **Image Stego Toolkit** - Run zsteg, steghide, stegsolve
+- **QR/Barcode Scanner** - Scan for QR codes and barcodes
+- **Audio Analyzer** - Detect DTMF tones and Morse beeps
+- **Video Frame Exporter** - Export video frames at intervals
+
+### Web Exploitation
+- **Dir Discovery** - Directory bruteforcing with SecLists
+- **JWT Tool** - Decode, verify, and tamper with JWTs
+- **XSS Tester** - Test for reflected XSS payloads
+- **SQLi Tester** - Test SQL injection vulnerabilities
+- **File Upload Tester** - Generate upload bypass payloads
+- **Payload Library** - Browse curated payload examples
+- **sqlmap** - Run sqlmap against local targets (opt-in)
+- **OWASP ZAP** - Launch and manage ZAP proxy
+
+### Network
+- **Nmap** - Run local network scans (opt-in)
+- **nping** - Send crafted packets (opt-in)
+
+### Misc
+- **Wordlist Generator** - Generate token permutations offline
 
 ## Repository Layout
 

@@ -26,6 +26,7 @@ def seed_if_requested(challenges: ChallengeManager, notes: NoteManager) -> None:
         difficulty="easy",
         status="In Progress",
         description="Use the bundled Caesar tool to decode the provided message.",
+        favorite=True,
     )
     challenges.set_flag(sample.id, "flag{offline-caesar}")
     notes.save_markdown(

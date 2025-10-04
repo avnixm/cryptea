@@ -23,7 +23,7 @@ SUPPRESS_SANDBOX_WARNING: bool = _truthy_env(
 )
 
 APP_ID = "org.example.CTFHelper"
-APP_NAME = "GNOME CTF Helper"
+APP_NAME = "Cryptea"
 APP_VERSION = "0.1.0"
 
 try:  # pragma: no cover - optional override generated at build time

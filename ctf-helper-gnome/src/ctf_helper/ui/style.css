@@ -1,3 +1,22 @@
+/* Remove ALL rounded corners from window and main layout */
+window,
+window > *,
+.window,
+adw-application-window,
+adw-application-window > *,
+box,
+stack,
+adw-navigation-split-view,
+adw-navigation-split-view > *,
+adw-navigation-view,
+adw-navigation-view > *,
+adw-overlay-split-view,
+adw-overlay-split-view > *,
+adw-toast-overlay,
+adw-toast-overlay > * {
+  border-radius: 0 !important;
+}
+
 textview.notes-editor text {
   font-family: "Source Code Pro", monospace;
   font-size: 12pt;
@@ -30,52 +49,93 @@ navigation-page.sidebar,
 navigation-split-view navigation-page.sidebar {
   border: none;
   box-shadow: none;
+  background: transparent;
+}
+
+/* Remove rounded corners from main content area */
+adw-navigation-page:not(.sidebar),
+navigation-page:not(.sidebar),
+adw-navigation-page > *,
+navigation-page > *,
+adw-navigation-split-view > adw-navigation-page:not(.sidebar),
+adw-navigation-split-view content,
+adw-navigation-view > adw-navigation-page:not(.sidebar),
+.navigation-view > .page:not(.sidebar),
+adw-toolbar-view,
+adw-toolbar-view > *,
+scrolledwindow.undershoot-top,
+scrolledwindow.undershoot-bottom,
+.content-view {
+  border-radius: 0 !important;
+}
+
+.sidebar {
+  border-radius: 16px;
+  padding: 12px;
+  border: none;
+}
+
+.sidebar-search {
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background-color: rgba(255, 255, 255, 0.04);
+  padding: 6px 8px;
+}
+
+
+.sidebar button.sidebar-primary {
+  border-radius: 10px;
+  padding: 8px 12px;
+  border: none;
+  font-weight: 600;
+  background-color: @accent_bg_color;
+  color: @accent_fg_color;
 }
 
 list.navigation-sidebar {
   border: none;
-  box-shadow: none;
   background-image: none;
+  margin-top: 4px;
 }
 
-scrolledwindow.sidebar-scroller {
-  border: none;
-  background: transparent;
-  box-shadow: none;
-}
-
-scrolledwindow.cards-scroller {
-  border: none;
-  background: transparent;
-  box-shadow: none;
-}
-
-scrolledwindow.cards-scroller undershoot,
-scrolledwindow.cards-scroller overshoot {
-  background: transparent;
-  background-image: none;
-  box-shadow: none;
-}
-
-scrolledwindow.cards-scroller viewport,
-scrolledwindow.cards-scroller > viewport {
+list.navigation-sidebar row {
+  border-radius: 10px;
+  min-height: 36px;
   background-color: transparent;
+  color: inherit;
+}
+
+list.navigation-sidebar row:hover,
+list.navigation-sidebar row:focus-visible {
+  background-color: rgba(255, 255, 255, 0.06);
+}
+
+list.navigation-sidebar row:selected {
+  background-color: rgba(255, 255, 255, 0.08);
+}
+
+.challenge-card-holder {
+  margin: 8px;
 }
 
 .challenge-card {
-  border-radius: 14px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  background-color: rgba(255, 255, 255, 0.04);
-  transition: border-color 120ms ease, background-color 120ms ease;
-  min-height: 160px;
-  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid @borders;
+  background-color: @view_bg_color;
+  padding: 16px;
+  color: @view_fg_color;
+  transition: all 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
+.challenge-card:hover {
+  border-color: @accent_bg_color;
+  background-color: alpha(@accent_bg_color, 0.08);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px alpha(@accent_bg_color, 0.25);
+}
 
-.challenge-card:hover,
-.challenge-card:focus-visible {
-  border-color: rgba(255, 255, 255, 0.25);
-  background-color: rgba(255, 255, 255, 0.08);
+.challenge-card.challenge-card-favorite {
+  border-color: @accent_bg_color;
 }
 
 .challenge-card .dim-label {
@@ -86,14 +146,240 @@ scrolledwindow.cards-scroller > viewport {
   font-weight: 600;
 }
 
-.sidebar-section {
-  font-size: 10px;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  opacity: 0.6;
-  padding: 6px 12px;
+.tool-card {
+  border-radius: 16px;
+  border: 1px solid @borders;
+  background-color: @view_bg_color;
+  padding: 0;
+  min-height: 140px;
+  transition: all 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
 }
 
-.sidebar .sidebar-row {
-  border-radius: 10px;
+.tool-card:hover {
+  border-color: @accent_bg_color;
+  background-color: alpha(@accent_bg_color, 0.08);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px alpha(@accent_bg_color, 0.25);
 }
+
+.tool-card:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 8px alpha(@accent_bg_color, 0.2);
+}
+
+.tool-card .tool-card-icon {
+  -gtk-icon-size: 32px;
+  color: @accent_bg_color;
+  opacity: 0.85;
+  transition: all 150ms ease;
+}
+
+.tool-card:hover .tool-card-icon {
+  opacity: 1;
+  transform: scale(1.05);
+}
+
+.tool-card .title-4 {
+  font-weight: 700;
+  font-size: 11.5pt;
+  line-height: 1.3;
+}
+
+.tool-card .tool-card-description {
+  font-size: 9.5pt;
+  line-height: 1.4;
+  opacity: 0.75;
+  min-height: 42px;
+}
+
+.tool-card .tool-card-category {
+  font-size: 8.5pt;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  opacity: 0.5;
+  color: @accent_bg_color;
+}
+
+.tool-card:hover .tool-card-category {
+  opacity: 0.85;
+}
+
+.card-category-icon {
+  -gtk-icon-size: 24px;
+  color: @view_fg_color;
+}
+
+.favorite-indicator {
+  -gtk-icon-size: 18px;
+  color: @accent_bg_color;
+}
+
+.pill {
+  border-radius: 999px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  background-color: @headerbar_bg_color;
+  color: @view_fg_color;
+}
+
+.pill-purple { background-color: @accent_bg_color; color: @accent_fg_color; }
+.pill-blue { background-color: @suggested_bg_color; color: @suggested_fg_color; }
+.pill-orange { background-color: @destructive_bg_color; color: @destructive_fg_color; }
+.pill-teal { background-color: @accent_bg_color; color: @accent_fg_color; }
+.pill-gray { background-color: @headerbar_bg_color; color: @view_fg_color; }
+.pill-pink { background-color: @accent_bg_color; color: @accent_fg_color; }
+
+.status-pill {
+  background-color: @headerbar_bg_color;
+  color: @view_fg_color;
+}
+
+.status-in-progress { background-color: @suggested_bg_color; color: @suggested_fg_color; }
+.status-not-started { background-color: @headerbar_bg_color; color: @view_fg_color; }
+.status-completed { background-color: @success_bg_color; color: @success_fg_color; }
+
+.section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  opacity: 0.6;
+}
+
+.card-surface {
+  background-color: rgba(255, 255, 255, 0.04);
+  border-radius: 18px;
+  padding: 12px;
+  border: 1px solid @borders;
+}
+
+/* ============================================================================
+   MODERN GNOME INPUT STYLING - Rounded corners and accent borders
+   ONLY for text input/output boxes in tools, NOT for sidebar/layout
+   ============================================================================ */
+
+/* Specific classes for input/output boxes */
+scrolledwindow.input-box {
+  border-radius: 16px;
+  border: 2px solid alpha(@borders, 0.6);
+  background-color: @view_bg_color;
+}
+
+scrolledwindow.input-box:focus-within {
+  border-color: @accent_bg_color;
+  box-shadow: 0 0 0 3px alpha(@accent_bg_color, 0.2);
+}
+
+textview.input-text {
+  background: transparent;
+  padding: 12px;
+  font-family: "Source Code Pro", "Monospace", monospace;
+  font-size: 10.5pt;
+}
+
+textview.input-text text {
+  background: transparent;
+}
+
+scrolledwindow.output-box {
+  border-radius: 16px;
+  border: 2px solid alpha(@borders, 0.4);
+  background-color: @view_bg_color;
+}
+
+textview.output-text {
+  background: transparent;
+  padding: 12px;
+  font-family: "Source Code Pro", "Monospace", monospace;
+  font-size: 10pt;
+}
+
+textview.output-text text {
+  background: transparent;
+}
+
+entry.modern-entry {
+  border-radius: 8px;
+  min-height: 32px;
+  padding: 6px 10px;
+  border: 1px solid alpha(@borders, 0.5);
+  background-color: @view_bg_color;
+  transition: all 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+entry.modern-entry:focus {
+  border-color: @accent_bg_color;
+  border-width: 1px;
+  box-shadow: 0 0 0 2px alpha(@accent_bg_color, 0.2);
+  background-color: @view_bg_color;
+}
+
+/* ============================================================================
+   MODERN SWITCH STYLING - Proper GNOME appearance
+   ============================================================================ */
+
+/* Switch containers - compact and aligned */
+.switch-group {
+  padding: 8px;
+  border-radius: 10px;
+  background-color: alpha(@view_bg_color, 0.5);
+}
+
+.switch-field {
+  padding: 4px 8px;
+  border-radius: 8px;
+}
+
+.switch-label {
+  font-size: 11pt;
+  opacity: 0.9;
+}
+
+/* Proper GTK Switch sizing */
+switch {
+  min-width: 44px;
+  min-height: 24px;
+  border-radius: 12px;
+  font-size: 1px;
+}
+
+switch slider {
+  min-width: 20px;
+  min-height: 20px;
+  border-radius: 10px;
+  margin: 2px;
+}
+
+/* Active state */
+switch:checked {
+  background-color: @accent_bg_color;
+}
+
+switch:checked slider {
+  background-color: @accent_fg_color;
+}
+
+/* Autocomplete suggestion popover styling */
+popover.menu > contents {
+  padding: 0;
+}
+
+popover.menu listbox.boxed-list {
+  background: transparent;
+  border-radius: 6px;
+}
+
+popover.menu listbox.boxed-list > row {
+  border-radius: 6px;
+  transition: all 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+popover.menu listbox.boxed-list > row:hover {
+  background-color: alpha(@accent_bg_color, 0.1);
+}
+
+popover.menu listbox.boxed-list > row:active {
+  background-color: alpha(@accent_bg_color, 0.15);
+}
+

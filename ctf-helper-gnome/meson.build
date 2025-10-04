@@ -1,4 +1,4 @@
-project('ctf-helper-gnome',
+project('cryptea',
   version: '0.1.0',
   license: 'GPL-3.0-or-later',
   meson_version: '>=0.64.0',
@@ -24,4 +24,4 @@ subdir('src')
 subdir('data')
 subdir('build-aux')
 
-install_data('README.md', install_dir: join_paths(get_option('datadir'), 'doc', 'ctf-helper-gnome'))
+install_data('README.md', install_dir: join_paths(get_option('datadir'), 'doc', 'cryptea'))

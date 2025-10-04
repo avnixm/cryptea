@@ -1,1 +1,0 @@
-This is a sample asset for offline unit tests.

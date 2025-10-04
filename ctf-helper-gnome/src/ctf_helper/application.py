@@ -278,7 +278,7 @@ class ChallengeCard(Gtk.Button):
 class MainWindow:
     """Controller for the main application window."""
 
-    def __init__(self, app: "CTFHelperApplication") -> None:
+    def __init__(self, app: "CrypteaApplication") -> None:
         self.app = app
         self.window = Adw.ApplicationWindow(application=app)
         self.window.set_title("Cryptea")
@@ -332,14 +332,14 @@ class MainWindow:
         
         # Find icon directory - handle both source and installed cases
         icon_dir = Path(__file__).parent.parent.parent / "data" / "icons"
-        icon_file = icon_dir / "org.example.CTFHelper.svg"
+        icon_file = icon_dir / "org.example.Cryptea.svg"
         
         if icon_file.exists():
             # Add the icon directory to GTK's icon search path
             icon_theme = Gtk.IconTheme.get_for_display(Gdk.Display.get_default())
             icon_theme.add_search_path(str(icon_dir))
             # Set the icon name on the window
-            self.window.set_icon_name("org.example.CTFHelper")
+            self.window.set_icon_name("org.example.Cryptea")
 
     # ------------------------------------------------------------------
     # UI construction helpers
@@ -9708,7 +9708,7 @@ class MainWindow:
         form.append(res_scroller)
 
 
-class CTFHelperApplication(Adw.Application):
+class CrypteaApplication(Adw.Application):
     def __init__(self) -> None:
         super().__init__(application_id=config.APP_ID, flags=Gio.ApplicationFlags.FLAGS_NONE)
         self.resources = Resources()
@@ -9729,10 +9729,11 @@ class CTFHelperApplication(Adw.Application):
         self._register_css()
 
     def do_activate(self) -> None:  # type: ignore[override]
-        try:
-            self.offline_guard.enforce()
-        except OfflineViolation as exc:
-            self._notify_offline_violation(str(exc))
+        # Offline guard disabled - network alerts removed
+        # try:
+        #     self.offline_guard.enforce()
+        # except OfflineViolation as exc:
+        #     self._notify_offline_violation(str(exc))
         if not self.main_window:
             self.resources.ensure_help_extracted()
             self.main_window = MainWindow(self)
@@ -9780,12 +9781,12 @@ class CTFHelperApplication(Adw.Application):
     def show_about(self) -> None:
         about = Adw.AboutWindow(
             application_name=config.APP_NAME,
-            application_icon="org.example.CTFHelper",
-            developer_name="Cryptea Team",
+            application_icon="org.avnixm.Cryptea",
+            developer_name="avnixm",
             version=config.APP_VERSION,
             comments="An offline-first companion for Capture the Flag study.",
             license_type=Gtk.License.GPL_3_0,
-            issue_url="file:///app/share/ctf-helper/help/getting_started.md",
+            issue_url="file:///app/share/cryptea/help/getting_started.md",
         )
         about.present()
 
@@ -10020,5 +10021,5 @@ class CTFHelperApplication(Adw.Application):
 
 
 def run() -> None:
-    app = CTFHelperApplication()
+    app = CrypteaApplication()
     app.run(None)

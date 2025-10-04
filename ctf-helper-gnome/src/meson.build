@@ -10,8 +10,8 @@ install_subdir('ctf_helper',
 # Install config module generated from config.py.in
 python.install_sources(config_module, subdir: 'ctf_helper')
 
-# Install main.py as ctf-helper executable
+# Install main.py as cryptea executable
 install_data('main.py',
   install_dir: get_option('bindir'),
   install_mode: 'rwxr-xr-x',
-  rename: 'ctf-helper')
+  rename: 'cryptea')

@@ -14,7 +14,7 @@ try:  # pragma: no cover - fallback for test environments without GTK
 except (ImportError, AttributeError, ValueError):  # pragma: no cover - test fallback
     GLib = None
 
-APP_NAMESPACE = "ctf-helper"
+APP_NAMESPACE = "cryptea"
 
 
 def _ensure(path: Path) -> Path:

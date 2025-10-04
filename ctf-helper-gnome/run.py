@@ -12,7 +12,7 @@ SRC_DIR = PROJECT_ROOT / "src"
 if str(SRC_DIR) not in sys.path:
     sys.path.insert(0, str(SRC_DIR))
 
-os.environ.setdefault("CTF_HELPER_SUPPRESS_SANDBOX_WARNING", "1")
+os.environ.setdefault("CRYPTEA_SUPPRESS_SANDBOX_WARNING", "1")
 
 from ctf_helper.application import run  # type: ignore[import]
 

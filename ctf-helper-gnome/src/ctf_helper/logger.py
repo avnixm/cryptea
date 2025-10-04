@@ -8,12 +8,12 @@ from pathlib import Path
 
 from .data_paths import log_dir
 
-_LOG_FILE_NAME = "ctf-helper.log"
+_LOG_FILE_NAME = "cryptea.log"
 
 
 def configure_logging() -> logging.Logger:
     """Configure a rotating log file in the user data directory."""
-    logger = logging.getLogger("ctf_helper")
+    logger = logging.getLogger("cryptea")
     if logger.handlers:
         return logger
 

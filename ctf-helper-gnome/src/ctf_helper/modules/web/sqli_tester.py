@@ -13,7 +13,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 from ..base import ToolResult
 
 _DEFAULT_HEADERS = {
-    "User-Agent": "GNOME-CTF-Helper/SQLiTester",
+    "User-Agent": "Cryptea/SQLiTester",
     "Accept": "*/*",
 }
 
@@ -217,7 +217,7 @@ class SQLInjectionTester:
         duration = time.monotonic() - start
         text = response_body.decode("utf-8", errors="replace")
         errors = [sig for sig in _ERROR_SIGNATURES if sig in text.lower()]
-        reflected = payload and (payload in text)
+        reflected = bool(payload and (payload in text))
         return _ProbeResult(
             payload=payload,
             status=status,

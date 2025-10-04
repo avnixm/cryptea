@@ -2,8 +2,8 @@
 Type=Application
 Name=Cryptea
 Comment=Offline-first toolbox for Capture the Flag exercises
-Exec=ctf-helper
-Icon=org.example.CTFHelper
+Exec=cryptea
+Icon=org.example.Cryptea
 Terminal=false
 Categories=Utility;Education;
 StartupNotify=true

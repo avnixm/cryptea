@@ -18,11 +18,11 @@ def _truthy_env(name: str, default: str = "0") -> bool:
 OFFLINE_BUILD: bool = _truthy_env("OFFLINE_BUILD", "1")
 DEV_PROFILE_ENABLED: bool = _truthy_env("DEV_PROFILE_ENABLED", "0")
 SUPPRESS_SANDBOX_WARNING: bool = _truthy_env(
-    "CTF_HELPER_SUPPRESS_SANDBOX_WARNING",
+    "CRYPTEA_SUPPRESS_SANDBOX_WARNING",
     "1" if DEV_PROFILE_ENABLED else "0",
 )
 
-APP_ID = "org.example.CTFHelper"
+APP_ID = "org.example.Cryptea"
 APP_NAME = "Cryptea"
 APP_VERSION = "0.1.0"
 

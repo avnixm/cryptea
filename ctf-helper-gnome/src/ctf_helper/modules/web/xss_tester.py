@@ -13,7 +13,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 from ..base import ToolResult
 
 _DEFAULT_HEADERS = {
-    "User-Agent": "GNOME-CTF-Helper/XSSTester",
+    "User-Agent": "Cryptea/XSSTester",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
 }
 

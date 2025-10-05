@@ -540,14 +540,29 @@ See [LICENSE](LICENSE) file for details.
 
 ## 🗺️ Roadmap
 
+### Core Features
 - [ ] Plugin system for custom tools
 - [ ] Team collaboration mode (air-gap compatible)
-- [ ] Challenge templates library
-- [ ] Advanced filtering and sorting
-- [ ] Statistics and progress tracking
-- [ ] Export to PDF reports
-- [ ] Encrypted database option
+- [x] Challenge templates library
+- [x] Advanced filtering and sorting
 - [ ] Multi-language support
+
+### Analytics & Visualization
+- [ ] **Statistics Dashboard** - Graphs showing progress (completed %, per category, difficulty trends)
+- [ ] **Timeline View** - Visualize solved challenges over time (Gantt or line chart)
+
+### Documentation & Knowledge Base
+- [ ] **Offline Documentation Browser** - Local copy of man pages, CTF writeups, and tool docs accessible offline
+- [ ] **Offline Cheat Sheet Panel** - Quick lookup of common CTF formulas (Base64 tables, ASCII chart, shell escaping)
+
+### Workflow Enhancements
+- [ ] **Offline Terminal Integration** - Launch embedded terminal inside Cryptea window for running commands without leaving app
+- [ ] **Screenshot & Attachment Manager** - Attach screenshots, PCAPs, or small files to each challenge record
+
+### Data Management
+- [ ] **Challenge Pack Manager** - Allow batch import/export, merging, and versioning of .ctfpack files
+- [ ] **Encrypted Database Option** - Password-protected local database using SQLCipher for privacy
+- [ ] **PDF Report Exporter** - Generate formatted writeups with embedded notes, challenge details, and timestamps
 
 ---
 

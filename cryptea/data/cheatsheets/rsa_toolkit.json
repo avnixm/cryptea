@@ -1,0 +1,77 @@
+{
+  "title": "RSA Toolkit",
+  "category": "Crypto",
+  "description": "Comprehensive guide to RSA cryptanalysis, key operations, and common attack vectors for CTF challenges.",
+  "entries": [
+    {
+      "name": "RSA Basic Parameters",
+      "desc": "Understanding RSA key components: n (modulus), e (public exponent), d (private exponent), p and q (prime factors)",
+      "example": "n = p × q\nφ(n) = (p-1) × (q-1)\ne × d ≡ 1 (mod φ(n))\n\n# Common public exponents:\ne = 3 (very weak)\ne = 65537 (0x10001, standard)",
+      "flag_hint": "If n is small (<1024 bits), try factordb.com or yafu for factorization",
+      "tags": ["rsa", "modular-arithmetic", "public-key"]
+    },
+    {
+      "name": "Small e Attack",
+      "desc": "When e is small (typically 3) and message m^e < n, the ciphertext is just m^e without modular reduction",
+      "example": "from gmpy2 import iroot\n\n# If e=3 and c = m^3 (no mod applied)\nm, exact = iroot(c, 3)\nif exact:\n    print(f\"Message: {m}\")\n    print(f\"Flag: {bytes.fromhex(hex(m)[2:])}\")",
+      "flag_hint": "Look for small e (3, 5, 7) with small plaintext messages",
+      "tags": ["rsa", "small-e", "cube-root"]
+    },
+    {
+      "name": "Wiener's Attack",
+      "desc": "Exploits weak private exponent d when d < (1/3) × n^(1/4). Uses continued fractions to recover d",
+      "example": "from owiener import attack\n\n# If d is small, Wiener's attack works\nd = attack(e, n)\nif d:\n    m = pow(c, d, n)\n    flag = bytes.fromhex(hex(m)[2:]).decode()\n    print(f\"Flag: {flag}\")",
+      "flag_hint": "Check if e is unusually large (close to n) - indicates small d",
+      "tags": ["rsa", "wiener", "continued-fractions"]
+    },
+    {
+      "name": "Common Modulus Attack",
+      "desc": "When same message is encrypted with same n but different e values, can recover plaintext without factoring",
+      "example": "from gmpy2 import gcd, invert\n\n# Two ciphertexts: c1 = m^e1 mod n, c2 = m^e2 mod n\n# If gcd(e1, e2) = 1, use Bezout's identity\ng, a, b = gcdext(e1, e2)  # a*e1 + b*e2 = 1\n\n# Calculate m = (c1^a * c2^b) mod n\nif a < 0:\n    c1 = invert(c1, n)\n    a = -a\nif b < 0:\n    c2 = invert(c2, n)\n    b = -b\n\nm = (pow(c1, a, n) * pow(c2, b, n)) % n\nprint(bytes.fromhex(hex(m)[2:]))",
+      "flag_hint": "Look for multiple ciphertexts with same n but different e values",
+      "tags": ["rsa", "common-modulus", "bezout"]
+    },
+    {
+      "name": "Hastad's Broadcast Attack",
+      "desc": "When same message is sent to multiple recipients with small e (typically 3), can use Chinese Remainder Theorem",
+      "example": "from sympy.ntheory.modular import crt\nfrom gmpy2 import iroot\n\n# Multiple (c, n) pairs with same e=3\nmoduli = [n1, n2, n3]\nremainders = [c1, c2, c3]\n\n# Use CRT to find m^3\nresult = crt(moduli, remainders)[0]\nm, exact = iroot(result, 3)\nif exact:\n    print(f\"Flag: {bytes.fromhex(hex(m)[2:])}\")",
+      "flag_hint": "Need at least e different (c, n) pairs for same plaintext",
+      "tags": ["rsa", "hastad", "crt", "broadcast"]
+    },
+    {
+      "name": "Factorization Methods",
+      "desc": "Various techniques to factor n and recover p and q",
+      "example": "# 1. Online databases\n# factordb.com, alpertron.com.ar\n\n# 2. Fermat's factorization (p and q close)\nfrom gmpy2 import isqrt, is_square\na = isqrt(n) + 1\nwhile True:\n    b_sq = a*a - n\n    if is_square(b_sq):\n        b = isqrt(b_sq)\n        p, q = a + b, a - b\n        break\n    a += 1\n\n# 3. Pollard's p-1 (smooth factors)\nfrom sympy.ntheory import pollard_pm1\np = pollard_pm1(n)\n\n# 4. YAFU (general purpose)\n# yafu \"factor(12345...)\" -threads 4",
+      "flag_hint": "Check n bit length - <512 bits often factorable in seconds",
+      "tags": ["rsa", "factorization", "fermat", "pollard"]
+    },
+    {
+      "name": "Partial Key Recovery",
+      "desc": "Recovering full key from partial information (MSB/LSB leaks, partial p or q)",
+      "example": "# Known MSB of p (high bits)\nfrom sage.all import *\n\n# If we know upper half of p\np_high = 0x1234...  # Known high bits\np_bits = 512  # Total bits\nleak_bits = 256  # Known bits\n\n# Coppersmith's method\nPR.<x> = PolynomialRing(Zmod(n))\nf = p_high * 2^(p_bits - leak_bits) + x\nroots = f.small_roots(X=2^(p_bits-leak_bits), beta=0.5)\nif roots:\n    p = p_high * 2^(p_bits-leak_bits) + int(roots[0])\n    q = n // p",
+      "flag_hint": "Even 50% of p's bits can be enough to recover full key",
+      "tags": ["rsa", "coppersmith", "partial-key", "msb-leak"]
+    },
+    {
+      "name": "Franklin-Reiter Related Message Attack",
+      "desc": "When two messages differ by known polynomial relation and are encrypted with same (n, e)",
+      "example": "# m1 and m2 related: m2 = f(m1) for known polynomial f\n# E.g., m2 = m1 + 1 or m2 = 2*m1\n\nfrom sage.all import *\n\nPR.<x> = PolynomialRing(Zmod(n))\ng1 = x^e - c1\ng2 = (x + 1)^e - c2  # If m2 = m1 + 1\n\n# GCD of polynomials reveals m1\nresult = g1.gcd(g2)\nif result.degree() == 1:\n    m1 = -result[0] / result[1]\n    print(f\"Flag: {bytes.fromhex(hex(int(m1))[2:])}\")",
+      "flag_hint": "Look for padding hints or known transformations between messages",
+      "tags": ["rsa", "franklin-reiter", "related-messages"]
+    },
+    {
+      "name": "LSB Oracle Attack",
+      "desc": "If you can query whether plaintext is odd/even, can recover message bit-by-bit",
+      "example": "# Oracle returns m mod 2\ndef lsb_oracle_attack(c, e, n, oracle):\n    lower, upper = 0, n\n    for i in range(n.bit_length()):\n        c = (c * pow(2, e, n)) % n\n        if oracle(c):  # m is odd\n            lower = (lower + upper) // 2\n        else:  # m is even\n            upper = (lower + upper) // 2\n    return upper\n\nm = lsb_oracle_attack(c, e, n, my_oracle)\nprint(bytes.fromhex(hex(m)[2:]))",
+      "flag_hint": "Each query reveals one bit - need ~log2(n) queries",
+      "tags": ["rsa", "oracle", "lsb", "chosen-ciphertext"]
+    },
+    {
+      "name": "Common RSA Tools",
+      "desc": "Essential tools and libraries for RSA challenges",
+      "example": "# Python libraries\nfrom Crypto.PublicKey import RSA\nfrom gmpy2 import *\nfrom sympy import *\nimport owiener  # Wiener's attack\nimport RsaCtfTool  # Multi-attack tool\n\n# Command-line tools\n# RsaCtfTool.py --publickey key.pem --uncipherfile cipher.txt\n# openssl rsa -pubin -in key.pem -text -noout\n# python -m primefac 12345...  # Factorization\n\n# Online resources\n# factordb.com - factor database\n# alpertron.com.ar/ECM.HTM - ECM factorization\n# www.dcode.fr/rsa-cipher - RSA calculator",
+      "flag_hint": "Try RsaCtfTool first - it combines multiple attack methods",
+      "tags": ["rsa", "tools", "rsactftool", "factorization"]
+    }
+  ]
+}

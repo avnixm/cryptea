@@ -3,3 +3,4 @@ install_data('org.avnixm.Cryptea.desktop', install_dir: join_paths(get_option('d
 install_data('icons/org.avnixm.Cryptea.svg', install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', 'scalable', 'apps'))
 install_subdir('help', install_dir: join_paths(get_option('datadir'), 'cryptea', 'help'))
 install_subdir('templates', install_dir: join_paths(get_option('datadir'), 'cryptea', 'templates'))
+install_subdir('cheatsheets', install_dir: join_paths(get_option('datadir'), 'cryptea', 'cheatsheets'))

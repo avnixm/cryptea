@@ -205,3 +205,46 @@ tabbar.hash-suite-tabs button,
   font-weight: 500;
 }
 
+/* ============================================================================
+   CHEAT SHEET CODE BLOCKS
+   ============================================================================ */
+
+/* Cheat sheet code block containers - add border-radius */
+box.cheatsheet-code-block {
+  border-radius: 12px;
+}
+
+/* Wrapper box with rounded corners - this MUST have overflow:hidden */
+box.code-wrapper {
+  border-radius: 0 0 10px 10px;
+  background-color: alpha(@view_bg_color, 0.5);
+  border: 1px solid alpha(@borders, 0.15);
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+/* Scrolled window - remove its own styling and ensure no horizontal scroll */
+box.code-wrapper scrolledwindow {
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+/* Scrollbars inside code wrapper */
+box.code-wrapper scrollbar {
+  background: transparent;
+}
+
+/* Code text views in cheat sheets */
+box.cheatsheet-code-block textview {
+  background: transparent;
+  font-family: "Source Code Pro", "Monospace", monospace;
+  font-size: 10.5pt;
+}
+
+box.cheatsheet-code-block textview text {
+  background: transparent;
+  word-wrap: break-word; /* Break long words if necessary */
+}

@@ -1,0 +1,56 @@
+{
+  "title": "File Inspector & Signatures",
+  "category": "Forensics",
+  "description": "Analyze file types, magic bytes, headers, and identify file formats regardless of extension.",
+  "entries": [
+    {
+      "name": "File Type Detection",
+      "desc": "Use magic bytes (file signatures) to identify true file type independent of extension.",
+      "example": "# Quick file type check\nfile suspicious.txt\nfile -b unknown_file\n\n# MIME type\nfile --mime-type image.jpg\n\n# Check all files recursively\nfind . -type f -exec file {} \\;\n\n# Batch check with names\nfor f in *; do echo \"$f: $(file -b \"$f\")\"; done\n\n# Python magic\npython3 -c \"import magic; print(magic.from_file('file.bin'))\"",
+      "flag_hint": "Files with wrong extensions (image.txt actually being a ZIP) often hide flags. Use 'file' command to reveal truth.",
+      "tags": ["forensics", "file-type", "magic-bytes"]
+    },
+    {
+      "name": "Common File Signatures (Magic Bytes)",
+      "desc": "Hexadecimal signatures at the start of files that identify format.",
+      "example": "# View first bytes in hex\nxxd -l 16 file.bin\nhexdump -C -n 16 file.bin\n\n# Common signatures:\n# PNG:  89 50 4E 47 0D 0A 1A 0A\n# JPEG: FF D8 FF\n# ZIP:  50 4B 03 04 or 50 4B 05 06\n# PDF:  25 50 44 46 (%PDF)\n# ELF:  7F 45 4C 46\n# GIF:  47 49 46 38 (GIF8)\n# PE:   4D 5A (MZ)\n\n# Check if file matches signature\nif xxd -p -l 4 file.bin | grep -q '^89504e47'; then\n    echo \"PNG file detected\"\nfi\n\n# Python signature check\npython3 <<'PY'\nwith open('file.bin', 'rb') as f:\n    magic = f.read(8)\n    if magic.startswith(b'\\x89PNG\\r\\n\\x1a\\n'):\n        print(\"Valid PNG\")\n    elif magic.startswith(b'\\xff\\xd8\\xff'):\n        print(\"JPEG image\")\nPY",
+      "flag_hint": "Check magic bytes manually with xxd. Corrupted headers or appended data after EOF often hide flags.",
+      "tags": ["forensics", "signatures", "magic-bytes", "headers"]
+    },
+    {
+      "name": "File Carving & Recovery",
+      "desc": "Extract files from disk images, memory dumps, or concatenated data using signatures.",
+      "example": "# Foremost - automatic file carving\nforemost -i disk.img -o output/\nforemost -t jpg,png,pdf -i data.bin -o carved/\n\n# Scalpel (faster, needs config)\nscalpel -b -o output/ disk.img\n\n# Binwalk - extract embedded files\nbinwalk -e firmware.bin\nbinwalk --dd='.*' file.bin  # extract everything\n\n# Manual extraction (find PNG)\ngrep --only-matching --byte-offset --binary --text --perl-regexp '\\x89\\x50\\x4E\\x47.{0,1000000}\\x49\\x45\\x4E\\x44\\xAE\\x42\\x60\\x82' data.bin > found.png\n\n# Using dd to extract at offset\ndd if=disk.img of=extracted.jpg bs=1 skip=1234567 count=100000",
+      "flag_hint": "Look for multiple files concatenated or embedded in images (polyglot files). Binwalk reveals hidden archives.",
+      "tags": ["forensics", "carving", "extraction", "binwalk"]
+    },
+    {
+      "name": "Metadata Extraction",
+      "desc": "Extract detailed metadata from various file formats for hidden information.",
+      "example": "# ExifTool (comprehensive)\nexiftool -a -G1 file.jpg\nexiftool -ee file.pdf  # extract embedded\n\n# Strings with context\nstrings -n 10 file.bin | grep -C 2 flag\n\n# PDF metadata\npdfinfo document.pdf\npdf-parser.py document.pdf\n\n# Office documents (ZIP-based)\nunzip -l document.docx\nunzip -p document.xlsx xl/worksheets/sheet1.xml\n\n# Audio/Video metadata\nffprobe -hide_banner video.mp4\nsoxi audio.wav",
+      "flag_hint": "Check Author, Title, Keywords, Comments fields. Office docs are ZIP archives - extract and grep XML files.",
+      "tags": ["forensics", "metadata", "exif", "documents"]
+    },
+    {
+      "name": "Corrupted File Repair",
+      "desc": "Fix corrupted headers, footers, or checksums to recover data.",
+      "example": "# Fix PNG header\nprintf '\\x89PNG\\r\\n\\x1a\\n' | dd of=image.png bs=1 count=8 conv=notrunc\n\n# Fix JPEG markers\nprintf '\\xff\\xd8\\xff\\xe0' | dd of=image.jpg bs=1 count=4 conv=notrunc\n\n# Remove prepended junk\ndd if=corrupted.zip of=fixed.zip bs=1 skip=1024\n\n# Python header repair\npython3 <<'PY'\nwith open('corrupted.png', 'rb') as f:\n    data = f.read()\nfixed = b'\\x89PNG\\r\\n\\x1a\\n' + data[8:]  # replace first 8 bytes\nopen('fixed.png', 'wb').write(fixed)\nPY\n\n# ZIP repair\nzip -FF broken.zip --out fixed.zip",
+      "flag_hint": "CTF challenges often provide files with altered magic bytes or missing headers. Compare with valid file signatures to fix.",
+      "tags": ["forensics", "repair", "corruption", "headers"]
+    },
+    {
+      "name": "Polyglot Files",
+      "desc": "Files that are valid in multiple formats simultaneously (e.g., PNG + ZIP).",
+      "example": "# Check if file is also a valid archive\nunzip -l image.png 2>/dev/null\n7z l document.pdf 2>/dev/null\ntar -tzf music.mp3 2>/dev/null\n\n# Find embedded ZIP (PK header)\nstrings -t x file.bin | grep -i \"PK\"\n\n# Extract trailing data after image\npython3 <<'PY'\nwith open('image.png', 'rb') as f:\n    data = f.read()\n# PNG ends with IEND\\xAE\\x42\\x60\\x82\nend_marker = data.find(b'IEND\\xAE\\x42\\x60\\x82')\nif end_marker > 0:\n    trailer = data[end_marker + 8:]\n    if trailer.startswith(b'PK'):\n        open('hidden.zip', 'wb').write(trailer)\nPY\n\n# Binwalk polyglot detection\nbinwalk -e polyglot.png",
+      "flag_hint": "Images that are also valid ZIPs are common in CTFs. Check after PNG IEND chunk or JPEG EOI marker for appended data.",
+      "tags": ["forensics", "polyglot", "steganography", "advanced"]
+    },
+    {
+      "name": "File Comparison & Diffing",
+      "desc": "Compare two files to find differences, useful for spot-the-difference challenges.",
+      "example": "# Binary diff\ncmp -l file1.bin file2.bin\n\n# Visual hex diff\nvimdiff <(xxd file1.bin) <(xxd file2.bin)\n\n# Diff images (ImageMagick)\ncompare -metric AE file1.png file2.png diff.png\n\n# Show only differing bytes\npython3 <<'PY'\nwith open('file1.bin', 'rb') as f1, open('file2.bin', 'rb') as f2:\n    data1, data2 = f1.read(), f2.read()\n    for i, (b1, b2) in enumerate(zip(data1, data2)):\n        if b1 != b2:\n            print(f\"Offset {i:08x}: {b1:02x} != {b2:02x} ('{chr(b1)}' != '{chr(b2)}')\")\nPY\n\n# XOR two files to highlight differences\npython3 -c \"import sys; d1=open('f1','rb').read(); d2=open('f2','rb').read(); open('diff.bin','wb').write(bytes([a^b for a,b in zip(d1,d2)]))\"",
+      "flag_hint": "Differing bytes between two similar files often spell out the flag. Use XOR diff to highlight exact changes.",
+      "tags": ["forensics", "diff", "comparison", "analysis"]
+    }
+  ]
+}

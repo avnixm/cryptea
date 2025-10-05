@@ -29,6 +29,7 @@ from .modules import ModuleRegistry
 from .modules.reverse.quick_disassembler import QuickDisassembler
 from .notes import MarkdownRenderer, NoteManager
 from .offline_guard import OfflineGuard, OfflineViolation
+from .ui.cheatsheet_panel import CheatSheetPanel
 from .resources import Resources
 from .ui.filter_bar import FilterBar
 
@@ -1762,6 +1763,10 @@ class MainWindow:
         for name, icon, label in challenge_items:
             self._append_sidebar_item(name, icon, label, selectable=True)
 
+        # Cheat Sheets section
+        self._append_sidebar_heading("References")
+        self._append_sidebar_item("cheatsheets", "book-open-symbolic", "Cheat Sheets", selectable=True)
+
         self._append_sidebar_heading("Tools")
         self._append_sidebar_item("tools", "applications-utilities-symbolic", "Overview", selectable=True)
 
@@ -1848,6 +1853,8 @@ class MainWindow:
             pass
         elif view == "tools":
             self._show_tools()
+        elif view == "cheatsheets":
+            self._show_cheatsheets()
         elif view == "tool":
             if payload:
                 self._show_tool(payload)
@@ -2011,6 +2018,16 @@ class MainWindow:
 
     def _show_tools(self) -> None:
         self._show_tool_overview()
+
+    def _show_cheatsheets(self) -> None:
+        """Display the cheat sheets panel."""
+        # Check if cheatsheets view exists, if not create it
+        if self.content_stack.get_child_by_name("cheatsheets") is None:
+            cheatsheet_panel = CheatSheetPanel()
+            self.content_stack.add_titled(cheatsheet_panel, "cheatsheets", "Cheat Sheets")
+        
+        # Switch to cheatsheets view
+        self.content_stack.set_visible_child_name("cheatsheets")
 
     # ------------------------------------------------------------------
     # Challenge detail handling

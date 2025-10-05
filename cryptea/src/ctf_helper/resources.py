@@ -17,7 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover - type checking only
 else:
     GtkType = Any  # type: ignore[misc]
 
-from .data_paths import help_dir, templates_dir
+from .data_paths import help_dir, templates_dir, cheatsheets_dir
 from .logger import configure_logging
 
 _LOG = configure_logging()
@@ -30,6 +30,7 @@ class Resources:
         self._ui_pkg = 'ctf_helper.ui'
         self._help_pkg = 'ctf_helper.help'
         self._template_pkg = 'ctf_helper.templates'
+        self._cheatsheet_pkg = 'ctf_helper.cheatsheets'
 
     def builder(self, name: str) -> GtkType.Builder:
         gtk = _require_gtk()

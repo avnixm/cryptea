@@ -1,0 +1,63 @@
+{
+  "title": "ASCII Reference & Conversions",
+  "category": "General",
+  "description": "ASCII character reference with practical conversion examples for CTF challenges",
+  "entries": [
+    {
+      "name": "ASCII Character Set Overview",
+      "desc": "Understanding the ASCII table structure and common character ranges.",
+      "example": "ASCII Character Ranges:\n================================\n\nControl Characters (0-31):\n  0x00-0x1F - Non-printable (NUL, TAB, LF, CR, etc.)\n  Important: \\n (10/0x0A), \\r (13/0x0D), \\t (9/0x09)\n\nPrintable Characters (32-126):\n  32-47:  Space and punctuation\n  48-57:  Digits 0-9 (Dec 48='0', 57='9')\n  65-90:  Uppercase A-Z (Dec 65='A', 90='Z')\n  97-122: Lowercase a-z (Dec 97='a', 122='z')\n  \nCommon Special Characters:\n  Space: 32 (0x20)\n  !: 33 (0x21)    \": 34 (0x22)    #: 35 (0x23)\n  $: 36 (0x24)    %: 37 (0x25)    &: 38 (0x26)\n  ': 39 (0x27)    (: 40 (0x28)    ): 41 (0x29)\n  +: 43 (0x2B)    ,: 44 (0x2C)    -: 45 (0x2D)\n  .: 46 (0x2E)    /: 47 (0x2F)    :: 58 (0x3A)\n  ;: 59 (0x3B)    =: 61 (0x3D)    ?: 63 (0x3F)\n  @: 64 (0x40)    [: 91 (0x5B)    ]: 93 (0x5D)\n  {: 123 (0x7B)   }: 125 (0x7D)   ~: 126 (0x7E)\n\nUseful Pattern:\n  Case difference: Uppercase + 32 = Lowercase\n  'A' (65) + 32 = 'a' (97)\n  'Z' (90) + 32 = 'z' (122)",
+      "flag_hint": "Flags often encoded as decimal or hex ASCII values. Convert number sequences to see if they spell readable text.",
+      "tags": ["reference", "encoding", "basics"]
+    },
+    {
+      "name": "Decimal to ASCII Conversion",
+      "desc": "Convert decimal numbers to ASCII characters to reveal hidden messages.",
+      "example": "# Single decimal to ASCII\nprintf '\\x'$(printf '%x' 72)  # 72 -> 'H'\necho $((0x48))                # 0x48 -> 72 -> 'H'\n\n# Multiple decimals to text\necho 72 101 108 108 111 | xargs -n1 printf '%b' $(xargs -n1 printf '\\\\x%x')\n# Output: Hello\n\n# Python: decimals to text\npython3 -c \"print(''.join(chr(n) for n in [72, 101, 108, 108, 111]))\"\n# Output: Hello\n\n# Common CTF format: space or comma separated\necho \"102 108 97 103 123 116 101 115 116 125\" | \\\n  python3 -c \"import sys; print(''.join(chr(int(x)) for x in sys.stdin.read().split()))\"\n# Output: flag{test}\n\n# From file\ncat decimals.txt | xargs python3 -c \"import sys; print(''.join(chr(int(x)) for x in sys.stdin.read().split()))\"\n\n# Bash loop method\nfor num in 72 101 108 108 111; do\n  printf \"\\x$(printf %x $num)\"\ndone\necho",
+      "flag_hint": "Long sequences of numbers (especially 32-126 range) are likely decimal ASCII. Try converting to text!",
+      "tags": ["conversion", "decimal", "ctf"]
+    },
+    {
+      "name": "Hex to ASCII Conversion",
+      "desc": "Decode hexadecimal values into ASCII text - very common in CTFs.",
+      "example": "# Hex string to ASCII (xxd reverse)\necho '48656c6c6f' | xxd -r -p\n# Output: Hello\n\n# Python hex to ASCII\npython3 -c \"print(bytes.fromhex('48656c6c6f').decode())\"\n# Output: Hello\n\n# With 0x prefix\necho \"0x48 0x65 0x6c 0x6c 0x6f\" | \\\n  python3 -c \"import sys; print(''.join(chr(int(x, 16)) for x in sys.stdin.read().split()))\"\n\n# Continuous hex string\necho \"666c61677b746573747d\" | xxd -r -p\n# Output: flag{test}\n\n# From file\nxxd -r -p hexdata.txt > output.txt\n\n# Handle spaces/colons (common in hex dumps)\necho \"66:6c:61:67\" | tr -d ':' | xxd -r -p\n# or\necho \"66 6c 61 67\" | tr -d ' ' | xxd -r -p\n\n# CyberChef alternative\necho '48656c6c6f' | xxd -r -p | cat",
+      "flag_hint": "Hex is everywhere: network traffic, memory dumps, binary analysis. Pairs of hex digits (00-FF) map to ASCII.",
+      "tags": ["conversion", "hexadecimal", "ctf"]
+    },
+    {
+      "name": "ASCII to Decimal/Hex",
+      "desc": "Convert ASCII text to decimal or hexadecimal values for encoding or analysis.",
+      "example": "# ASCII to decimal\necho -n 'Hello' | od -An -td1\n# Output:  72 101 108 108 111\n\n# ASCII to hex\necho -n 'Hello' | xxd -p\n# Output: 48656c6c6f\n\n# ASCII to hex with xxd (readable format)\necho -n 'Hello' | xxd\n# Output: 00000000: 4865 6c6c 6f                             Hello\n\n# Python: text to decimal\npython3 -c \"print(' '.join(str(ord(c)) for c in 'Hello'))\"\n# Output: 72 101 108 108 111\n\n# Python: text to hex\npython3 -c \"print('Hello'.encode().hex())\"\n# Output: 48656c6c6f\n\n# Character by character\nfor char in $(echo 'flag{test}' | fold -w1); do\n  printf \"%d \" \"'$char\"\ndone\necho\n\n# Hex with separators\necho -n 'Hello' | hexdump -v -e '/1 \"%02x:\"'\n# Output: 48:65:6c:6c:6f:",
+      "flag_hint": "Encoding payloads as decimal/hex can bypass input filters or match expected formats in challenges.",
+      "tags": ["conversion", "encoding", "ctf"]
+    },
+    {
+      "name": "Binary to ASCII",
+      "desc": "Convert binary strings (0s and 1s) to ASCII characters.",
+      "example": "# Binary string to ASCII\necho '01001000 01100101 01101100 01101100 01101111' | \\\n  python3 -c \"import sys; print(''.join(chr(int(b, 2)) for b in sys.stdin.read().split()))\"\n# Output: Hello\n\n# Without spaces (8 bits per character)\necho '0100100001100101011011000110110001101111' | \\\n  python3 -c \"import sys; s=sys.stdin.read().strip(); print(''.join(chr(int(s[i:i+8], 2)) for i in range(0, len(s), 8)))\"\n# Output: Hello\n\n# Binary to ASCII with bc\necho 'ibase=2; 01001000' | bc | xargs printf '%b' $(xargs printf '\\\\x%x')\n\n# Python comprehensive\npython3 <<'PY'\nbinary_str = \"01001000 01100101 01101100 01101100 01101111\"\ntext = ''.join(chr(int(b, 2)) for b in binary_str.split())\nprint(f\"Binary: {binary_str}\")\nprint(f\"ASCII:  {text}\")\nPY\n\n# Handle different formats\n# Format: 0b01001000\necho \"0b01001000 0b01100101\" | \\\n  python3 -c \"import sys; print(''.join(chr(int(b, 2)) for b in sys.stdin.read().replace('0b', '').split()))\"",
+      "flag_hint": "Binary sequences of 8-bit groups often encode ASCII text. Look for patterns starting with 0100-0111 (printable range).",
+      "tags": ["conversion", "binary", "ctf"]
+    },
+    {
+      "name": "ASCII to Binary",
+      "desc": "Convert ASCII text to binary representation.",
+      "example": "# ASCII to binary\necho -n 'Hello' | xxd -b\n# Output: 00000000: 01001000 01100101 01101100 01101100 01101111  Hello\n\n# Python: clean binary output\npython3 -c \"print(' '.join(format(ord(c), '08b') for c in 'Hello'))\"\n# Output: 01001000 01100101 01101100 01101100 01101111\n\n# Without spaces\npython3 -c \"print(''.join(format(ord(c), '08b') for c in 'Hello'))\"\n# Output: 0100100001100101011011000110110001101111\n\n# Bash character-by-character\nfor char in $(echo 'Hi' | fold -w1); do\n  printf \"%08d \" $(echo \"obase=2; $(printf '%d' \"'$char\")\" | bc)\ndone\necho\n\n# Analyze binary representation\npython3 <<'PY'\ntext = \"A\"\nfor char in text:\n    dec = ord(char)\n    bin_val = format(dec, '08b')\n    hex_val = format(dec, '02x')\n    print(f\"'{char}' -> Dec:{dec} Hex:{hex_val} Bin:{bin_val}\")\nPY",
+      "flag_hint": "Binary encoding rarely used alone, but common with steganography in images (LSB) or network protocols.",
+      "tags": ["conversion", "binary", "encoding"]
+    },
+    {
+      "name": "Case Conversion & Character Shifting",
+      "desc": "Convert between uppercase/lowercase and shift ASCII values for simple ciphers.",
+      "example": "# Uppercase to lowercase (add 32)\necho 'HELLO' | tr 'A-Z' 'a-z'\n# Output: hello\n\n# Lowercase to uppercase (subtract 32)\necho 'hello' | tr 'a-z' 'A-Z'\n# Output: HELLO\n\n# Python case conversion\npython3 -c \"print('Hello'.upper())\"  # HELLO\npython3 -c \"print('Hello'.lower())\"  # hello\npython3 -c \"print('Hello'.swapcase())\"  # hELLO\n\n# ASCII shift cipher (ROT-N)\n# Shift each character by N positions\necho 'ABC' | tr 'A-Z' 'D-ZA-C'  # Shift by 3\n# Output: DEF\n\n# Shift by ASCII value manipulation\npython3 <<'PY'\ntext = \"ABC\"\nshift = 3\nresult = ''.join(chr(ord(c) + shift) for c in text)\nprint(result)  # DEF\nPY\n\n# Detect case pattern\ngrep -E '^[A-Z]+$' file.txt  # All uppercase\ngrep -E '^[a-z]+$' file.txt  # All lowercase\ngrep -E '^[A-Za-z]+$' file.txt  # Mixed case\n\n# Convert based on pattern\nawk '{print toupper($0)}' file.txt\nawk '{print tolower($0)}' file.txt",
+      "flag_hint": "Simple case changes or +/- shifts on ASCII values are common obfuscation. Try ROT13, case swaps, or +1/-1 shifts.",
+      "tags": ["conversion", "cipher", "obfuscation"]
+    },
+    {
+      "name": "Quick ASCII Reference Table",
+      "desc": "Essential ASCII values for common CTF characters.",
+      "example": "Quick Reference (Decimal [Hex] Char):\n=====================================\n\nDigits:\n 48 [30] '0'    49 [31] '1'    50 [32] '2'\n 51 [33] '3'    52 [34] '4'    53 [35] '5'\n 54 [36] '6'    55 [37] '7'    56 [38] '8'\n 57 [39] '9'\n\nUppercase:\n 65 [41] 'A'    66 [42] 'B'    67 [43] 'C'\n 68 [44] 'D'    69 [45] 'E'    70 [46] 'F'\n 71 [47] 'G'    72 [48] 'H'    73 [49] 'I'\n ...\n 90 [5A] 'Z'\n\nLowercase:\n 97 [61] 'a'    98 [62] 'b'    99 [63] 'c'\n 100 [64] 'd'   101 [65] 'e'   102 [66] 'f'\n ...\n 122 [7A] 'z'\n\nSpecial:\n 32 [20] space  33 [21] '!'    35 [23] '#'\n 36 [24] '$'    37 [25] '%'    38 [26] '&'\n 64 [40] '@'    95 [5F] '_'    123 [7B] '{'\n 125 [7D] '}'   126 [7E] '~'\n\nControl:\n 10 [0A] \\n (newline)\n 13 [0D] \\r (carriage return)\n  9 [09] \\t (tab)\n  0 [00] \\0 (null)\n\nQuick lookup:\nprintf '%d' \"'H\"  # Character to decimal\nprintf '\\x48'     # Hex to character\nprintf '%x' 72    # Decimal to hex",
+      "flag_hint": "Memorize: A=65, a=97, 0=48, space=32. Hex values: A=0x41, a=0x61, 0=0x30. Difference between upper/lower is always 32.",
+      "tags": ["reference", "quick-reference", "cheatsheet"]
+    }
+  ]
+}

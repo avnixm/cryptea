@@ -1,0 +1,56 @@
+{
+  "title": "Caesar Cipher & ROT13",
+  "category": "Crypto",
+  "description": "Classical substitution cipher with shift-based character rotation. ROT13 is a special case with shift 13.",
+  "entries": [
+    {
+      "name": "ROT13 Quick Decode",
+      "desc": "Decode ROT13 text (shift 13) which is its own inverse operation.",
+      "example": "# Using tr command\necho 'synt{grfg}' | tr 'A-Za-z' 'N-ZA-Mn-za-m'\n\n# Python one-liner\npython3 -c \"import codecs; print(codecs.decode('synt{grfg}', 'rot_13'))\"\n\n# From file\ntr 'A-Za-z' 'N-ZA-Mn-za-m' < encrypted.txt\n\n# Preserving non-alpha\ncat data.txt | tr '[A-Za-z]' '[N-ZA-Mn-za-m]'",
+      "flag_hint": "ROT13 is common in forum posts, email obfuscation, spoiler tags, and simple CTF challenges. Look for gibberish text with recognizable patterns.",
+      "tags": ["crypto", "rot13", "substitution", "classical"]
+    },
+    {
+      "name": "Caesar Cipher Brute Force",
+      "desc": "Try all 25 possible shift values to decrypt Caesar cipher without knowing the key.",
+      "example": "# Bash brute force all shifts\ntext=\"wkh txlfn eurzq ira\"\nfor i in {1..25}; do\n    echo \"Shift $i: $(echo \"$text\" | tr \"a-zA-Z\" \"$(echo {a..z} {A..Z} | tr -d ' ' | cut -c$((i+1))-$((i+52)))\")\"\ndone\n\n# Python brute force\npython3 <<'PY'\ntext = \"wkh txlfn eurzq ira\"\nfor shift in range(26):\n    decoded = \"\"\n    for char in text:\n        if char.isalpha():\n            base = ord('A') if char.isupper() else ord('a')\n            decoded += chr((ord(char) - base - shift) % 26 + base)\n        else:\n            decoded += char\n    print(f\"Shift {shift:2d}: {decoded}\")\nPY\n\n# Using cryptography libraries\npython3 -c \"from Crypto.Cipher import Caesar; [print(f'{i}: {Caesar.decrypt(ciphertext, i)}') for i in range(26)]\"",
+      "flag_hint": "Caesar ciphers appear in old ciphertexts, children's puzzles, and beginner CTF challenges. Brute forcing takes seconds.",
+      "tags": ["crypto", "brute-force", "caesar", "classical"]
+    },
+    {
+      "name": "Caesar Encode with Custom Shift",
+      "desc": "Encrypt plaintext using Caesar cipher with a specific shift value.",
+      "example": "# Shift 3 (classic Caesar)\necho 'attack at dawn' | tr 'a-zA-Z' 'd-za-cD-ZA-C'\n\n# Python with shift parameter\npython3 <<'PY'\ndef caesar_encode(text, shift):\n    result = \"\"\n    for char in text:\n        if char.isalpha():\n            base = ord('A') if char.isupper() else ord('a')\n            result += chr((ord(char) - base + shift) % 26 + base)\n        else:\n            result += char\n    return result\n\nprint(caesar_encode(\"flag{test}\", 7))\nPY\n\n# Variable shift\nshift=5\necho 'hello' | tr \"a-zA-Z\" \"$(python3 -c \"import string; s=string.ascii_lowercase; print(s[$shift:]+s[:$shift]+s.upper()[$shift:]+s.upper()[:$shift])\")\n\"",
+      "flag_hint": "Sometimes challenges require encoding input with a specific shift. Historical shift values: 3 (original Caesar), 13 (ROT13).",
+      "tags": ["crypto", "encoder", "caesar"]
+    },
+    {
+      "name": "Frequency Analysis Detection",
+      "desc": "Identify Caesar cipher by analyzing character frequency distribution.",
+      "example": "# Count letter frequency\necho 'ciphertext here' | fold -w1 | sort | uniq -c | sort -rn\n\n# Python frequency analysis\npython3 <<'PY'\nfrom collections import Counter\nimport string\n\ntext = \"wkh txlfn eurzq ira mxpsv ryhu wkh odcb grj\".replace(' ', '')\nfreq = Counter(c.upper() for c in text if c.isalpha())\nprint(\"Letter frequencies:\")\nfor letter, count in freq.most_common(5):\n    print(f\"  {letter}: {count}\")\n\n# In English, 'E' is most common (~13%)\n# If 'K' is most common, shift is likely 6 (K -> E)\nPY\n\n# Chi-squared test for best shift\npython3 <<'PY'\nfrom collections import Counter\ntext = \"encrypted text\"\nenglish_freq = {'E': 12.7, 'T': 9.1, 'A': 8.2, 'O': 7.5}\nfor shift in range(26):\n    decoded = caesar_decrypt(text, shift)\n    freq = Counter(decoded.upper())\n    score = sum((freq[c] - english_freq.get(c, 0))**2 for c in freq)\n    print(f\"Shift {shift}: score {score}\")\nPY",
+      "flag_hint": "Long ciphertexts reveal frequency patterns. If the most common letter isn't 'E', 'T', or 'A', it's likely shifted.",
+      "tags": ["crypto", "analysis", "frequency", "advanced"]
+    },
+    {
+      "name": "Multi-Alphabet Caesar (Keyword Cipher)",
+      "desc": "Handle Caesar variants that use keyword-based alphabets instead of simple rotation.",
+      "example": "# Keyword: 'SECRET' creates alphabet: SECRETABDFGHIJKLMNOPQUVWXYZ\npython3 <<'PY'\ndef keyword_alphabet(keyword):\n    keyword = ''.join(dict.fromkeys(keyword.upper()))  # remove duplicates\n    alphabet = keyword + ''.join(c for c in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' if c not in keyword)\n    return alphabet\n\ndef encode_keyword(text, keyword):\n    key_alpha = keyword_alphabet(keyword)\n    normal = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'\n    trans = str.maketrans(normal, key_alpha)\n    return text.upper().translate(trans)\n\nprint(encode_keyword('ATTACK AT DAWN', 'SECRET'))\nPY\n\n# Decode\ntr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'SECRETABDFGHIJKLMNOPQUVWXYZ' <<< 'CIPHERTEXT'",
+      "flag_hint": "Keyword ciphers appear in historical cryptography challenges. The keyword is often a hint in the challenge description.",
+      "tags": ["crypto", "keyword", "substitution", "advanced"]
+    },
+    {
+      "name": "ROT Variants (ROT5, ROT18, ROT47)",
+      "desc": "Extended rotation ciphers that include digits and extended ASCII characters.",
+      "example": "# ROT5 (digits only)\necho '12345' | tr '0-9' '5-90-4'\n\n# ROT18 (ROT13 + ROT5)\necho 'Test 123' | tr 'A-Za-z0-9' 'N-ZA-Mn-za-m5-90-4'\n\n# ROT47 (all printable ASCII 33-126)\npython3 <<'PY'\ndef rot47(text):\n    result = []\n    for char in text:\n        if 33 <= ord(char) <= 126:\n            result.append(chr(33 + ((ord(char) - 33 + 47) % 94)))\n        else:\n            result.append(char)\n    return ''.join(result)\n\nprint(rot47('Hello World!'))\nPY\n\n# Bash ROT47\necho 'Hello!' | tr '!-~' 'P-~!-O'",
+      "flag_hint": "ROT47 is useful for encoding symbols and punctuation. Check challenges involving non-alphabetic character obfuscation.",
+      "tags": ["crypto", "rot47", "extended-ascii", "variant"]
+    },
+    {
+      "name": "Caesar in CTF Contexts",
+      "desc": "Common ways Caesar cipher appears in CTF challenges and how to recognize it.",
+      "example": "# Recognize Caesar patterns:\n# 1. Text that looks almost readable but shifted\n# 2. Preserved word lengths and punctuation\n# 3. Common words like 'the' appear as 'wkh' (shift 3)\n\n# Quick recognition test\ngrep -i 'vjg\\|wkh\\|ymj\\|aol' encrypted.txt  # 'the' with shifts 1,2,3,4\n\n# Automated detection\npython3 <<'PY'\nimport re\ntext = \"uifsf jt b gmbh ijeefo ifsf\"\nfor shift in range(26):\n    decoded = caesar_decrypt(text, shift)\n    if re.search(r'flag\\{', decoded, re.I):\n        print(f\"Found at shift {shift}: {decoded}\")\n        break\nPY\n\n# Check for English words\nfor i in {1..25}; do\n    decoded=$(echo \"ciphertext\" | tr ...)\n    if echo \"$decoded\" | grep -qE '\\b(flag|ctf|key|password)\\b'; then\n        echo \"Shift $i: $decoded\"\n    fi\ndone",
+      "flag_hint": "In CTFs, Caesar cipher often protects flags in config files, comments, or challenge descriptions. Look for preserved structure with shifted characters.",
+      "tags": ["ctf", "recognition", "patterns"]
+    }
+  ]
+}

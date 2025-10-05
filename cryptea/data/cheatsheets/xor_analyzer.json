@@ -1,0 +1,49 @@
+{
+  "title": "XOR Analyzer",
+  "category": "Crypto",
+  "description": "XOR cipher analysis, key recovery, and brute force techniques for CTF challenges.",
+  "entries": [
+    {
+      "name": "Single-Byte XOR Brute Force",
+      "desc": "Try all 256 possible single-byte XOR keys to decrypt data.",
+      "example": "# Python brute force\npython3 <<'PY'\nimport string\ndata = bytes.fromhex('1c0e1b1b1e45371d1e1b1b0c')\nfor key in range(256):\n    decrypted = bytes([b ^ key for b in data])\n    if all(c in bytes(string.printable, 'ascii') for c in decrypted):\n        print(f\"Key {key:3d} (0x{key:02x}): {decrypted}\")\nPY\n\n# Bash version\nfor i in {0..255}; do\n    echo \"Key $i:\" $(python3 -c \"print(''.join(chr(int(b, 16) ^ $i) for b in ['1c','0e','1b']))\")  \ndone\n\n# Using xortool\nxortool -b data.bin",
+      "flag_hint": "Single-byte XOR appears in simple encryption challenges. Look for repeated patterns in ciphertext indicating key reuse.",
+      "tags": ["crypto", "xor", "brute-force"]
+    },
+    {
+      "name": "Multi-Byte XOR Key Recovery (Known-Plaintext)",
+      "desc": "Recover XOR key when you know part of the plaintext (e.g., file headers or flag format).",
+      "example": "# Known plaintext: 'flag{'\npython3 <<'PY'\nciphertext = bytes.fromhex('0a1c0f08291e0f1b')\nknown_plain = b'flag{'\nkey = bytes([c ^ p for c, p in zip(ciphertext, known_plain)])\nprint(f\"Recovered key: {key}\")\nprint(f\"Decrypted: {bytes([c ^ key[i % len(key)] for i, c in enumerate(ciphertext)])}\")\nPY\n\n# Command line\necho \"0a1c0f08\" | xxd -r -p | xargs -I{} python3 -c \"import sys; print(bytes([ord('{}') ^ ord(c) for c in 'flag']).hex())\"\n\n# File header attack (PNG starts with \\x89PNG)\npython3 <<'PY'\nwith open('encrypted.bin', 'rb') as f:\n    cipher = f.read()\nkey = bytes([cipher[i] ^ b'\\x89PNG'[i] for i in range(4)])\nPY",
+      "flag_hint": "If ciphertext starts with encrypted flag{ or known file signatures (PNG, PDF, ZIP), XOR the bytes to recover the key.",
+      "tags": ["crypto", "xor", "known-plaintext", "attack"]
+    },
+    {
+      "name": "Repeating-Key XOR Detection",
+      "desc": "Detect XOR key length using Hamming distance and Kasiski examination.",
+      "example": "# Python key length detection\npython3 <<'PY'\ndef hamming_distance(b1, b2):\n    return sum(bin(a ^ b).count('1') for a, b in zip(b1, b2))\n\ndef find_keysize(ciphertext, max_keysize=40):\n    distances = []\n    for keysize in range(2, max_keysize + 1):\n        blocks = [ciphertext[i:i+keysize] for i in range(0, len(ciphertext), keysize)][:4]\n        if len(blocks) < 2: continue\n        dist = sum(hamming_distance(blocks[i], blocks[i+1]) for i in range(len(blocks)-1))\n        normalized = dist / keysize / (len(blocks) - 1)\n        distances.append((keysize, normalized))\n    return sorted(distances, key=lambda x: x[1])[:5]\n\nwith open('encrypted.bin', 'rb') as f:\n    data = f.read()\nprint(\"Probable key sizes:\", find_keysize(data))\nPY\n\n# Using xortool\nxortool -l 5 data.bin  # try keysize 5\nxortool -x data.bin    # auto-detect",
+      "flag_hint": "Repeating-key XOR shows patterns at multiples of key length. Hamming distance reveals the period.",
+      "tags": ["crypto", "xor", "analysis", "advanced"]
+    },
+    {
+      "name": "XOR with Null Bytes Exploit",
+      "desc": "Exploit XOR properties where plaintext XOR 0x00 reveals the key.",
+      "example": "# Any byte XORed with itself is 0\n# P XOR K = C, so P XOR C = K\npython3 <<'PY'\n# If we know plaintext P and ciphertext C\nplaintext = b\"known text\"\nciphertext = bytes.fromhex(\"...\")\nkey = bytes([p ^ c for p, c in zip(plaintext, ciphertext)])\nPY\n\n# Null byte in ciphertext reveals key\n# C = P XOR K, if C = 0x00, then P = K\ngrep -obUaP '\\x00' encrypted.bin\n\n# XOR properties\n# A XOR A = 0\n# A XOR 0 = A  \n# A XOR B XOR B = A (useful for stream cipher attacks)",
+      "flag_hint": "Null bytes in XOR ciphertext directly reveal key bytes. Look for 0x00 sequences in encrypted data.",
+      "tags": ["crypto", "xor", "exploit", "properties"]
+    },
+    {
+      "name": "XOR Stream Cipher Attack (Key Reuse)",
+      "desc": "Break XOR when the same key encrypts multiple messages (common in network protocols).",
+      "example": "# Two ciphertexts with same key\n# C1 = P1 XOR K\n# C2 = P2 XOR K\n# C1 XOR C2 = P1 XOR P2 (key cancels out!)\npython3 <<'PY'\nc1 = bytes.fromhex('1a0e1f...')\nc2 = bytes.fromhex('0c1b08...')\nxored = bytes([a ^ b for a, b in zip(c1, c2)])\nprint(\"P1 XOR P2:\", xored)\n# Use frequency analysis on xored result\nPY\n\n# Crib dragging (guess words)\npython3 <<'PY'\nc1_xor_c2 = bytes([...])\ncribs = [b'flag{', b'the ', b'password', b'key=']\nfor pos in range(len(c1_xor_c2) - 10):\n    for crib in cribs:\n        fragment = bytes([c1_xor_c2[pos+i] ^ crib[i] for i in range(len(crib))])\n        if all(32 <= b < 127 for b in fragment):\n            print(f\"Pos {pos}: {crib} might reveal {fragment}\")\nPY",
+      "flag_hint": "If two ciphertexts use the same XOR key, XORing them together eliminates the key and reveals plaintext relationship.",
+      "tags": ["crypto", "xor", "stream-cipher", "advanced", "attack"]
+    },
+    {
+      "name": "XOR Encoding/Decoding Utilities",
+      "desc": "Common XOR operations for data manipulation and payload encoding.",
+      "example": "# XOR with hex key\npython3 -c \"import sys; key=bytes.fromhex('deadbeef'); data=sys.stdin.buffer.read(); sys.stdout.buffer.write(bytes([data[i] ^ key[i % len(key)] for i in range(len(data))]))\"\n\n# XOR two files\npython3 <<'PY'\nwith open('file1.bin', 'rb') as f1, open('file2.bin', 'rb') as f2:\n    data1, data2 = f1.read(), f2.read()\n    result = bytes([a ^ b for a, b in zip(data1, data2)])\n    open('xored.bin', 'wb').write(result)\nPY\n\n# XOR with repeating string key\necho 'secret message' | python3 -c \"import sys; key=b'KEY'; data=sys.stdin.buffer.read(); print(bytes([data[i] ^ key[i % len(key)] for i in range(len(data))]).hex())\"\n\n# Batch XOR test\nfor key in 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'; do\n    echo \"$key:\" $(echo 'encrypted' | python3 -c \"import sys; k=ord('$key'); print(''.join(chr(ord(c)^k) for c in sys.stdin.read()))\")\ndone",
+      "flag_hint": "XOR is reversible (same operation encrypts and decrypts). Use it to test payload variations or decode suspicious data.",
+      "tags": ["crypto", "xor", "utilities", "encoding"]
+    }
+  ]
+}

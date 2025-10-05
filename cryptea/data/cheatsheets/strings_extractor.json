@@ -1,0 +1,56 @@
+{
+  "title": "Strings Extractor",
+  "category": "Reverse Engineering",
+  "description": "Extract printable strings from binaries, memory dumps, and files to find flags, URLs, and debug information.",
+  "entries": [
+    {
+      "name": "Basic String Extraction",
+      "desc": "Extract all printable ASCII strings from binary files with minimum length filtering.",
+      "example": "# Default (minimum 4 chars)\nstrings binary.elf\n\n# Minimum length 8\nstrings -n 8 binary.exe\n\n# Show file offsets\nstrings -t x binary.bin\nstrings -t d binary.bin  # decimal offsets\n\n# From specific section\nobjdump -s -j .rodata binary.elf | strings\n\n# Pipe and search\nstrings binary | grep -i flag\nstrings -a binary | grep -E 'flag\\{.*\\}'",
+      "flag_hint": "Flags often appear as plaintext strings in .rodata section of binaries even when stripped. Check for base64-encoded strings too.",
+      "tags": ["reverse-engineering", "strings", "extraction", "forensics"]
+    },
+    {
+      "name": "Unicode and Wide Strings",
+      "desc": "Extract UTF-16/UTF-32 strings from Windows executables and international files.",
+      "example": "# Little-endian 16-bit (Windows default)\nstrings -e l binary.exe\n\n# Big-endian 16-bit\nstrings -e b binary.bin\n\n# 32-bit strings\nstrings -e L binary\n\n# All encodings\nstrings -e s binary  # 7-bit\nstrings -e S binary  # 8-bit\nstrings -e b binary  # 16-bit big-endian\nstrings -e l binary  # 16-bit little-endian\nstrings -e B binary  # 32-bit big-endian\nstrings -e L binary  # 32-bit little-endian\n\n# Python unicode extraction\npython3 <<'PY'\nwith open('binary.exe', 'rb') as f:\n    data = f.read()\n    # UTF-16 LE\n    try:\n        text = data.decode('utf-16-le', errors='ignore')\n        print(text)\n    except: pass\nPY",
+      "flag_hint": "Windows PE files store strings in UTF-16LE. Use strings -e l to extract them. Look for registry keys, file paths, URLs.",
+      "tags": ["reverse-engineering", "unicode", "windows", "encoding"]
+    },
+    {
+      "name": "Context-Aware String Analysis",
+      "desc": "Filter and analyze strings by patterns, URLs, IPs, file paths, and potential flags.",
+      "example": "# Find URLs\nstrings binary | grep -oE 'https?://[a-zA-Z0-9./?=_-]*'\n\n# Find IP addresses\nstrings binary | grep -oE '([0-9]{1,3}\\.){3}[0-9]{1,3}'\n\n# Find file paths\nstrings binary | grep -E '/[a-zA-Z0-9/_.-]+\\.(txt|conf|key|flag)'\n\n# Find email addresses\nstrings binary | grep -oE '[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}'\n\n# Find flag patterns\nstrings binary | grep -E '(flag|FLAG|ctf|CTF)\\{[^}]+\\}'\n\n# Find base64 (long alphanumeric with =)\nstrings -n 20 binary | grep -E '^[A-Za-z0-9+/]{20,}={0,2}$'",
+      "flag_hint": "Look for debug messages, error strings, hardcoded credentials, API keys, and configuration paths that might contain or lead to flags.",
+      "tags": ["reverse-engineering", "analysis", "pattern-matching", "urls"]
+    },
+    {
+      "name": "Strings from Specific Memory Regions",
+      "desc": "Extract strings from specific sections or memory regions of ELF/PE files.",
+      "example": "# From .rodata (read-only data)\nobjdump -s -j .rodata binary.elf | xxd -r | strings\n\n# From .data (initialized data)\nobjdump -s -j .data binary.elf | xxd -r | strings\n\n# From .text (code section - less common)\nobjdump -s -j .text binary.elf | xxd -r | strings -n 6\n\n# List all sections\nreadelf -S binary.elf\nobjdump -h binary.exe\n\n# Extract specific section\nobjcopy --dump-section .rdata=rdata.bin binary.exe\nstrings rdata.bin\n\n# Python section extraction\npython3 <<'PY'\nimport lief\nbin = lief.parse('binary.elf')\nfor section in bin.sections:\n    if section.name in ['.rodata', '.data']:\n        data = bytes(section.content)\n        print(f\"\\n=== {section.name} ===\")\n        # Extract strings manually\n        current = b''\n        for b in data:\n            if 32 <= b < 127:\n                current += bytes([b])\n            else:\n                if len(current) >= 4:\n                    print(current.decode())\n                current = b''\nPY",
+      "flag_hint": "Flags in .rodata are common. Check .comment for compiler info, .interp for linker paths. PE files: check .rdata and .data sections.",
+      "tags": ["reverse-engineering", "elf", "pe", "sections", "advanced"]
+    },
+    {
+      "name": "Strings in Packed/Obfuscated Binaries",
+      "desc": "Extract strings from packed or compressed executables after unpacking.",
+      "example": "# Detect packing\nstrings binary.exe | grep -i 'upx\\|aspack\\|petite\\|mpress'\n\n# UPX unpacking\nupx -d binary.exe\n\n# Dump process memory after runtime unpacking\n# Run in debugger, dump memory, then strings on dump\ngdb ./binary\n(gdb) run\n(gdb) generate-core-file memory.dump\n(gdb) quit\nstrings memory.dump | grep flag\n\n# Dynamic string extraction (runtime)\nstrace -e write ./binary 2>&1 | strings\nltrace -s 100 ./binary 2>&1 | grep flag\n\n# Volatility for packed malware\nvolatility -f memory.dmp linux.strings | grep -i flag",
+      "flag_hint": "Packed binaries hide strings until runtime. Use dynamic analysis (ltrace/strace) or unpack with upx/unpackers before extracting strings.",
+      "tags": ["reverse-engineering", "packing", "obfuscation", "dynamic-analysis", "advanced"]
+    },
+    {
+      "name": "Strings from Core Dumps & Crashes",
+      "desc": "Extract strings from coredumps and crash files for debugging and flag hunting.",
+      "example": "# Generate core dump\nulimit -c unlimited\n./binary_that_crashes\n# core file created\n\n# Extract strings from core\nstrings core | grep -i flag\nstrings -a -t x core | grep -C 5 'flag\\{'\n\n# GDB analysis\ngdb ./binary core\n(gdb) info proc mappings\n(gdb) x/s 0x7fffffffe000  # examine string at address\n(gdb) find /s 0x400000, +0x100000, \"flag{\"\n\n# Extract stack strings\ngdb -batch -ex 'bt' -ex 'x/200s $rsp' ./binary core\n\n# Automated core analysis\npython3 <<'PY'\nimport re\nwith open('core', 'rb') as f:\n    data = f.read()\n    # Find all potential flags\n    flags = re.findall(rb'flag\\{[^}]+\\}', data)\n    for flag in flags:\n        print(flag.decode(errors='ignore'))\nPY",
+      "flag_hint": "Core dumps contain program state at crash time. Stack contents, heap data, and environment variables often contain flags.",
+      "tags": ["reverse-engineering", "core-dump", "debugging", "forensics"]
+    },
+    {
+      "name": "Automated String Classification",
+      "desc": "Use tools and scripts to automatically categorize and prioritize extracted strings.",
+      "example": "# Rabin2 (radare2 strings)\nrabin2 -z binary.elf       # data section strings\nrabin2 -zz binary.elf      # all strings\nrabin2 -zzz binary.elf     # include unknown sections\n\n# FLOSS (FireEye tool)\nfloss binary.exe --quiet | grep -i flag\n\n# Custom classifier\npython3 <<'PY'\nimport re\nstrings = open('strings.txt').readlines()\n\ncategories = {\n    'flags': re.compile(r'flag\\{|CTF\\{', re.I),\n    'urls': re.compile(r'https?://'),\n    'paths': re.compile(r'/[a-z0-9/_.-]+'),\n    'base64': re.compile(r'^[A-Za-z0-9+/]{20,}={0,2}$'),\n    'hex': re.compile(r'^[0-9a-fA-F]{16,}$'),\n    'keys': re.compile(r'(password|secret|api[_-]?key|token)', re.I)\n}\n\nfor string in strings:\n    string = string.strip()\n    for category, pattern in categories.items():\n        if pattern.search(string):\n            print(f\"[{category.upper()}] {string}\")\n            break\nPY\n\n# Entropy-based filtering (high entropy = encrypted/encoded)\npython3 <<'PY'\nimport math\nfrom collections import Counter\n\ndef entropy(s):\n    p = [float(c)/len(s) for c in Counter(s).values()]\n    return -sum(pi * math.log2(pi) for pi in p)\n\nfor line in open('strings.txt'):\n    line = line.strip()\n    if len(line) > 20 and entropy(line) > 4.5:\n        print(f\"High entropy: {line}\")\nPY",
+      "flag_hint": "High-entropy strings are likely encrypted, compressed, or base64. Low entropy repeated strings might be padding or format strings.",
+      "tags": ["reverse-engineering", "automation", "classification", "entropy", "advanced"]
+    }
+  ]
+}

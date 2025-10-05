@@ -1,0 +1,109 @@
+{
+  "title": "Python CTF Snippets",
+  "category": "Crypto",
+  "description": "Useful Python one-liners for CTF challenges",
+  "searchable": true,
+  "type": "code",
+  "entries": [
+    {
+      "name": "Base64 Decode",
+      "code": "import base64; base64.b64decode(b'SGVsbG8gV29ybGQh').decode()",
+      "desc": "Decode Base64 string"
+    },
+    {
+      "name": "Base64 Encode",
+      "code": "import base64; base64.b64encode(b'Hello World!').decode()",
+      "desc": "Encode string to Base64"
+    },
+    {
+      "name": "Hex to ASCII",
+      "code": "bytes.fromhex('48656c6c6f').decode()",
+      "desc": "Convert hex string to ASCII"
+    },
+    {
+      "name": "ASCII to Hex",
+      "code": "'Hello'.encode().hex()",
+      "desc": "Convert ASCII to hex string"
+    },
+    {
+      "name": "ROT13",
+      "code": "import codecs; codecs.decode('Uryyb Jbeyq', 'rot13')",
+      "desc": "ROT13 cipher decode/encode"
+    },
+    {
+      "name": "URL Decode",
+      "code": "from urllib.parse import unquote; unquote('Hello%20World%21')",
+      "desc": "Decode URL-encoded string"
+    },
+    {
+      "name": "URL Encode",
+      "code": "from urllib.parse import quote; quote('Hello World!')",
+      "desc": "URL-encode a string"
+    },
+    {
+      "name": "XOR Bytes",
+      "code": "bytes(a ^ b for a, b in zip(data, key))",
+      "desc": "XOR two byte arrays"
+    },
+    {
+      "name": "MD5 Hash",
+      "code": "import hashlib; hashlib.md5(b'Hello').hexdigest()",
+      "desc": "Calculate MD5 hash"
+    },
+    {
+      "name": "SHA256 Hash",
+      "code": "import hashlib; hashlib.sha256(b'Hello').hexdigest()",
+      "desc": "Calculate SHA256 hash"
+    },
+    {
+      "name": "Binary to Int",
+      "code": "int('11010101', 2)",
+      "desc": "Convert binary string to integer"
+    },
+    {
+      "name": "Int to Binary",
+      "code": "bin(213)[2:]",
+      "desc": "Convert integer to binary string"
+    },
+    {
+      "name": "Int to Hex",
+      "code": "hex(255)[2:]",
+      "desc": "Convert integer to hex string"
+    },
+    {
+      "name": "Hex to Int",
+      "code": "int('ff', 16)",
+      "desc": "Convert hex string to integer"
+    },
+    {
+      "name": "Read Binary File",
+      "code": "with open('file.bin', 'rb') as f: data = f.read()",
+      "desc": "Read file as binary"
+    },
+    {
+      "name": "Write Binary File",
+      "code": "with open('file.bin', 'wb') as f: f.write(data)",
+      "desc": "Write binary data to file"
+    },
+    {
+      "name": "JSON Parse",
+      "code": "import json; json.loads('{\"key\": \"value\"}')",
+      "desc": "Parse JSON string"
+    },
+    {
+      "name": "Reverse String",
+      "code": "'Hello'[::-1]",
+      "desc": "Reverse a string"
+    },
+    {
+      "name": "Character Frequency",
+      "code": "from collections import Counter; Counter('Hello World')",
+      "desc": "Count character occurrences"
+    },
+    {
+      "name": "Generate Permutations",
+      "code": "from itertools import permutations; list(permutations('abc'))",
+      "desc": "Generate all permutations"
+    }
+  ]
+}

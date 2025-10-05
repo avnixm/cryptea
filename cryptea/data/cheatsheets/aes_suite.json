@@ -1,0 +1,77 @@
+{
+  "title": "AES Cipher Suite",
+  "category": "Crypto",
+  "description": "Advanced Encryption Standard implementation details, modes of operation, padding schemes, and common vulnerabilities in CTF challenges.",
+  "entries": [
+    {
+      "name": "AES Block Cipher Basics",
+      "desc": "AES operates on 128-bit blocks with key sizes of 128, 192, or 256 bits through multiple rounds of substitution and permutation",
+      "example": "from Crypto.Cipher import AES\nfrom Crypto.Util.Padding import pad, unpad\n\n# Encryption\nkey = b'Sixteen byte key'  # 16 bytes = 128 bits\ncipher = AES.new(key, AES.MODE_ECB)\nplaintext = b'Secret message'\nciphertext = cipher.encrypt(pad(plaintext, 16))\n\n# Decryption\ncipher = AES.new(key, AES.MODE_ECB)\nplaintext = unpad(cipher.decrypt(ciphertext), 16)\nprint(plaintext.decode())",
+      "flag_hint": "AES block size is always 16 bytes regardless of key size",
+      "tags": ["aes", "block-cipher", "encryption"]
+    },
+    {
+      "name": "ECB Mode Weaknesses",
+      "desc": "Electronic Codebook mode encrypts identical plaintext blocks to identical ciphertext blocks, revealing patterns",
+      "example": "# ECB mode vulnerability: identical blocks\nfrom Crypto.Cipher import AES\n\n# Detect ECB mode - look for repeating blocks\ndef detect_ecb(ciphertext, block_size=16):\n    blocks = [ciphertext[i:i+block_size] \n              for i in range(0, len(ciphertext), block_size)]\n    return len(blocks) != len(set(blocks))\n\n# ECB cut-and-paste attack\n# Rearrange encrypted blocks to change meaning\nblock1 = ciphertext[0:16]\nblock2 = ciphertext[16:32]\ncrafted = block2 + block1  # Swap blocks",
+      "flag_hint": "ECB encrypted images often show visible patterns in the ciphertext",
+      "tags": ["aes", "ecb", "block-reordering"]
+    },
+    {
+      "name": "CBC Mode and IV",
+      "desc": "Cipher Block Chaining XORs each plaintext block with previous ciphertext block. IV (Initialization Vector) is critical",
+      "example": "from Crypto.Cipher import AES\nfrom Crypto.Random import get_random_bytes\n\n# Proper CBC encryption\nkey = get_random_bytes(16)\niv = get_random_bytes(16)  # Must be random!\ncipher = AES.new(key, AES.MODE_CBC, iv=iv)\n\n# Common mistake: reusing IV\n# If IV is reused, first block XOR reveals plaintext difference\n# P1 ⊕ P2 = C1 ⊕ C2\n\n# IV is typically prepended to ciphertext\ndata = iv + ciphertext  # Standard format\niv = data[:16]\nciphertext = data[16:]",
+      "flag_hint": "Check for hardcoded or predictable IVs - major vulnerability",
+      "tags": ["aes", "cbc", "iv", "initialization-vector"]
+    },
+    {
+      "name": "Padding Oracle Attack",
+      "desc": "Exploits error messages about padding validity to decrypt ciphertext byte-by-byte without the key",
+      "example": "# Padding oracle attack (simplified)\nimport requests\n\ndef padding_oracle(ciphertext, iv):\n    # Server returns True if padding valid\n    r = requests.post(url, data={'ct': ciphertext, 'iv': iv})\n    return 'Padding Error' not in r.text\n\n# Attack each block\ndef decrypt_block(block, prev_block):\n    plaintext = bytearray(16)\n    for pos in range(15, -1, -1):\n        padding_value = 16 - pos\n        # Try all possible bytes\n        for guess in range(256):\n            crafted_iv = bytearray(16)\n            # Set up for desired padding\n            for i in range(pos + 1, 16):\n                crafted_iv[i] = plaintext[i] ^ padding_value\n            crafted_iv[pos] = guess\n            \n            if padding_oracle(block, bytes(crafted_iv)):\n                plaintext[pos] = guess ^ padding_value\n                break\n    return bytes(plaintext)",
+      "flag_hint": "Look for different error messages between decryption and padding failures",
+      "tags": ["aes", "cbc", "padding-oracle", "side-channel"]
+    },
+    {
+      "name": "CTR Mode Stream Cipher",
+      "desc": "Counter mode turns AES into a stream cipher by encrypting incrementing counter values and XORing with plaintext",
+      "example": "from Crypto.Cipher import AES\nfrom Crypto.Util import Counter\n\n# CTR mode with counter\nkey = b'Sixteen byte key'\nctr = Counter.new(128, initial_value=0)\ncipher = AES.new(key, AES.MODE_CTR, counter=ctr)\n\n# CTR mode vulnerability: nonce reuse\n# If same nonce/counter used twice:\n# C1 ⊕ C2 = P1 ⊕ P2 (keystream cancels out)\n\n# Many-time pad attack\ndef xor_bytes(a, b):\n    return bytes(x ^ y for x, y in zip(a, b))\n\n# If we know P1, can recover P2\nP2 = xor_bytes(xor_bytes(C1, C2), P1)",
+      "flag_hint": "CTR mode with nonce reuse = stream cipher with key reuse",
+      "tags": ["aes", "ctr", "stream-cipher", "nonce-reuse"]
+    },
+    {
+      "name": "GCM Mode Authentication",
+      "desc": "Galois/Counter Mode provides both encryption and authentication using GMAC",
+      "example": "from Crypto.Cipher import AES\n\n# GCM mode with authentication\nkey = b'Sixteen byte key'\nnonce = b'12byte_nonce'  # 96-bit nonce recommended\ncipher = AES.new(key, AES.MODE_GCM, nonce=nonce)\n\n# Encrypt with additional authenticated data\naad = b'metadata'  # Not encrypted, but authenticated\ncipher.update(aad)\nciphertext, tag = cipher.encrypt_and_digest(plaintext)\n\n# Decryption verifies tag automatically\ncipher = AES.new(key, AES.MODE_GCM, nonce=nonce)\ncipher.update(aad)\nplaintext = cipher.decrypt_and_verify(ciphertext, tag)\n\n# Tag forgery attacks if nonce reused",
+      "flag_hint": "GCM is vulnerable to nonce reuse - allows authentication bypass",
+      "tags": ["aes", "gcm", "authenticated-encryption", "aead"]
+    },
+    {
+      "name": "Padding Schemes",
+      "desc": "PKCS#7 padding adds bytes equal to number of padding bytes needed to reach block size",
+      "example": "# PKCS#7 padding\ndef pad_pkcs7(data, block_size=16):\n    padding_len = block_size - (len(data) % block_size)\n    return data + bytes([padding_len] * padding_len)\n\n# Examples:\n# 'YELLOW SUBMARINE' (16 bytes) → no padding needed\n# 'YELLOW' (6 bytes) → add 10 bytes of 0x0A\n# Result: 'YELLOW\\x0a\\x0a\\x0a\\x0a\\x0a\\x0a\\x0a\\x0a\\x0a\\x0a'\n\ndef unpad_pkcs7(data):\n    padding_len = data[-1]\n    if padding_len > len(data) or padding_len == 0:\n        raise ValueError('Invalid padding')\n    if data[-padding_len:] != bytes([padding_len] * padding_len):\n        raise ValueError('Invalid padding')\n    return data[:-padding_len]",
+      "flag_hint": "Invalid padding errors can be exploited for oracle attacks",
+      "tags": ["aes", "padding", "pkcs7"]
+    },
+    {
+      "name": "Key Derivation",
+      "desc": "Proper methods to derive encryption keys from passwords or other material",
+      "example": "from Crypto.Protocol.KDF import PBKDF2, scrypt\nfrom Crypto.Hash import SHA256\nimport hashlib\n\n# PBKDF2 (Password-Based Key Derivation Function 2)\npassword = b'my_password'\nsalt = b'random_salt'\nkey = PBKDF2(password, salt, dkLen=32, count=100000)\n\n# Scrypt (memory-hard function)\nkey = scrypt(password, salt, 32, N=2**14, r=8, p=1)\n\n# Bad practice: Direct hashing\n# DON'T DO THIS:\nweak_key = hashlib.sha256(password).digest()[:16]\n\n# Derive multiple keys from master\nfrom Crypto.Hash import HMAC\ndef hkdf_expand(key, info, length):\n    okm = b''\n    i = 1\n    while len(okm) < length:\n        okm += HMAC.new(key, okm[-32:] + info + bytes([i]), \n                        SHA256).digest()\n        i += 1\n    return okm[:length]",
+      "flag_hint": "Weak key derivation (like simple MD5) is often the intended vulnerability",
+      "tags": ["aes", "kdf", "pbkdf2", "key-derivation"]
+    },
+    {
+      "name": "ECB Byte-at-a-Time Attack",
+      "desc": "If you can prepend data to unknown plaintext encrypted in ECB, can recover plaintext byte-by-byte",
+      "example": "# Oracle: encrypt(your_input + secret_flag)\ndef ecb_decrypt_oracle(oracle, block_size=16):\n    secret = b''\n    secret_length = len(oracle(b''))  # Get encrypted length\n    \n    for i in range(secret_length):\n        # Create input one byte short of block\n        prefix_len = (block_size - 1 - (i % block_size))\n        prefix = b'A' * prefix_len\n        \n        # Get target block\n        encrypted = oracle(prefix)\n        target_block_index = i // block_size\n        target_block = encrypted[target_block_index * block_size:\n                                (target_block_index + 1) * block_size]\n        \n        # Try all possible bytes\n        for byte in range(256):\n            test_input = prefix + secret + bytes([byte])\n            test_encrypted = oracle(test_input)\n            test_block = test_encrypted[target_block_index * block_size:\n                                       (target_block_index + 1) * block_size]\n            \n            if test_block == target_block:\n                secret += bytes([byte])\n                break\n    \n    return secret",
+      "flag_hint": "This attack reveals secret suffix one byte at a time",
+      "tags": ["aes", "ecb", "chosen-plaintext", "byte-at-a-time"]
+    },
+    {
+      "name": "Common AES Mistakes in CTFs",
+      "desc": "Typical implementation errors and misconfigurations that lead to vulnerabilities",
+      "example": "# 1. Using key as IV\ncipher = AES.new(key, AES.MODE_CBC, iv=key)  # WRONG!\n\n# 2. ECB mode for structured data\ncipher = AES.new(key, AES.MODE_ECB)  # Reveals patterns\n\n# 3. Reusing nonce in CTR/GCM\nfor msg in messages:\n    cipher = AES.new(key, AES.MODE_CTR, nonce=fixed_nonce)  # WRONG!\n\n# 4. Not authenticating ciphertext\n# Allows bit-flipping attacks in CBC/CTR\n\n# 5. Weak key derivation\nkey = hashlib.md5(password).digest()  # Brute-forceable\n\n# 6. Padding oracle vulnerability\ntry:\n    plaintext = unpad(decrypt(ct), 16)\n    return 'Success'\nexcept:\n    return 'Padding Error'  # Information leak!\n\n# 7. IV transmitted in plaintext (this is okay)\n# But IV must be unpredictable for CBC",
+      "flag_hint": "Most CTF AES challenges exploit mode confusion or parameter reuse",
+      "tags": ["aes", "vulnerabilities", "common-mistakes"]
+    }
+  ]
+}

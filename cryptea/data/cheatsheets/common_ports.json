@@ -1,0 +1,77 @@
+{
+  "title": "Common Network Ports & Services",
+  "category": "Network",
+  "description": "Well-known TCP/UDP port numbers with scanning and exploitation techniques",
+  "entries": [
+    {
+      "name": "Essential Ports Quick Reference",
+      "desc": "Most common ports you'll encounter in CTFs and penetration testing.",
+      "example": "Critical Ports:\n===============\n\n21   FTP        - File Transfer (often anonymous)\n22   SSH        - Secure Shell (check weak keys)\n23   Telnet     - Unencrypted remote access\n25   SMTP       - Email server (relay testing)\n53   DNS        - Domain lookups (zone transfers)\n80   HTTP       - Web server (most common)\n110  POP3       - Email retrieval\n143  IMAP       - Email access\n443  HTTPS      - Encrypted web\n445  SMB        - Windows file sharing\n3306 MySQL     - Database\n3389 RDP        - Remote Desktop\n5432 PostgreSQL - Database\n8080 HTTP-Alt   - Alternate web port\n\nScan for open ports:\nnmap -p- target.com\nnmap -p 21,22,80,443 target.com\n\n# Quick common ports scan\nnmap --top-ports 100 target.com\n\n# Service detection\nnmap -sV -p 80,443 target.com",
+      "flag_hint": "Check unusual ports and services. Flags often hide in custom web servers, databases, or misconfigured services.",
+      "tags": ["network", "scanning", "reference"]
+    },
+    {
+      "name": "Web Ports (80, 443, 8080, 8443)",
+      "desc": "HTTP/HTTPS services and alternate web ports.",
+      "example": "# Scan web ports\nnmap -p 80,443,8000,8080,8443,8888 target.com\n\n# Check HTTP service\ncurl -I http://target.com\ncurl -I http://target.com:8080\n\n# Check HTTPS with certificate info\nopenssl s_client -connect target.com:443 < /dev/null\n\n# Directory enumeration\ngobuster dir -u http://target.com -w /usr/share/wordlists/dirb/common.txt\n\n# Check robots.txt\ncurl http://target.com/robots.txt\n\n# Check common files\ncurl http://target.com/sitemap.xml\ncurl http://target.com/.git/config\ncurl http://target.com/admin\n\n# Test for vulnerabilities\nnikto -h http://target.com\n\n# Alternate ports often used:\n# 8000 - Development server\n# 8080 - HTTP proxy/alternate\n# 8443 - HTTPS alternate\n# 8888 - HTTP alternate\n# 9090 - Web admin panels",
+      "flag_hint": "Check all web ports, not just 80/443. Look for development servers, admin panels, and API endpoints.",
+      "tags": ["web", "http", "scanning"]
+    },
+    {
+      "name": "SSH (Port 22)",
+      "desc": "Secure Shell - remote access and file transfer.",
+      "example": "# Connect to SSH\nssh user@target.com\nssh -p 2222 user@target.com  # Non-standard port\n\n# Check SSH version\nnc target.com 22\n# Look for: SSH-2.0-OpenSSH_X.X\n\n# Test for weak authentication\nhydra -l admin -P passwords.txt ssh://target.com\n\n# SSH key-based auth\nssh -i private_key.pem user@target.com\n\n# Port forwarding\nssh -L 8080:localhost:80 user@target.com\nssh -D 1080 user@target.com  # SOCKS proxy\n\n# File transfer\nscp file.txt user@target.com:/path/\nsftp user@target.com\n\n# Check for public keys\ncurl http://target.com/.ssh/authorized_keys\ncurl http://target.com/.ssh/id_rsa\n\n# SSH tunneling for CTF\nssh -N -L 3306:localhost:3306 user@jump-host",
+      "flag_hint": "Check for exposed SSH keys in web directories, weak passwords, or interesting files in home directories.",
+      "tags": ["ssh", "remote-access", "tunneling"]
+    },
+    {
+      "name": "FTP (Ports 20, 21)",
+      "desc": "File Transfer Protocol - often allows anonymous access.",
+      "example": "# Connect to FTP\nftp target.com\n# Try username: anonymous, password: any@email.com\n\n# Command-line check\nncftp target.com\n\n# Anonymous FTP test\nwget -r ftp://anonymous:anonymous@target.com/\n\n# List files with wget\nwget --spider -r ftp://target.com/\n\n# FTP via browser\nftp://target.com/\n\n# Nmap FTP scripts\nnmap --script ftp-anon target.com -p 21\nnmap --script ftp-bounce target.com -p 21\n\n# Brute force FTP\nhydra -l admin -P passwords.txt ftp://target.com\n\n# FTP commands\nls          # List files\ncd dir      # Change directory\nget file    # Download file\nmget *      # Download all files\nbinary      # Set binary mode\npassive     # Passive mode",
+      "flag_hint": "FTP often has anonymous access enabled. Check for interesting files, hidden directories, or credentials.",
+      "tags": ["ftp", "file-transfer", "anonymous-access"]
+    },
+    {
+      "name": "SMB/Samba (Ports 139, 445)",
+      "desc": "Windows file sharing - common target for enumeration.",
+      "example": "# List shares\nsmbclient -L //target.com -N\nsmbclient -L //target.com -U username\n\n# Connect to share\nsmbclient //target.com/sharename -U username\nsmbclient //target.com/sharename -N  # Null session\n\n# Mount SMB share\nmount -t cifs //target.com/share /mnt/smb -o username=user\n\n# Enumerate with enum4linux\nenum4linux -a target.com\n\n# Nmap SMB scripts\nnmap --script smb-enum-shares target.com -p 445\nnmap --script smb-enum-users target.com -p 445\nnmap --script smb-vuln* target.com -p 445\n\n# Check for EternalBlue\nnmap --script smb-vuln-ms17-010 target.com -p 445\n\n# SMB client commands\nls           # List files\nget file     # Download\nmget *       # Download all\nput file     # Upload",
+      "flag_hint": "SMB shares often contain flags, credentials, or interesting files. Check guest/null authentication.",
+      "tags": ["smb", "windows", "file-sharing"]
+    },
+    {
+      "name": "Database Ports (MySQL 3306, PostgreSQL 5432, MongoDB 27017)",
+      "desc": "Direct database access - often exposed in CTFs.",
+      "example": "# MySQL (3306)\nmysql -h target.com -u root -p\nmysql -h target.com -u root  # No password\n\n# Show databases\nSHOW DATABASES;\nUSE database_name;\nSHOW TABLES;\nSELECT * FROM users;\n\n# PostgreSQL (5432)\npsql -h target.com -U postgres\n\n# MongoDB (27017)\nmongo target.com:27017\nmongo target.com:27017/database\n\n# Show collections\nshow dbs;\nuse mydb;\nshow collections;\ndb.users.find();\n\n# Redis (6379)\nredis-cli -h target.com\nKEYS *\nGET key\n\n# Nmap database detection\nnmap -p 3306,5432,27017,6379 target.com\nnmap --script mysql-info target.com -p 3306\nnmap --script mongodb-info target.com -p 27017\n\n# Brute force\nhydra -l root -P passwords.txt mysql://target.com",
+      "flag_hint": "Databases may have weak credentials (root/root, admin/admin). Look for flags in tables or Redis keys.",
+      "tags": ["database", "mysql", "postgres", "mongodb"]
+    },
+    {
+      "name": "DNS (Port 53)",
+      "desc": "Domain Name System - zone transfers and enumeration.",
+      "example": "# DNS lookup\ndig target.com\nnslookup target.com\nhost target.com\n\n# Zone transfer (AXFR)\ndig axfr @target.com domain.com\ndig axfr @ns1.target.com target.com\n\n# DNS enumeration\ndnsrecon -d target.com\ndnsenum target.com\n\n# Reverse DNS lookup\ndig -x 192.168.1.1\n\n# Check specific records\ndig target.com A      # IPv4 address\ndig target.com AAAA   # IPv6 address\ndig target.com MX     # Mail servers\ndig target.com TXT    # Text records (often flags!)\ndig target.com NS     # Name servers\n\n# Subdomain brute force\ndnsrecon -d target.com -D subdomains.txt -t brt\n\n# Check for wildcard DNS\ndig nonexistent.target.com",
+      "flag_hint": "TXT records often contain flags! Try zone transfers and check for interesting subdomains.",
+      "tags": ["dns", "enumeration", "zone-transfer"]
+    },
+    {
+      "name": "Mail Servers (SMTP 25, POP3 110, IMAP 143)",
+      "desc": "Email services - check for open relays and user enumeration.",
+      "example": "# SMTP (25, 587)\ntelnet target.com 25\nEHLO test.com\nMAIL FROM: <test@test.com>\nRCPT TO: <user@target.com>\nDATA\nSubject: Test\nHello\n.\nQUIT\n\n# Check for open relay\nnmap --script smtp-open-relay target.com -p 25\n\n# User enumeration\nsmtp-user-enum -M VRFY -U users.txt -t target.com\n\n# POP3 (110)\ntelnet target.com 110\nUSER username\nPASS password\nLIST\nRETR 1\nQUIT\n\n# IMAP (143)\ntelnet target.com 143\na1 LOGIN username password\na2 LIST \"\" \"*\"\na3 SELECT INBOX\na4 FETCH 1 BODY[]\na5 LOGOUT\n\n# Check mail server\ndig target.com MX\nnmap --script smtp-commands target.com -p 25",
+      "flag_hint": "Check for user enumeration, open relays, or accessible mailboxes with weak credentials.",
+      "tags": ["smtp", "email", "pop3", "imap"]
+    },
+    {
+      "name": "RDP (Port 3389)",
+      "desc": "Remote Desktop Protocol for Windows remote access.",
+      "example": "# Connect via RDP\nxfreerdp /u:username /p:password /v:target.com\nrdesktop target.com\n\n# Check if RDP is open\nnmap -p 3389 target.com\nnmap --script rdp-enum-encryption target.com -p 3389\n\n# RDP with certificate ignore\nxfreerdp /u:admin /p:password /v:target.com /cert-ignore\n\n# Brute force RDP\nhydra -l administrator -P passwords.txt rdp://target.com\n\n# Check for BlueKeep vulnerability\nnmap --script rdp-vuln-ms12-020 target.com -p 3389\n\n# RDP from Linux\nremmina  # GUI client",
+      "flag_hint": "RDP may have weak credentials or be vulnerable. Check default accounts (Administrator, admin).",
+      "tags": ["rdp", "windows", "remote-desktop"]
+    },
+    {
+      "name": "Quick Port Scanning Cheat Sheet",
+      "desc": "Fast scanning techniques for CTF reconnaissance.",
+      "example": "# Fast SYN scan (requires root)\nsudo nmap -sS -p- --min-rate=1000 target.com\n\n# Top 1000 ports (fastest)\nnmap target.com\n\n# All ports\nnmap -p- target.com\n\n# Specific ports\nnmap -p 22,80,443,3306 target.com\n\n# Service version detection\nnmap -sV -p 80,443 target.com\n\n# OS detection\nsudo nmap -O target.com\n\n# Aggressive scan\nnmap -A target.com\n\n# Vulnerability scripts\nnmap --script vuln target.com\n\n# Quick UDP scan (top 20)\nsudo nmap -sU --top-ports 20 target.com\n\n# Save results\nnmap -oA scan_results target.com\n\n# Netcat port check\nnc -zv target.com 80\nnc -zv target.com 1-1000  # Range scan\n\n# Banner grabbing\nnc target.com 80\ntelnet target.com 80\n\n# Check if port is open\ntimeout 1 bash -c \"</dev/tcp/target.com/80\" && echo \"Open\" || echo \"Closed\"",
+      "flag_hint": "Always scan all ports! Flags often hide on unusual high-numbered ports (8000-9999, 30000+).",
+      "tags": ["scanning", "nmap", "reconnaissance"]
+    }
+  ]
+}

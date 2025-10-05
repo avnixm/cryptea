@@ -1,0 +1,49 @@
+{
+  "title": "Base64 Decoder",
+  "category": "Crypto",
+  "description": "Standard and URL-safe Base64 encode/decode for handling embedded data in CTF challenges. Use only on systems you control.",
+  "entries": [
+    {
+      "name": "Standard Base64 Decode",
+      "desc": "Decode a Base64 string to raw bytes or text using the standard alphabet (A-Za-z0-9+/).",
+      "example": "# Command line decode\necho 'SGVsbG8gd29ybGQh' | base64 -d\n\n# Decode from file\nbase64 -d encoded.txt > decoded.bin\n\n# Python fallback\npython3 -c \"import base64; print(base64.b64decode('SGVsbG8gd29ybGQh').decode())\"\n\n# Multi-line Base64\ncat multiline.b64 | tr -d '\\n' | base64 -d",
+      "flag_hint": "Flags often appear as Base64 in HTML data URIs, JavaScript strings, HTTP headers (Authorization: Basic), XML/JSON payloads, or embedded in image metadata.",
+      "tags": ["crypto", "decoder", "one-liner", "encoding"]
+    },
+    {
+      "name": "URL-Safe Base64",
+      "desc": "Decode URL-safe Base64 variant that uses - and _ instead of + and / to avoid URL encoding issues.",
+      "example": "# Python URL-safe decode\npython3 -c \"import base64; print(base64.urlsafe_b64decode('SGVsbG8td29ybGQh').decode())\"\n\n# Convert URL-safe to standard, then decode\necho 'SGVs-G8td_9y-GQh' | tr -- '-_' '+/' | base64 -d\n\n# Check JWT token payload (middle section)\necho 'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoiYWRtaW4ifQ.xyz' | cut -d'.' -f2 | base64 -d",
+      "flag_hint": "JWT tokens, URL parameters, cookie values, and API responses often use URL-safe Base64 encoding.",
+      "tags": ["crypto", "jwt", "url-encoding", "web"]
+    },
+    {
+      "name": "Base64 Encode",
+      "desc": "Encode binary data or text to Base64 format for embedding or transmission.",
+      "example": "# Encode string\necho -n 'flag{test}' | base64\n\n# Encode file\nbase64 image.png > image.b64\n\n# Encode without newlines (for single-line output)\nbase64 -w 0 file.bin\n\n# Python encoding\npython3 -c \"import base64; print(base64.b64encode(b'data').decode())\"",
+      "flag_hint": "Sometimes you need to encode payloads to bypass filters or match expected input formats in challenges.",
+      "tags": ["crypto", "encoder", "bypass"]
+    },
+    {
+      "name": "Detect Base64",
+      "desc": "Identify potential Base64 strings by pattern matching and padding validation.",
+      "example": "# Find Base64 strings in files (length divisible by 4, valid chars)\ngrep -oE '[A-Za-z0-9+/]{20,}={0,2}' file.txt\n\n# Extract from source code\ngrep -r \"[A-Za-z0-9+/]\\{40,\\}=*\" *.js *.html\n\n# Python validation\npython3 <<'PY'\nimport base64, re\ndata = \"SGVsbG8=\"\nif re.match(r'^[A-Za-z0-9+/]*={0,2}$', data) and len(data) % 4 == 0:\n    try:\n        decoded = base64.b64decode(data)\n        print(f\"Valid Base64: {decoded}\")\n    except: pass\nPY",
+      "flag_hint": "Look for long strings of alphanumeric characters ending in = or == in HTML comments, JavaScript variables, configuration files, and network traffic.",
+      "tags": ["crypto", "detection", "pattern-matching"]
+    },
+    {
+      "name": "Nested/Layered Base64",
+      "desc": "Decode Base64 that has been encoded multiple times (common obfuscation technique).",
+      "example": "# Manual iterative decode\necho 'U0dWc2JHOD0=' | base64 -d | base64 -d\n\n# Python loop until non-Base64\npython3 <<'PY'\nimport base64\ndata = \"U0dWc2JHOD0=\"\nfor i in range(10):\n    try:\n        data = base64.b64decode(data).decode()\n        print(f\"Layer {i+1}: {data}\")\n    except:\n        break\nPY\n\n# Bash loop\nDATA='U0dWc2JHOD0='\nwhile true; do\n  DECODED=$(echo \"$DATA\" | base64 -d 2>/dev/null) || break\n  echo \"$DECODED\"\n  DATA=\"$DECODED\"\ndone",
+      "flag_hint": "CTF challenges often use multiple layers of Base64 encoding to hide flags. Decode repeatedly until you see readable text or the flag format.",
+      "tags": ["crypto", "obfuscation", "layered", "advanced"]
+    },
+    {
+      "name": "Base64 in Files",
+      "desc": "Extract and decode Base64 data embedded in various file formats.",
+      "example": "# Extract from HTML data URI\ngrep -oP 'data:[^;]+;base64,\\K[^\"]+' index.html | base64 -d > extracted.bin\n\n# Extract from email attachments\ngrep -A999 'Content-Transfer-Encoding: base64' email.eml | base64 -d > attachment.pdf\n\n# Extract from XML\nxmlstarlet sel -t -v '//data' file.xml | base64 -d\n\n# Extract from JSON\njq -r '.payload' data.json | base64 -d",
+      "flag_hint": "Check data URIs in HTML/CSS, email MIME parts, XML CDATA sections, JSON fields, and SVG embedded images.",
+      "tags": ["forensics", "extraction", "file-analysis"]
+    }
+  ]
+}

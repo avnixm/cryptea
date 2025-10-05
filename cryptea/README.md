@@ -6,7 +6,59 @@
 
 **100% Offline CTF Challenge Manager & Security Toolkit**
 
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv### Quick Install (Fedora)
+
+```bash
+# Clone ### Ubuntu/Debian
+
+```bash
+# Clone re### Arch Linux
+
+```bash
+# Clone repository first
+git clone https://github.com/avnixm/cryptea.git
+cd cryptea
+
+# Check dependencies (recommended - shows what's missing)
+python3 check_dependencies.py
+
+# Install system dependencies
+sudo pacman -S python python-pip python-gobject gtk4 libadwaita meson
+
+# Install optional tools (for full functionality)
+sudo pacman -S hashcat john-jumbo radare2 gdb binutils binwalk \
+               perl-image-exiftool zbar ffmpeg sox nmap
+
+# Build and installt
+git clone https://github.com/avnixm/cryptea.git
+cd cryptea
+
+# Check dependencies (recommended - shows what's missing)
+python3 check_dependencies.py
+
+# Install system dependencies
+sudo apt install python3 python3-pip python3-gi gir1.2-gtk-4.0 \
+                 gir1.2-adw-1 meson ninja-build
+
+# Install optional tools (for full functionality)
+sudo apt install hashcat john radare2 gdb binutils binwalk exiftool \
+                 zbar-tools ffmpeg sox nmap
+
+# Build and installst
+git clone https://github.com/avnixm/cryptea.git
+cd cryptea
+
+# Check dependencies (recommended - shows what's missing)
+python3 check_dependencies.py
+
+# Install system dependencies
+sudo dnf install python3 python3-pip python3-gobject gtk4 libadwaita meson
+
+# Install optional tools (for full functionality)
+sudo dnf install hashcat john ghidra radare2 gdb binutils binwalk \
+                 exiftool zbar ffmpeg sox nmap
+
+# Build and installCENSE)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![GTK 4](https://img.shields.io/badge/GTK-4-green.svg)](https://www.gtk.org/)
 [![Libadwaita](https://img.shields.io/badge/Libadwaita-1.2+-purple.svg)](https://gnome.pages.gitlab.gnome.org/libadwaita/)
@@ -176,7 +228,71 @@ Cryptea includes **40+ offline security tools** organized by category:
 
 ## 📥 Installation
 
-### Prerequisites
+### Option 1: Standalone Flatpak Bundle (Easiest!)
+
+**Download and install a single file** - no build tools or source code needed!
+
+#### For Users:
+
+1. **Download** `cryptea-VERSION.flatpak` from [Releases](https://github.com/avnixm/cryptea/releases)
+2. **Install** with one command:
+   ```bash
+   flatpak install cryptea-1.0.0-20251005.flatpak
+   ```
+   Or just **double-click** the file!
+
+3. **Run** from your application menu or:
+   ```bash
+   flatpak run org.avnixm.Cryptea
+   ```
+
+**What's included:** Application + radare2 + binwalk + exiftool + zbar + ffmpeg (~500MB)
+
+See [FLATPAK_BUNDLE.md](FLATPAK_BUNDLE.md) for detailed bundle installation guide.
+
+#### For Developers (Creating Bundle):
+
+```bash
+# Clone repository
+git clone https://github.com/avnixm/cryptea.git
+cd cryptea
+
+# Create distributable bundle
+./create-bundle.sh
+
+# This creates: cryptea-VERSION-DATE.flatpak
+# Share this single file with users!
+```
+
+### Option 2: Build Flatpak from Source
+
+Build and install locally for development:
+
+```bash
+# Clone repository
+git clone https://github.com/avnixm/cryptea.git
+cd cryptea
+
+# Build and install
+./build-flatpak.sh
+
+# Run
+flatpak run org.avnixm.Cryptea
+```
+
+**Advantages:**
+- ✅ Sandboxed and secure
+- ✅ Includes radare2, binwalk, exiftool, zbar, and ffmpeg
+- ✅ Works across all Linux distributions
+- ✅ Easy to update and remove
+
+See [FLATPAK.md](FLATPAK.md) for detailed Flatpak documentation.
+
+### Option 3: System Installation
+
+For development or system-wide installation:
+
+#### Prerequisites
 
 **Required:**
 - Python 3.11 or higher
@@ -198,12 +314,12 @@ Cryptea includes **40+ offline security tools** organized by category:
 - \`exiftool\` - EXIF metadata
 - \`zsteg\` - PNG/BMP steganography
 - \`steghide\` - JPEG steganography
-- \`zbarimg\` - QR/barcode scanning
-- \`ffmpeg\` - Video frame extraction
-- \`sox\` - Audio analysis
-- \`nmap\` - Network scanning (local only)
+- `zbarimg` - QR/barcode scanning
+- `ffmpeg` - Video frame extraction
+- `sox` - Audio analysis
+- `nmap` - Network scanning (local only)
 
-### Quick Install (Fedora)
+#### Quick Install (Fedora)
 
 \`\`\`bash
 # Install system dependencies
@@ -228,11 +344,11 @@ source ~/.bashrc
 
 # Launch
 cryptea
-\`\`\`
+```
 
-### Ubuntu/Debian
+#### Ubuntu/Debian
 
-\`\`\`bash
+```bash
 # Install system dependencies
 sudo apt install python3 python3-pip python3-gi gir1.2-gtk-4.0 \\
                  gir1.2-adw-1 meson ninja-build
@@ -247,11 +363,11 @@ cd cryptea
 meson setup builddir-user --prefix=$HOME/.local
 meson compile -C builddir-user
 meson install -C builddir-user
-\`\`\`
+```
 
-### Arch Linux
+#### Arch Linux
 
-\`\`\`bash
+```bash
 # Install system dependencies
 sudo pacman -S python python-pip python-gobject gtk4 libadwaita meson
 
@@ -265,11 +381,11 @@ cd cryptea
 meson setup builddir-user --prefix=$HOME/.local
 meson compile -C builddir-user
 meson install -C builddir-user
-\`\`\`
+```
 
-### Running from Source
+#### Running from Source
 
-\`\`\`bash
+```bash
 # Clone repository
 git clone https://github.com/avnixm/cryptea.git
 cd cryptea

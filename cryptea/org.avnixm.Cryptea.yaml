@@ -1,0 +1,185 @@
+app-id: org.avnixm.Cryptea
+runtime: org.gnome.Platform
+runtime-version: '47'
+sdk: org.gnome.Sdk
+command: cryptea
+finish-args:
+  # X11 + XShm access
+  - --share=ipc
+  - --socket=fallback-x11
+  # Wayland access
+  - --socket=wayland
+  # GPU acceleration
+  - --device=dri
+  # Network access (for nmap and other network tools)
+  - --share=network
+  # Access to home directory for CTF files
+  - --filesystem=home
+  # Access to /tmp for temporary files
+  - --filesystem=/tmp
+  # Allow access to USB devices (for forensics)
+  - --device=all
+  # Talk to the session bus
+  - --socket=session-bus
+  # Allow running subprocesses (needed for external tools)
+  - --talk-name=org.freedesktop.Flatpak
+
+cleanup:
+  - /include
+  - /lib/pkgconfig
+  - /man
+  - /share/doc
+  - /share/gtk-doc
+  - /share/man
+  - /share/pkgconfig
+  - '*.la'
+  - '*.a'
+
+modules:
+  # Python dependencies
+  - name: python3-cffi
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} cffi --no-build-isolation
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/source/p/pycparser/pycparser-2.22.tar.gz
+        sha256: 491c8be9c040f5390f5bf44a5b07752bd07f56edf992381b05c701439eec10f6
+      - type: file
+        url: https://files.pythonhosted.org/packages/source/c/cffi/cffi-1.17.1.tar.gz
+        sha256: 1c39c6016c32bc48dd54561950ebd6836e1670f2ae46128f67cf49e789c52824
+
+  - name: python3-cryptography
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} cryptography --no-build-isolation
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/source/c/cryptography/cryptography-42.0.8.tar.gz
+        sha256: 8d09d05439ce7baa8e9e95b07ec5b6c886f548deb7e0f69ef25f64b3bce842f2
+
+  - name: python3-pycryptodome
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} pycryptodome --no-build-isolation
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/source/p/pycryptodome/pycryptodome-3.20.0.tar.gz
+        sha256: 09609209ed7de61c2b560cc5c8c4fbf892f8b15b1faf7e4cbffac97db1fffda7
+
+  - name: python3-markdown2
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} markdown2 --no-build-isolation
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/source/m/markdown2/markdown2-2.4.13.tar.gz
+        sha256: 18ceb56590da77f2c22382e55be48c15b3c8f0c71d6398def387275e6c347a9f
+
+  - name: python3-pynacl
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} pynacl --no-build-isolation
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/source/P/PyNaCl/PyNaCl-1.5.0.tar.gz
+        sha256: 8ac7448f09ab85811607bdd21ec2464495ac8b7c66d146bf545b0f08fb9220ba
+
+  - name: python3-psutil
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} psutil --no-build-isolation
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/source/p/psutil/psutil-6.1.0.tar.gz
+        sha256: 353815f59a7f64cdaca1c0307ee13558a0512f6db064e92fe833784f08539c7a
+
+  # Optional CTF tools (reverse engineering)
+  - name: capstone
+    buildsystem: cmake-ninja
+    builddir: true
+    config-opts:
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DBUILD_SHARED_LIBS=ON
+      - -DCAPSTONE_BUILD_STATIC=OFF
+      - -DCAPSTONE_BUILD_TESTS=OFF
+    sources:
+      - type: git
+        url: https://github.com/capstone-engine/capstone.git
+        tag: '5.0.1'
+        commit: 097c04d9413c59a58b00d4d1c8d5dc0ac158ffaa
+
+  - name: radare2
+    buildsystem: meson
+    config-opts:
+      - -Duse_sys_capstone=true
+      - -Duse_sys_magic=true
+      - -Duse_sys_xxhash=true
+      - -Duse_sys_openssl=true
+    sources:
+      - type: git
+        url: https://github.com/radareorg/radare2.git
+        tag: 5.9.4
+        commit: b77e3f8ed651b6866175062213158e2b33d2c1e7
+
+  - name: binwalk
+    buildsystem: simple
+    build-commands:
+      - python3 setup.py install --prefix=${FLATPAK_DEST}
+    sources:
+      - type: git
+        url: https://github.com/ReFirmLabs/binwalk.git
+        tag: v2.3.4
+        commit: cddfede795971045d99422bd7a9676c8803ec5ee
+
+  - name: exiftool
+    buildsystem: simple
+    build-commands:
+      - perl Makefile.PL PREFIX=${FLATPAK_DEST}
+      - make install
+    sources:
+      - type: archive
+        url: https://exiftool.org/Image-ExifTool-13.38.tar.gz
+        sha256: 0256672ab507662fe42d1ae851ae1b55930a3c8eb69e9d6883c33559e90f5f01
+
+  - name: zbar
+    buildsystem: simple
+    build-commands:
+      - autoreconf -vfi
+      - ./configure --prefix=${FLATPAK_DEST} --without-qt --without-gtk --without-python2 --with-python=python3 --disable-video --with-dbusconfdir=${FLATPAK_DEST}/share/dbus-1/system.d
+      - make
+      - make install
+    sources:
+      - type: archive
+        url: https://github.com/mchehab/zbar/archive/refs/tags/0.23.93.tar.gz
+        sha256: 212dfab527894b8bcbcc7cd1d43d63f5604a07473d31a5f02889e372614ebe28
+
+  - name: ffmpeg
+    buildsystem: autotools
+    config-opts:
+      - --disable-static
+      - --enable-shared
+      - --disable-doc
+      - --disable-programs
+      - --enable-gpl
+      - --enable-version3
+      - --disable-vulkan
+      - --disable-decoder=av1
+      - --disable-decoder=av1_vulkan
+    sources:
+      - type: archive
+        url: https://ffmpeg.org/releases/ffmpeg-6.1.1.tar.xz
+        sha256: 8684f4b00f94b85461884c3719382f1261f0d9eb3d59640a1f4ac0873616f968
+
+  # Main Cryptea application
+  - name: cryptea
+    buildsystem: meson
+    sources:
+      - type: dir
+        path: .

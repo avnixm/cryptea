@@ -32,6 +32,9 @@ from .offline_guard import OfflineGuard, OfflineViolation
 from .ui.cheatsheet_panel import CheatSheetPanel
 from .resources import Resources
 from .ui.filter_bar import FilterBar
+from .process_manager import get_process_manager
+from .module_loader import get_module_loader
+from .performance_monitor import get_performance_monitor
 
 _LOG = configure_logging()
 
@@ -796,6 +799,11 @@ class MainWindow:
         self._flush_metadata_if_dirty()
         self._flush_flag_if_dirty()
         self._flush_notes_if_pending()
+        
+        # Cleanup on window close
+        self.app.process_manager.stop_all()
+        self.app.module_loader.unload_idle_modules()
+        
         return False
 
     def _on_search_changed(self, entry: Gtk.SearchEntry) -> None:
@@ -9836,11 +9844,26 @@ class CrypteaApplication(Adw.Application):
         self.main_window: Optional[MainWindow] = None
         self._diagnostics_cache: Optional[str] = None
         self._pending_warnings: List[str] = []
+        
+        # Initialize performance management systems
+        self.process_manager = get_process_manager()
+        self.module_loader = get_module_loader()
+        self.performance_monitor = get_performance_monitor(
+            enabled=getattr(config, 'DEBUG', False)
+        )
+        
+        _LOG.info("CrypteaApplication initialized with performance management")
 
     def do_startup(self) -> None:  # type: ignore[override]
         Adw.Application.do_startup(self)
         self._install_actions()
         self._register_css()
+        
+        # Start background services
+        self.process_manager.start_cleanup_thread()
+        if self.performance_monitor.enabled:
+            self.performance_monitor.start()
+            _LOG.info("Performance monitoring enabled (developer mode)")
 
     def do_activate(self) -> None:  # type: ignore[override]
         # Offline guard disabled - network alerts removed
@@ -9854,6 +9877,30 @@ class CrypteaApplication(Adw.Application):
             seed_if_requested(self.challenge_manager, self.note_manager)
             self._flush_pending_warnings()
         self.main_window.present()
+    
+    def do_shutdown(self) -> None:  # type: ignore[override]
+        """Cleanup on application shutdown."""
+        _LOG.info("Shutting down application")
+        
+        # Stop all running processes
+        _LOG.info("Stopping all processes...")
+        self.process_manager.stop_all()
+        
+        # Unload all modules
+        _LOG.info("Unloading all modules...")
+        self.module_loader.unload_all()
+        
+        # Stop background services
+        self.process_manager.stop_cleanup_thread()
+        if self.performance_monitor.enabled:
+            self.performance_monitor.stop()
+        
+        # Close database
+        self.database.close()
+        
+        _LOG.info("Application shutdown complete")
+        
+        Adw.Application.do_shutdown(self)
 
     def _install_actions(self) -> None:
         self._add_simple_action("copy_diagnostics", self.copy_diagnostics)

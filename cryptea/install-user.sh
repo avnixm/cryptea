@@ -7,6 +7,21 @@ set -e
 echo "=== Cryptea User Installation Script ==="
 echo ""
 
+# Run dependency checker first
+if [ -f "check_dependencies.py" ]; then
+    echo "Checking system dependencies..."
+    python3 check_dependencies.py
+    check_result=$?
+    if [ $check_result -ne 0 ]; then
+        echo ""
+        echo "Please install missing required dependencies before proceeding."
+        exit 1
+    fi
+    echo ""
+    read -p "Press Enter to continue with installation..."
+    echo ""
+fi
+
 # Check if running on Fedora
 if [ ! -f /etc/fedora-release ]; then
     echo "Warning: This script is designed for Fedora. Continue anyway? (y/n)"

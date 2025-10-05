@@ -9,7 +9,8 @@ readme = "README.md"
 dependencies = [
   "markdown2",
   "PyNaCl",
-  "cryptography"
+  "cryptography",
+  "psutil"
 ]
 
 [tool.meson-python.metadata]

@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="cryptea/data/icons/cryptea-logo-256.png" alt="Cryptea Logo" width="256"/>
+<img src="cryptea/data/icons/cryptea-logo-256.png" alt="Cryptea Logo"/>
 
 **100% Offline CTF Challenge Manager & Security Toolkit**
 

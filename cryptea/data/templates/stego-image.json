@@ -1,0 +1,7 @@
+{
+  "title": "Steganography - Image",
+  "category": "Forensics",
+  "difficulty": "easy",
+  "description": "Find hidden data within an image file.\n\nCommon techniques:\n- LSB (Least Significant Bit) steganography\n- Hidden data in EXIF metadata\n- Data appended after image EOF\n- Stegsolve color plane analysis\n- Password-protected embedded files\n\nSteps:\n1. Run file, exiftool, strings\n2. Check with binwalk for embedded files\n3. Try stegsolve with different filters\n4. Use steghide with common passwords\n5. Check image properties and dimensions\n\nTools: steghide, stegsolve, zsteg, exiftool, binwalk",
+  "tags": ["forensics", "steganography", "image", "hidden-data"]
+}

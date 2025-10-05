@@ -1,0 +1,7 @@
+{
+  "title": "Reverse Engineering - Crackme",
+  "category": "Reverse",
+  "difficulty": "medium",
+  "description": "Analyze a compiled binary to find the correct password or license key.\n\nApproach:\n- Static analysis with Ghidra/IDA/Binary Ninja\n- Dynamic analysis with debugger (gdb, x64dbg)\n- Look for string comparisons\n- Track input validation logic\n- Identify key generation algorithms\n\nCommon patterns:\n- strcmp/memcmp for password check\n- XOR operations for obfuscation\n- Mathematical transformations\n- Anti-debugging techniques\n\nTools: Ghidra, radare2/rizin, gdb, ltrace, strace",
+  "tags": ["reverse", "binary-analysis", "crackme", "password"]
+}

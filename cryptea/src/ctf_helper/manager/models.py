@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
+from typing import List, Optional
 
 
 @dataclass(slots=True)
@@ -21,6 +21,7 @@ class Challenge:
     updated_at: datetime
     flag: Optional[str] = None
     favorite: bool = False
+    tags: List[str] = field(default_factory=list)
 
 
 @dataclass(slots=True)

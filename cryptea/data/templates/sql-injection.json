@@ -1,0 +1,7 @@
+{
+  "title": "SQL Injection",
+  "category": "Web",
+  "difficulty": "medium",
+  "description": "Exploit a SQL injection vulnerability to extract sensitive data from the database.\n\nObjective:\n- Identify injection points in web forms or URLs\n- Bypass authentication or extract data\n- Consider blind SQLi if no direct output\n\nCommon payloads:\n- ' OR '1'='1\n- UNION SELECT NULL, NULL, ...\n- Time-based: ' AND SLEEP(5)--\n\nTools: sqlmap, Burp Suite, manual testing",
+  "tags": ["web", "sqli", "database", "injection"]
+}

@@ -12,7 +12,7 @@ from .logger import configure_logging
 
 _LOG = configure_logging()
 
-SCHEMA_VERSION = 3
+SCHEMA_VERSION = 4
 
 BASE_SQL = """
 PRAGMA journal_mode=WAL;
@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS challenges (
     notes TEXT NOT NULL DEFAULT '',
     favorite INTEGER NOT NULL DEFAULT 0,
     flag TEXT,
+    tags TEXT NOT NULL DEFAULT '',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -94,6 +95,8 @@ class Database:
                 cur.executescript(SCHEMA_SQL)
             if version < 3:
                 self._migrate_to_v3(cur)
+            if version < 4:
+                self._migrate_to_v4(cur)
             cur.execute(
                 "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
                 ("schema_version", str(SCHEMA_VERSION)),
@@ -163,4 +166,12 @@ class Database:
         columns = {row[1] for row in cur.fetchall()}
         if "favorite" not in columns:
             cur.execute("ALTER TABLE challenges ADD COLUMN favorite INTEGER NOT NULL DEFAULT 0")
+        cur.executescript(SCHEMA_SQL)
+
+    def _migrate_to_v4(self, cur: sqlite3.Cursor) -> None:
+        _LOG.info("Upgrading database schema to version 4")
+        cur.execute("PRAGMA table_info(challenges)")
+        columns = {row[1] for row in cur.fetchall()}
+        if "tags" not in columns:
+            cur.execute("ALTER TABLE challenges ADD COLUMN tags TEXT NOT NULL DEFAULT ''")
         cur.executescript(SCHEMA_SQL)

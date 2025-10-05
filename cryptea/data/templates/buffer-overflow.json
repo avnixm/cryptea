@@ -1,0 +1,7 @@
+{
+  "title": "Buffer Overflow",
+  "category": "Pwn",
+  "difficulty": "hard",
+  "description": "Exploit a stack-based buffer overflow to gain code execution.\n\nObjective:\n- Find vulnerable function (strcpy, gets, etc.)\n- Control EIP/RIP register\n- Bypass protections (NX, ASLR, PIE if present)\n- Execute shellcode or ROP chain\n\nConsiderations:\n- Check file with checksec\n- Find offset with pattern_create/pattern_offset\n- Leak addresses if PIE enabled\n- Build ROP chain if NX enabled\n\nTools: pwntools, gdb-peda, ROPgadget",
+  "tags": ["pwn", "binary", "buffer-overflow", "exploitation"]
+}

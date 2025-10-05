@@ -177,3 +177,31 @@ tabbar.hash-suite-tabs button,
   height: 0px !important;
   min-height: 0px !important;
 }
+
+/* ============================================================================
+   FILTER BAR STYLING
+   ============================================================================ */
+
+.filter-bar {
+  background-color: @headerbar_bg_color;
+}
+
+.filter-chip {
+  padding: 4px 8px;
+  border-radius: 16px;
+  background-color: @accent_bg_color;
+  color: @accent_fg_color;
+}
+
+.filter-chip button {
+  min-width: 20px;
+  min-height: 20px;
+  padding: 0;
+  margin: 0;
+}
+
+.filter-chip label {
+  font-size: 0.9em;
+  font-weight: 500;
+}
+

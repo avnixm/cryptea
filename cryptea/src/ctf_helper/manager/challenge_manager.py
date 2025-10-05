@@ -155,18 +155,20 @@ class ChallengeManager:
         project: Optional[str] = None,
         status: Optional[str] = None,
         category: Optional[str] = None,
+        difficulty: Optional[str] = None,
         favorite: Optional[bool] = None,
+        tags: Optional[List[str]] = None,
         order_by: str = "updated_at DESC",
     ) -> List[Challenge]:
         sql = (
-            "SELECT id, title, project, category, difficulty, status, description, notes, favorite, flag, created_at, updated_at "
+            "SELECT id, title, project, category, difficulty, status, description, notes, favorite, flag, tags, created_at, updated_at "
             "FROM challenges WHERE 1=1"
         )
         params: List[Any] = []
         if search:
             like = f"%{search.lower()}%"
-            sql += " AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(project) LIKE ?)"
-            params.extend([like, like, like])
+            sql += " AND (LOWER(title) LIKE ? OR LOWER(description) LIKE ? OR LOWER(project) LIKE ? OR LOWER(tags) LIKE ?)"
+            params.extend([like, like, like, like])
         if project:
             sql += " AND project = ?"
             params.append(project)
@@ -176,10 +178,32 @@ class ChallengeManager:
         if category:
             sql += " AND category = ?"
             params.append(category)
+        if difficulty:
+            sql += " AND difficulty = ?"
+            params.append(difficulty)
         if favorite is not None:
             sql += " AND favorite = ?"
             params.append(1 if favorite else 0)
-        if order_by not in {"created_at ASC", "created_at DESC", "updated_at ASC", "updated_at DESC", "title COLLATE NOCASE"}:
+        if tags:
+            # Support multiple tags with AND logic (challenge must have all tags)
+            for tag in tags:
+                sql += " AND LOWER(tags) LIKE ?"
+                params.append(f"%{tag.lower()}%")
+        
+        # Validate order_by to prevent SQL injection
+        valid_orders = {
+            "created_at ASC",
+            "created_at DESC",
+            "updated_at ASC",
+            "updated_at DESC",
+            "title COLLATE NOCASE",
+            "title COLLATE NOCASE DESC",
+            "difficulty ASC",
+            "difficulty DESC",
+            "status ASC",
+            "status DESC",
+        }
+        if order_by not in valid_orders:
             order_by = "updated_at DESC"
         sql += f" ORDER BY {order_by}"
         with self.db.cursor() as cur:
@@ -221,7 +245,7 @@ class ChallengeManager:
         with self.db.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, title, project, category, difficulty, status, description, notes, favorite, flag, created_at, updated_at
+                SELECT id, title, project, category, difficulty, status, description, notes, favorite, flag, tags, created_at, updated_at
                   FROM challenges
                  WHERE status = 'In Progress'
               ORDER BY updated_at DESC
@@ -244,16 +268,18 @@ class ChallengeManager:
         notes: str = "",
         flag: Optional[str] = None,
         favorite: bool = False,
+        tags: Optional[List[str]] = None,
     ) -> Challenge:
         if status not in STATUSES:
             status = "Not Started"
         now = datetime.now(UTC).isoformat()
         stored_flag = self._encrypt_flag(flag)
+        tags_str = ",".join(tags) if tags else ""
         with self.db.cursor() as cur:
             cur.execute(
                 """
-                INSERT INTO challenges (title, project, category, difficulty, status, description, notes, favorite, flag, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                INSERT INTO challenges (title, project, category, difficulty, status, description, notes, favorite, flag, tags, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     title,
@@ -265,6 +291,7 @@ class ChallengeManager:
                     notes,
                     1 if favorite else 0,
                     stored_flag,
+                    tags_str,
                     now,
                     now,
                 ),
@@ -277,7 +304,7 @@ class ChallengeManager:
     def update_challenge(self, challenge_id: int, **fields: str) -> Challenge:
         if not fields:
             return self.get_challenge(challenge_id)
-        allowed = {"title", "project", "category", "difficulty", "status", "description", "notes", "favorite"}
+        allowed = {"title", "project", "category", "difficulty", "status", "description", "notes", "favorite", "tags"}
         assignments: List[str] = []
         values: List[Any] = []
         for key, value in fields.items():
@@ -288,6 +315,13 @@ class ChallengeManager:
             if key == "favorite":
                 assignments.append("favorite = ?")
                 values.append(1 if bool(value) else 0)
+            elif key == "tags":
+                assignments.append("tags = ?")
+                # value can be List[str] or str
+                if isinstance(value, list):
+                    values.append(",".join(value))
+                else:
+                    values.append(value)
             else:
                 assignments.append(f"{key} = ?")
                 values.append(value)
@@ -329,7 +363,7 @@ class ChallengeManager:
         with self.db.cursor() as cur:
             cur.execute(
                 """
-                SELECT id, title, project, category, difficulty, status, description, notes, favorite, flag, created_at, updated_at
+                SELECT id, title, project, category, difficulty, status, description, notes, favorite, flag, tags, created_at, updated_at
                   FROM challenges
                  WHERE id = ?
                 """,
@@ -376,6 +410,7 @@ class ChallengeManager:
                     "description": challenge.description,
                     "notes": challenge.notes,
                     "favorite": challenge.favorite,
+                    "tags": challenge.tags,
                     "created_at": challenge.created_at.isoformat(),
                     "updated_at": challenge.updated_at.isoformat(),
                     "flag": self.get_flag(challenge.id),
@@ -393,6 +428,14 @@ class ChallengeManager:
                     notes_value = legacy_note.get("markdown", "")
                 else:
                     notes_value = ""
+            
+            # Handle tags - can be list or comma-separated string
+            tags_value = entry.get("tags", [])
+            if isinstance(tags_value, str):
+                tags_value = [tag.strip() for tag in tags_value.split(",") if tag.strip()]
+            elif not isinstance(tags_value, list):
+                tags_value = []
+            
             challenge = self.create_challenge(
                 title=entry.get("title") or entry.get("name", "Untitled"),
                 project=entry.get("project", "General"),
@@ -402,6 +445,7 @@ class ChallengeManager:
                 description=entry.get("description", ""),
                 notes=str(notes_value or ""),
                 favorite=bool(entry.get("favorite", False)),
+                tags=tags_value if tags_value else None,
             )
             flag = entry.get("flag")
             if flag:
@@ -413,6 +457,12 @@ class ChallengeManager:
     # Internal helpers
     # ------------------------------------------------------------------
     def _row_to_challenge(self, row: sqlite3.Row) -> Challenge:
+        # Try to get tags from row, fallback to empty string if column doesn't exist (for old schema versions)
+        try:
+            tags_str = row["tags"] or ""
+        except (KeyError, IndexError):
+            tags_str = ""
+        tags_list = [tag.strip() for tag in tags_str.split(",") if tag.strip()]
         return Challenge(
             id=row["id"],
             title=row["title"],
@@ -426,6 +476,7 @@ class ChallengeManager:
             updated_at=datetime.fromisoformat(row["updated_at"]),
             flag=self._decrypt_flag(row["flag"]),
             favorite=bool(row["favorite"]),
+            tags=tags_list,
         )
 
 

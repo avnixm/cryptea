@@ -24,11 +24,13 @@ from .db import Database
 from .manager.challenge_manager import ChallengeManager, STATUSES
 from .manager.models import Challenge
 from .manager.export_import import ExportImportManager
+from .manager.templates import ChallengeTemplate
 from .modules import ModuleRegistry
 from .modules.reverse.quick_disassembler import QuickDisassembler
 from .notes import MarkdownRenderer, NoteManager
 from .offline_guard import OfflineGuard, OfflineViolation
 from .resources import Resources
+from .ui.filter_bar import FilterBar
 
 _LOG = configure_logging()
 
@@ -312,6 +314,7 @@ class MainWindow:
         self._build_body(root)
         self._setup_responsive_sidebar()
         self._load_css()
+        self._setup_window_actions()  # Setup window-specific actions
 
         self.quick_disassembler = QuickDisassembler()
         self.disassembly_preview_window: Optional[Adw.ApplicationWindow] = None
@@ -423,14 +426,20 @@ class MainWindow:
         self.search_entry.connect("search-changed", self._on_search_changed)
         sidebar_box.append(self.search_entry)
 
-        sidebar_add = Gtk.Button()
+        sidebar_add = Gtk.MenuButton()
         sidebar_add.add_css_class("suggested-action")
         sidebar_add.add_css_class("sidebar-primary")
         sidebar_add_content = Adw.ButtonContent()
         sidebar_add_content.set_icon_name("list-add-symbolic")
         sidebar_add_content.set_label("Add Challenge")
         sidebar_add.set_child(sidebar_add_content)
-        sidebar_add.connect("clicked", self._on_add_clicked)
+        
+        # Create menu for add button
+        add_menu = Gio.Menu()
+        add_menu.append("Blank Challenge", "win.new_blank_challenge")
+        add_menu.append("From Template…", "win.new_from_template")
+        sidebar_add.set_menu_model(add_menu)
+        
         sidebar_box.append(sidebar_add)
 
         self.sidebar_list = Gtk.ListBox(selection_mode=Gtk.SelectionMode.SINGLE)
@@ -469,8 +478,20 @@ class MainWindow:
         self.split_view.set_content(self.content_page)
 
         # Challenges stack
+        # Create main challenges box with filter bar always visible
+        challenges_container = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        
+        # Add filter bar at the top (always visible)
+        self.filter_bar = FilterBar()
+        self.filter_bar.connect("filter-changed", lambda _: self._on_filter_changed())
+        challenges_container.append(self.filter_bar)
+        
+        # Create a stack for cards vs empty state
         self.challenge_stack = Adw.ViewStack()
-        self.content_stack.add_titled(self.challenge_stack, "challenges", "Challenges")
+        challenges_container.append(self.challenge_stack)
+        
+        # Add the container to content stack
+        self.content_stack.add_titled(challenges_container, "challenges", "Challenges")
 
         # Use Grid instead of FlowBox for better control over card positioning
         self.cards_grid = Gtk.Grid()
@@ -489,6 +510,7 @@ class MainWindow:
         cards_scroller.set_vexpand(True)
         cards_scroller.set_child(self.cards_grid)
         cards_scroller.add_css_class("cards-scroller")
+        
         # Wrap each card in a holder to give consistent outer margin if needed
         self.challenge_stack.add_named(cards_scroller, "cards")
 
@@ -782,6 +804,43 @@ class MainWindow:
 
     def _on_add_clicked(self, _button: Gtk.Button) -> None:
         self.trigger_new_challenge()
+    
+    def _setup_window_actions(self) -> None:
+        """Setup window-specific actions for challenge creation"""
+        # Action for creating blank challenge
+        blank_action = Gio.SimpleAction.new("new_blank_challenge", None)
+        blank_action.connect("activate", lambda _a, _p: self.trigger_new_challenge())
+        self.window.add_action(blank_action)
+        
+        # Action for creating challenge from template
+        template_action = Gio.SimpleAction.new("new_from_template", None)
+        template_action.connect("activate", lambda _a, _p: self._show_template_dialog())
+        self.window.add_action(template_action)
+    
+    def _show_template_dialog(self) -> None:
+        """Show the template selection dialog"""
+        from .ui.template_dialog import show_template_dialog
+        show_template_dialog(self.window, self._on_template_selected)
+    
+    def _on_template_selected(self, template: ChallengeTemplate) -> None:
+        """Handle template selection from the dialog"""
+        # Create challenge from template
+        challenge = self.app.challenge_manager.create_challenge(
+            title=template.title,
+            project="General",
+            category=template.category,
+            difficulty=template.difficulty,
+            status="Not Started",
+            description=template.description,
+            tags=template.tags,
+        )
+        self._active_challenge_id = challenge.id
+        self._current_view = ("detail", str(challenge.id))
+        self.refresh_sidebar()
+        self._populate_detail(challenge)
+        self.challenge_stack.set_visible_child_name("detail")
+        self._setup_autocomplete()
+        self._set_status_message(f"Challenge created from template: {template.title}")
 
     def trigger_new_challenge(self) -> None:
         challenge = self.app.challenge_manager.create_challenge(
@@ -1858,6 +1917,10 @@ class MainWindow:
                 self.sidebar_toggle.handler_unblock_by_func(self._on_sidebar_toggle)
             self._sync_sidebar_toggle()
 
+    def _on_filter_changed(self) -> None:
+        """Handle filter bar changes."""
+        self.refresh_main_content()
+
     def _show_challenges(
         self,
         *,
@@ -1869,26 +1932,60 @@ class MainWindow:
 
         query = self.search_entry.get_text().strip()
 
+        # Get filter bar values
+        filters = self.filter_bar.get_filters()
+        
+        # Build filter parameters - prioritize filter bar over sidebar
+        filter_category = filters["category"]
+        filter_difficulty = filters["difficulty"]
+        filter_status = filters["status"] or status
+        filter_favorites = filters["favorites_only"] or favorites
+        filter_tags = filters["tags"]
+
         challenges = self.app.challenge_manager.list_challenges(
             search=query or None,
             project=project,
-            status=status,
-            favorite=True if favorites else None,
+            category=filter_category.lower() if filter_category else None,
+            difficulty=filter_difficulty.lower() if filter_difficulty else None,
+            status=filter_status,
+            favorite=True if filter_favorites else None,
+            tags=filter_tags if filter_tags else None,
         )
+
+        # Apply sorting
+        sort_by = filters["sort_by"]
+        sort_order = filters["sort_order"]
+        reverse = (sort_order == "desc")
+        
+        if sort_by == "title":
+            challenges.sort(key=lambda c: c.title.lower(), reverse=reverse)
+        elif sort_by == "created":
+            challenges.sort(key=lambda c: c.created_at, reverse=reverse)
+        elif sort_by == "updated":
+            challenges.sort(key=lambda c: c.updated_at, reverse=reverse)
+        elif sort_by == "difficulty":
+            difficulty_order = {"easy": 1, "medium": 2, "hard": 3}
+            challenges.sort(
+                key=lambda c: difficulty_order.get(c.difficulty.lower(), 4),
+                reverse=reverse
+            )
+        elif sort_by == "category":
+            challenges.sort(key=lambda c: c.category.lower(), reverse=reverse)
 
         if not challenges:
             if project:
                 self.challenge_placeholder.set_title("No challenges for this project")
                 self.challenge_placeholder.set_description("Add or import challenges to begin tracking this project.")
-            elif favorites:
+            elif filter_favorites or favorites:
                 self.challenge_placeholder.set_title("No favorites yet")
                 self.challenge_placeholder.set_description("Mark a challenge as favorite to see it here.")
-            elif status:
-                self.challenge_placeholder.set_title(f"No {status.lower()} challenges")
+            elif filter_status or status:
+                status_str = filter_status or status
+                self.challenge_placeholder.set_title(f"No {status_str.lower()} challenges" if status_str else "No challenges")
                 self.challenge_placeholder.set_description("Update challenge progress to populate this view.")
-            elif query:
+            elif query or filter_category or filter_difficulty or filter_tags:
                 self.challenge_placeholder.set_title("No matches found")
-                self.challenge_placeholder.set_description("Try a different search or clear the filter.")
+                self.challenge_placeholder.set_description("Try different filters or clear them to see all challenges.")
             else:
                 self.challenge_placeholder.set_title("No challenges yet")
                 self.challenge_placeholder.set_description("Create your first challenge to start tracking progress.")
@@ -9906,6 +10003,7 @@ class CrypteaApplication(Adw.Application):
         prefs_window.set_modal(True)
         prefs_window.set_transient_for(self.main_window.window)
         prefs_window.set_default_size(600, 500)
+        prefs_window.set_search_enabled(True)
         
         # General preferences page
         general_page = Adw.PreferencesPage()
@@ -9917,17 +10015,40 @@ class CrypteaApplication(Adw.Application):
         appearance_group.set_title("Appearance")
         appearance_group.set_description("Customize the look and feel")
         
-        # Theme preference (for future implementation)
-        theme_row = Adw.ActionRow()
+        # Get style manager
+        style_manager = Adw.StyleManager.get_default()
+        
+        # Theme preference with proper GNOME integration
+        theme_row = Adw.ComboRow()
         theme_row.set_title("Theme")
         theme_row.set_subtitle("Choose application theme")
-        theme_combo = Gtk.ComboBoxText()
-        theme_combo.append("default", "System Default")
-        theme_combo.append("light", "Light")
-        theme_combo.append("dark", "Dark")
-        theme_combo.set_active_id("default")
-        theme_row.add_suffix(theme_combo)
-        theme_row.set_activatable_widget(theme_combo)
+        
+        # Create string list for themes
+        theme_list = Gtk.StringList()
+        theme_list.append("System Default")
+        theme_list.append("Light")
+        theme_list.append("Dark")
+        theme_row.set_model(theme_list)
+        
+        # Set current selection based on color scheme
+        if style_manager.get_color_scheme() == Adw.ColorScheme.FORCE_LIGHT:
+            theme_row.set_selected(1)
+        elif style_manager.get_color_scheme() == Adw.ColorScheme.FORCE_DARK:
+            theme_row.set_selected(2)
+        else:
+            theme_row.set_selected(0)
+        
+        # Connect theme change handler
+        def on_theme_changed(combo_row, _param):
+            selected = combo_row.get_selected()
+            if selected == 0:  # System Default
+                style_manager.set_color_scheme(Adw.ColorScheme.DEFAULT)
+            elif selected == 1:  # Light
+                style_manager.set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
+            elif selected == 2:  # Dark
+                style_manager.set_color_scheme(Adw.ColorScheme.FORCE_DARK)
+        
+        theme_row.connect("notify::selected", on_theme_changed)
         appearance_group.add(theme_row)
         
         general_page.add(appearance_group)
@@ -9937,10 +10058,11 @@ class CrypteaApplication(Adw.Application):
         tools_group.set_title("Tools")
         tools_group.set_description("Configure external tools and paths")
         
-        # Tools info row
+        # Tools info row with proper icon
         tools_info = Adw.ActionRow()
         tools_info.set_title("External Tools")
         tools_info.set_subtitle("Cryptea uses system-installed tools (Hashcat, GDB, Ghidra, etc.)")
+        tools_info.set_icon_name("application-x-executable-symbolic")
         tools_group.add(tools_info)
         
         general_page.add(tools_group)
@@ -9950,10 +10072,18 @@ class CrypteaApplication(Adw.Application):
         data_group.set_title("Data")
         data_group.set_description("Manage your challenge data")
         
-        # Database location
-        db_row = Adw.ActionRow()
+        # Database location with expander
+        db_row = Adw.ExpanderRow()
         db_row.set_title("Database Location")
-        db_row.set_subtitle(str(self.database.path))
+        db_row.set_subtitle(str(self.database.path.parent))
+        db_row.set_icon_name("folder-symbolic")
+        
+        # Add database file name as sub-row
+        db_file_row = Adw.ActionRow()
+        db_file_row.set_title("Database File")
+        db_file_row.set_subtitle(self.database.path.name)
+        db_row.add_row(db_file_row)
+        
         data_group.add(db_row)
         
         general_page.add(data_group)

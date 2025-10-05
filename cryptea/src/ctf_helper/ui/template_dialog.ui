@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk" version="4.0"/>
+  <requires lib="adw" version="1.0"/>
+
+  <object class="AdwDialog" id="template_dialog">
+    <property name="title">Create from Template</property>
+    <property name="content-width">700</property>
+    <property name="content-height">600</property>
+    <child>
+      <object class="AdwToolbarView">
+        <child type="top">
+          <object class="AdwHeaderBar">
+            <property name="show-title">True</property>
+            <child type="start">
+              <object class="GtkButton" id="cancel_button">
+                <property name="label">Cancel</property>
+              </object>
+            </child>
+            <child type="end">
+              <object class="GtkButton" id="create_button">
+                <property name="label">Create</property>
+                <style>
+                  <class name="suggested-action"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </child>
+        <child>
+          <object class="GtkBox">
+            <property name="orientation">vertical</property>
+            <property name="spacing">0</property>
+            <child>
+              <!-- Template list -->
+              <object class="GtkBox">
+                <property name="orientation">vertical</property>
+                <property name="spacing">12</property>
+                <property name="margin-start">24</property>
+                <property name="margin-end">24</property>
+                <property name="margin-top">18</property>
+                <property name="margin-bottom">18</property>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Choose a template</property>
+                    <property name="xalign">0</property>
+                    <style>
+                      <class name="title-3"/>
+                    </style>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkScrolledWindow">
+                    <property name="vexpand">True</property>
+                    <property name="hscrollbar-policy">never</property>
+                    <property name="min-content-height">200</property>
+                    <child>
+                      <object class="GtkListBox" id="template_list">
+                        <property name="selection-mode">single</property>
+                        <style>
+                          <class name="boxed-list"/>
+                        </style>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+            <child>
+              <!-- Template preview -->
+              <object class="GtkSeparator">
+                <property name="margin-start">0</property>
+                <property name="margin-end">0</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkBox">
+                <property name="orientation">vertical</property>
+                <property name="spacing">12</property>
+                <property name="margin-start">24</property>
+                <property name="margin-end">24</property>
+                <property name="margin-top">18</property>
+                <property name="margin-bottom">18</property>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Template Details</property>
+                    <property name="xalign">0</property>
+                    <style>
+                      <class name="title-3"/>
+                    </style>
+                  </object>
+                </child>
+                <child>
+                  <object class="AdwPreferencesGroup" id="preview_group">
+                    <child>
+                      <object class="AdwActionRow" id="title_row">
+                        <property name="title">Title</property>
+                        <property name="subtitle-selectable">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="AdwActionRow" id="category_row">
+                        <property name="title">Category</property>
+                        <property name="subtitle-selectable">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="AdwActionRow" id="difficulty_row">
+                        <property name="title">Difficulty</property>
+                        <property name="subtitle-selectable">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="AdwActionRow" id="tags_row">
+                        <property name="title">Tags</property>
+                        <property name="subtitle-selectable">True</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkLabel">
+                    <property name="label">Description</property>
+                    <property name="xalign">0</property>
+                    <style>
+                      <class name="caption-heading"/>
+                    </style>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkScrolledWindow">
+                    <property name="vexpand">True</property>
+                    <property name="hscrollbar-policy">never</property>
+                    <property name="min-content-height">100</property>
+                    <child>
+                      <object class="GtkTextView" id="description_preview">
+                        <property name="editable">False</property>
+                        <property name="wrap-mode">word</property>
+                        <property name="left-margin">12</property>
+                        <property name="right-margin">12</property>
+                        <property name="top-margin">12</property>
+                        <property name="bottom-margin">12</property>
+                        <style>
+                          <class name="card"/>
+                        </style>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>

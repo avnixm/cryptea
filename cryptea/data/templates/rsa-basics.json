@@ -1,0 +1,7 @@
+{
+  "title": "RSA Basics",
+  "category": "Crypto",
+  "difficulty": "easy",
+  "description": "Analyze the provided RSA parameters to find the private key. You have been given the public key components n and e. The modulus n is small enough to factor, allowing you to recover the private key d.\n\nCommon approaches:\n- Factor n using online tools or small prime algorithms\n- Calculate φ(n) = (p-1)(q-1)\n- Find d where e*d ≡ 1 (mod φ(n))\n\nTools: RsaCtfTool, factordb.com, Python's gmpy2 library",
+  "tags": ["crypto", "rsa", "math", "factoring"]
+}

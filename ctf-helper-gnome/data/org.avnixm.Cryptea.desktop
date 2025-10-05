@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Cryptea
-Comment=Offline-first toolbox for Capture the Flag exercises
-Exec=cryptea
-Icon=org.avnixm.Cryptea
-Terminal=false
-Categories=Utility;Education;
-StartupNotify=true

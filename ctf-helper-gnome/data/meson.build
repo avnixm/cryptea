@@ -1,5 +1,0 @@
-install_data('style.css', install_dir: join_paths(get_option('datadir'), 'cryptea'))
-install_data('org.avnixm.Cryptea.desktop', install_dir: join_paths(get_option('datadir'), 'applications'))
-install_data('icons/org.avnixm.Cryptea.svg', install_dir: join_paths(get_option('datadir'), 'icons', 'hicolor', 'scalable', 'apps'))
-install_subdir('help', install_dir: join_paths(get_option('datadir'), 'cryptea', 'help'))
-install_subdir('templates', install_dir: join_paths(get_option('datadir'), 'cryptea', 'templates'))

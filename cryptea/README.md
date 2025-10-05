@@ -2,7 +2,7 @@
 
 <div align="center">
 
-<img src="cryptea/data/icons/cryptea-logo-256.png" alt="Cryptea Logo" width="256"/>
+![Cryptea Logo](data/icons/org.avnixm.Cryptea.svg)
 
 **100% Offline CTF Challenge Manager & Security Toolkit**
 
@@ -16,9 +16,6 @@
 </div>
 
 ---
-
-<img width="1800" height="1123" alt="image" src="https://github.com/user-attachments/assets/fafe015e-c0cd-4d15-8f4d-132641d05243" />
-
 
 ## 📖 Overview
 
@@ -59,7 +56,7 @@
 - Export notes as part of challenge packs
 
 ### 📦 Import/Export
-- Export challenges as `.ctfpack` files
+- Export challenges as \`.ctfpack\` files
 - Import challenge packs from other installations
 - Air-gap compatible file format
 - Share writeups or backup work safely
@@ -190,31 +187,31 @@ Cryptea includes **40+ offline security tools** organized by category:
 - SQLite 3
 
 **Optional (for specific tools):**
-- `hashcat` - GPU-accelerated hash cracking
-- `john` - Password cracking
-- `ghidra` - Advanced reverse engineering
-- `radare2` or `rizin` - Binary analysis
-- `gdb` - Debugging
-- `objdump` - Disassembly
-- `binwalk` - Firmware analysis
-- `strings` - String extraction
-- `exiftool` - EXIF metadata
-- `zsteg` - PNG/BMP steganography
-- `steghide` - JPEG steganography
-- `zbarimg` - QR/barcode scanning
-- `ffmpeg` - Video frame extraction
-- `sox` - Audio analysis
-- `nmap` - Network scanning (local only)
+- \`hashcat\` - GPU-accelerated hash cracking
+- \`john\` - Password cracking
+- \`ghidra\` - Advanced reverse engineering
+- \`radare2\` or \`rizin\` - Binary analysis
+- \`gdb\` - Debugging
+- \`objdump\` - Disassembly
+- \`binwalk\` - Firmware analysis
+- \`strings\` - String extraction
+- \`exiftool\` - EXIF metadata
+- \`zsteg\` - PNG/BMP steganography
+- \`steghide\` - JPEG steganography
+- \`zbarimg\` - QR/barcode scanning
+- \`ffmpeg\` - Video frame extraction
+- \`sox\` - Audio analysis
+- \`nmap\` - Network scanning (local only)
 
 ### Quick Install (Fedora)
 
-```bash
+\`\`\`bash
 # Install system dependencies
 sudo dnf install python3 python3-pip python3-gobject gtk4 libadwaita meson
 
 # Install optional tools
-sudo dnf install hashcat john ghidra radare2 gdb binutils binwalk \
-    exiftool zbar ffmpeg sox nmap
+sudo dnf install hashcat john ghidra radare2 gdb binutils binwalk \\
+                 exiftool zbar ffmpeg sox nmap
 
 # Clone repository
 git clone https://github.com/avnixm/cryptea.git
@@ -231,43 +228,36 @@ source ~/.bashrc
 
 # Launch
 cryptea
-```
+\`\`\`
 
 ### Ubuntu/Debian
 
-```bash
+\`\`\`bash
 # Install system dependencies
-sudo apt install python3 python3-pip python3-gi gir1.2-gtk-4.0 \
-    gir1.2-adw-1 meson ninja-build
+sudo apt install python3 python3-pip python3-gi gir1.2-gtk-4.0 \\
+                 gir1.2-adw-1 meson ninja-build
 
 # Install optional tools
-sudo apt install hashcat john radare2 gdb binutils binwalk exiftool \
-    zbar-tools ffmpeg sox nmap
+sudo apt install hashcat john radare2 gdb binutils binwalk exiftool \\
+                 zbar-tools ffmpeg sox nmap
 
-# Clone and build
+# Clone and build (same as Fedora)
 git clone https://github.com/avnixm/cryptea.git
 cd cryptea
 meson setup builddir-user --prefix=$HOME/.local
 meson compile -C builddir-user
 meson install -C builddir-user
-
-# Add to PATH
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-
-# Launch
-cryptea
-```
+\`\`\`
 
 ### Arch Linux
 
-```bash
+\`\`\`bash
 # Install system dependencies
 sudo pacman -S python python-pip python-gobject gtk4 libadwaita meson
 
 # Install optional tools
-sudo pacman -S hashcat john-jumbo radare2 gdb binutils binwalk \
-    perl-image-exiftool zbar ffmpeg sox nmap
+sudo pacman -S hashcat john-jumbo radare2 gdb binutils binwalk \\
+               perl-image-exiftool zbar ffmpeg sox nmap
 
 # Clone and build
 git clone https://github.com/avnixm/cryptea.git
@@ -275,25 +265,18 @@ cd cryptea
 meson setup builddir-user --prefix=$HOME/.local
 meson compile -C builddir-user
 meson install -C builddir-user
-
-# Add to PATH
-echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-source ~/.bashrc
-
-# Launch
-cryptea
-```
+\`\`\`
 
 ### Running from Source
 
-```bash
+\`\`\`bash
 # Clone repository
 git clone https://github.com/avnixm/cryptea.git
 cd cryptea
 
 # Run directly (no installation required)
 python3 run.py
-```
+\`\`\`
 
 ---
 
@@ -302,9 +285,9 @@ python3 run.py
 ### Quick Start
 
 1. **Launch Application**
-   ```bash
+   \`\`\`bash
    cryptea
-   ```
+   \`\`\`
    Or search for "Cryptea" in your application menu.
 
 2. **Create a Challenge**
@@ -340,10 +323,10 @@ python3 run.py
 
 | Shortcut | Action |
 |----------|--------|
-| `Ctrl+N` | Create new challenge |
-| `Ctrl+F` | Focus search bar |
-| `Ctrl+W` | Close window |
-| `Ctrl+Q` | Quit application |
+| \`Ctrl+N\` | Create new challenge |
+| \`Ctrl+F\` | Focus search bar |
+| \`Ctrl+W\` | Close window |
+| \`Ctrl+Q\` | Quit application |
 
 ---
 
@@ -353,22 +336,22 @@ All data is stored locally:
 
 | Data Type | Location |
 |-----------|----------|
-| **Challenges & Flags** | `~/.local/share/cryptea/db.sqlite3` |
+| **Challenges & Flags** | \`~/.local/share/cryptea/db.sqlite3\` |
 | **Notes** | Stored in database with challenges |
-| **Logs** | `~/.local/share/cryptea/logs/cryptea.log` |
-| **Config** | `~/.config/cryptea/` |
-| **Application Files** | `~/.local/lib/python3.*/site-packages/ctf_helper/` |
-| **Executable** | `~/.local/bin/cryptea` |
+| **Logs** | \`~/.local/share/cryptea/logs/cryptea.log\` |
+| **Config** | \`~/.config/cryptea/\` |
+| **Application Files** | \`~/.local/lib/python3.*/site-packages/ctf_helper/\` |
+| **Executable** | \`~/.local/bin/cryptea\` |
 
 ### Backup Your Data
 
-```bash
+\`\`\`bash
 # Backup database
 cp ~/.local/share/cryptea/db.sqlite3 ~/cryptea-backup.db
 
 # Or use the built-in Export feature
 # Settings → Export .ctfpack
-```
+\`\`\`
 
 ---
 
@@ -376,7 +359,7 @@ cp ~/.local/share/cryptea/db.sqlite3 ~/cryptea-backup.db
 
 ### Project Structure
 
-```
+\`\`\`
 cryptea/
 ├── src/
 │   ├── main.py                    # Entry point
@@ -406,11 +389,11 @@ cryptea/
 ├── meson.build                    # Build config
 ├── pyproject.toml                 # Python metadata
 └── README.md                      # This file
-```
+\`\`\`
 
 ### Running Tests
 
-```bash
+\`\`\`bash
 # Install test dependencies
 pip install pytest pytest-cov
 
@@ -419,19 +402,19 @@ pytest tests/
 
 # Run with coverage
 pytest --cov=ctf_helper tests/
-```
+\`\`\`
 
 ### Adding a New Tool
 
-1. Create module in `src/ctf_helper/modules/<category>/`
-2. Inherit from `BaseOfflineTool`
-3. Implement `run()` method
-4. Register in `__init__.py`
-5. Add UI integration in `application.py`
+1. Create module in \`src/ctf_helper/modules/<category>/\`
+2. Inherit from \`BaseOfflineTool\`
+3. Implement \`run()\` method
+4. Register in \`__init__.py\`
+5. Add UI integration in \`application.py\`
 
 Example:
 
-```python
+\`\`\`python
 from ctf_helper.modules.base import BaseOfflineTool
 
 class MyTool(BaseOfflineTool):
@@ -442,15 +425,15 @@ class MyTool(BaseOfflineTool):
     def run(self, input_data: str) -> str:
         # Tool logic here
         return f"Result: {input_data}"
-```
+\`\`\`
 
 ### Environment Variables
 
 | Variable | Purpose | Default |
 |----------|---------|---------|
-| `CRYPTEA_SUPPRESS_SANDBOX_WARNING` | Disable network warnings | `0` |
-| `OFFLINE_BUILD` | Enable offline build mode | `0` |
-| `DEV_PROFILE_ENABLED` | Enable dev seeding | `0` |
+| \`CRYPTEA_SUPPRESS_SANDBOX_WARNING\` | Disable network warnings | \`0\` |
+| \`OFFLINE_BUILD\` | Enable offline build mode | \`0\` |
+| \`DEV_PROFILE_ENABLED\` | Enable dev seeding | \`0\` |
 
 ---
 
@@ -458,29 +441,29 @@ class MyTool(BaseOfflineTool):
 
 ### Application won't start
 
-```bash
+\`\`\`bash
 # Check logs
 tail -f ~/.local/share/cryptea/logs/cryptea.log
 
 # Verify installation
 which cryptea
 python3 -c "import ctf_helper; print(ctf_helper.__file__)"
-```
+\`\`\`
 
 ### Database errors
 
-```bash
+\`\`\`bash
 # Check database integrity
 sqlite3 ~/.local/share/cryptea/db.sqlite3 "PRAGMA integrity_check;"
 
 # Reset database (WARNING: deletes all data)
 rm ~/.local/share/cryptea/db.sqlite3
 # Restart application to recreate
-```
+\`\`\`
 
 ### Tools not working
 
-```bash
+\`\`\`bash
 # Check if tool is installed
 which hashcat
 which ghidra
@@ -488,7 +471,7 @@ which radare2
 
 # Check logs for errors
 tail -f ~/.local/share/cryptea/logs/cryptea.log
-```
+\`\`\`
 
 ---
 
@@ -497,11 +480,11 @@ tail -f ~/.local/share/cryptea/logs/cryptea.log
 Contributions are welcome! Please follow these steps:
 
 1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing-feature`)
+2. Create feature branch (\`git checkout -b feature/amazing-feature\`)
 3. Make changes and add tests
-4. Run tests (`pytest tests/`)
-5. Commit changes (`git commit -m 'Add amazing feature'`)
-6. Push to branch (`git push origin feature/amazing-feature`)
+4. Run tests (\`pytest tests/\`)
+5. Commit changes (\`git commit -m 'Add amazing feature'\`)
+6. Push to branch (\`git push origin feature/amazing-feature\`)
 7. Open Pull Request
 
 ### Code Style

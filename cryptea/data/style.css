@@ -1,3 +1,114 @@
+/* ============================================================================
+   MODERN LIGHT THEME - Clean, minimal, professional
+   ============================================================================ */
+
+/* Light theme color overrides */
+@define-color light_bg_color #ffffff;
+@define-color light_card_bg #f9f9f9;
+@define-color light_border #e0e0e0;
+@define-color light_accent #3584e4;
+@define-color light_text #2e3436;
+@define-color light_dim_text #5e5c64;
+@define-color light_hover_bg #f3f3f3;
+@define-color light_active_bg #e8e8e8;
+
+/* Modern light theme window background */
+window {
+  background-color: #fafafa;
+}
+
+/* Modern cards with subtle shadows */
+.card {
+  background-color: @light_card_bg;
+  border: 1px solid @light_border;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* Sidebar styling */
+.navigation-sidebar {
+  background-color: @light_bg_color;
+  border-right: 1px solid @light_border;
+  padding: 8px 0;
+}
+
+.navigation-sidebar row {
+  border-radius: 8px;
+  margin: 2px 6px;
+  padding: 10px 12px;
+  color: #2e3436;
+  font-weight: 500;
+  transition: all 150ms ease-out;
+}
+
+.navigation-sidebar row:hover {
+  background-color: @light_hover_bg;
+}
+
+.navigation-sidebar row:selected {
+  background: linear-gradient(to right, alpha(@light_accent, 0.15), alpha(@light_accent, 0.08));
+  color: @light_accent;
+  font-weight: 600;
+  border-left: 3px solid @light_accent;
+  padding-left: 9px;
+}
+
+.navigation-sidebar row:selected:hover {
+  background: linear-gradient(to right, alpha(@light_accent, 0.2), alpha(@light_accent, 0.12));
+}
+
+/* Sidebar icons - make them more visible */
+.navigation-sidebar row image {
+  opacity: 0.8;
+  color: #2e3436;
+}
+
+.navigation-sidebar row:selected image {
+  opacity: 1;
+  color: @light_accent;
+}
+
+/* Sidebar labels - ensure they're visible */
+.navigation-sidebar row label {
+  color: #2e3436;
+  font-weight: 500;
+}
+
+.navigation-sidebar row:selected label {
+  color: @light_accent;
+  font-weight: 600;
+}
+
+/* Toolbar and header styling */
+.toolbar {
+  background-color: @light_bg_color;
+  border-bottom: 1px solid @light_border;
+  padding: 8px;
+}
+
+/* Badge styling */
+.badge {
+  background-color: alpha(@light_accent, 0.1);
+  color: @light_accent;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.85em;
+  font-weight: 500;
+  border: 1px solid alpha(@light_accent, 0.2);
+}
+
+/* Dim label styling */
+.dim-label {
+  color: #5e5c64;
+  opacity: 0.85;
+}
+
+/* Heading styling */
+.heading {
+  font-weight: 600;
+  color: #2e3436;
+}
+
 textview.notes-editor text {
   font-family: "Source Code Pro", monospace;
   font-size: 12pt;
@@ -18,20 +129,21 @@ window scrolledwindow,
 box scrolledwindow,
 clamp scrolledwindow {
   border-radius: 12px;
-  border: 2px solid alpha(@borders, 0.6);
-  background-color: @view_bg_color;
+  border: 1px solid @light_border;
+  background-color: @light_bg_color;
   transition: all 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
   margin: 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 scrolledwindow:focus-within,
 window scrolledwindow:focus-within,
 box scrolledwindow:focus-within,
 clamp scrolledwindow:focus-within {
-  border-color: @accent_bg_color;
+  border-color: @light_accent;
   border-width: 2px;
-  box-shadow: inset 0 0 0 1px @accent_bg_color;
-  background-color: @view_bg_color;
+  box-shadow: 0 0 0 3px alpha(@light_accent, 0.1), 0 2px 4px rgba(0, 0, 0, 0.05);
+  background-color: @light_bg_color;
 }
 
 /* All TextViews inside ScrolledWindows */
@@ -39,46 +151,460 @@ scrolledwindow textview,
 scrolledwindow textview text {
   background: transparent;
   padding: 12px;
+  color: @light_text;
 }
 
 /* All Entry fields - rounded corners and accent border */
 entry,
 window entry,
 box entry {
-  border-radius: 8px;
-  min-height: 36px;
-  padding: 8px 12px;
-  border: 2px solid alpha(@borders, 0.6);
-  background-color: @view_bg_color;
+  border-radius: 10px;
+  min-height: 40px;
+  padding: 10px 14px;
+  border: 1px solid @light_border;
+  background-color: @light_bg_color;
   transition: all 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
   margin: 2px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  color: @light_text;
 }
 
 entry:focus,
 window entry:focus,
 box entry:focus {
-  border-color: @accent_bg_color;
+  border-color: @light_accent;
   border-width: 2px;
-  box-shadow: inset 0 0 0 1px @accent_bg_color;
-  background-color: @view_bg_color;
+  box-shadow: 0 0 0 3px alpha(@light_accent, 0.1), 0 2px 4px rgba(0, 0, 0, 0.05);
+  background-color: @light_bg_color;
+}
+
+entry placeholder {
+  color: alpha(@light_dim_text, 0.6);
 }
 
 /* ComboBoxText - rounded styling */
 combobox button {
-  border-radius: 8px;
+  border-radius: 10px;
+  border: 1px solid @light_border;
+  background-color: @light_bg_color;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+combobox button:hover {
+  background-color: @light_hover_bg;
 }
 
 combobox entry {
-  border-radius: 8px 0 0 8px;
+  border-radius: 10px 0 0 10px;
 }
 
 /* SpinButton - rounded styling */
 spinbutton {
-  border-radius: 8px;
+  border-radius: 10px;
+  border: 1px solid @light_border;
+  background-color: @light_bg_color;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
 }
 
 spinbutton entry {
-  border-radius: 8px 0 0 8px;
+  border-radius: 10px 0 0 10px;
+  border: none;
+}
+
+spinbutton button {
+  border: none;
+  background-color: transparent;
+}
+
+spinbutton button:hover {
+  background-color: @light_hover_bg;
+}
+
+/* Buttons - modern flat style */
+button {
+  border-radius: 8px;
+  padding: 8px 16px;
+  min-height: 36px;
+  border: 1px solid @light_border;
+  background-color: @light_bg_color;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition: all 150ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  font-weight: 500;
+}
+
+button:hover {
+  background-color: @light_hover_bg;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+button:active {
+  background-color: @light_active_bg;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+button.suggested-action {
+  background: linear-gradient(to bottom, @light_accent, shade(@light_accent, 0.92));
+  color: white;
+  border: none;
+  box-shadow: 0 2px 4px rgba(53, 132, 228, 0.2);
+  font-weight: 600;
+}
+
+button.suggested-action:hover {
+  background: linear-gradient(to bottom, shade(@light_accent, 1.08), @light_accent);
+  box-shadow: 0 3px 6px rgba(53, 132, 228, 0.25);
+}
+
+button.suggested-action:active {
+  background: shade(@light_accent, 0.88);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+button.flat {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+button.flat:hover {
+  background-color: @light_hover_bg;
+}
+
+/* ============================================================================
+   SPECIFIC STYLING CLASSES (for fine-tuning)
+   ============================================================================ */
+
+/* Modern GNOME input styling with rounded corners and accent colors */
+scrolledwindow.input-box {
+  border-radius: 10px;
+  border: 1px solid @light_border;
+  background-color: @light_bg_color;
+  transition: all 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+scrolledwindow.input-box:focus-within {
+  border-color: @light_accent;
+  border-width: 2px;
+  box-shadow: 0 0 0 3px alpha(@light_accent, 0.1), 0 2px 4px rgba(0, 0, 0, 0.05);
+  background-color: @light_bg_color;
+}
+
+textview.input-text {
+  background: transparent;
+  padding: 10px;
+  font-family: "Source Code Pro", "Monospace", monospace;
+  font-size: 10.5pt;
+  color: @light_text;
+}
+
+textview.input-text text {
+  background: transparent;
+}
+
+/* Entry fields styling */
+entry.modern-entry {
+  border-radius: 8px;
+  min-height: 36px;
+  padding: 8px 12px;
+  border: 1px solid @light_border;
+  background-color: @light_bg_color;
+  transition: all 200ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+entry.modern-entry:focus {
+  border-color: @light_accent;
+  border-width: 2px;
+  box-shadow: 0 0 0 3px alpha(@light_accent, 0.1), 0 2px 4px rgba(0, 0, 0, 0.05);
+  background-color: @light_bg_color;
+}
+
+/* Result/output text views - slightly different styling */
+scrolledwindow.output-box {
+  border-radius: 10px;
+  border: 1px solid @light_border;
+  background-color: alpha(@light_card_bg, 0.8);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
+}
+
+textview.output-text {
+  background: transparent;
+  padding: 10px;
+  font-family: "Source Code Pro", "Monospace", monospace;
+  font-size: 10pt;
+  color: @light_text;
+}
+
+textview.output-text text {
+  background: transparent;
+}
+
+/* Hash Suite tabs - completely hide close buttons (tabs are permanent UI elements) */
+.hash-suite-tabs tab button.close-button {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Fallback - hide all close buttons in tab bars */
+tabbar.hash-suite-tabs button.close-button {
+  display: none !important;
+}
+
+/* Another selector variant */
+.hash-suite-tabs > * button.close-button {
+  display: none !important;
+}
+
+/* Ultimate fix - hide ALL buttons in Hash Suite tabs */
+tabbar.hash-suite-tabs tab button,
+.hash-suite-tabs tab button,
+tabbar.hash-suite-tabs button,
+.hash-suite-tabs button {
+  display: none !important;
+  visibility: hidden !important;
+  width: 0px !important;
+  min-width: 0px !important;
+  height: 0px !important;
+  min-height: 0px !important;
+}
+
+/* ============================================================================
+   FILTER BAR STYLING
+   ============================================================================ */
+
+.filter-bar {
+  background-color: @light_bg_color;
+  border-bottom: 1px solid @light_border;
+  padding: 8px;
+}
+
+.filter-chip {
+  padding: 6px 12px;
+  border-radius: 20px;
+  background: linear-gradient(to bottom, alpha(@light_accent, 0.12), alpha(@light_accent, 0.08));
+  color: @light_accent;
+  border: 1px solid alpha(@light_accent, 0.2);
+  font-weight: 500;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+}
+
+.filter-chip button {
+  min-width: 20px;
+  min-height: 20px;
+  padding: 0;
+  margin: 0;
+  border-radius: 50%;
+  background: alpha(@light_accent, 0.15);
+}
+
+.filter-chip button:hover {
+  background: alpha(@light_accent, 0.25);
+}
+
+.filter-chip label {
+  font-size: 0.9em;
+  font-weight: 500;
+}
+
+/* ============================================================================
+   CHEAT SHEET CODE BLOCKS - Enhanced for light theme
+   ============================================================================ */
+
+/* Cheat sheet code block containers - add border-radius */
+box.cheatsheet-code-block {
+  border-radius: 12px;
+  background-color: @light_card_bg;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+}
+
+/* Wrapper box with rounded corners - this MUST have overflow:hidden */
+box.code-wrapper {
+  border-radius: 0 0 10px 10px;
+  background-color: #f5f5f5;
+  border: 1px solid @light_border;
+  overflow: hidden;
+  margin: 0;
+  padding: 0;
+}
+
+/* Scrolled window - remove its own styling and ensure no horizontal scroll */
+box.code-wrapper scrolledwindow {
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  overflow-x: hidden; /* Prevent horizontal scroll */
+}
+
+/* Scrollbars inside code wrapper - subtle styling */
+box.code-wrapper scrollbar {
+  background: transparent;
+}
+
+box.code-wrapper scrollbar slider {
+  background-color: alpha(@light_dim_text, 0.3);
+  border-radius: 8px;
+  min-width: 8px;
+  min-height: 8px;
+}
+
+box.code-wrapper scrollbar slider:hover {
+  background-color: alpha(@light_dim_text, 0.5);
+}
+
+/* Code text views in cheat sheets */
+box.cheatsheet-code-block textview {
+  background: transparent;
+  font-family: "Source Code Pro", "Monospace", monospace;
+  font-size: 10.5pt;
+  color: #2e3436;
+}
+
+box.cheatsheet-code-block textview text {
+  background: transparent;
+  word-wrap: break-word; /* Break long words if necessary */
+}
+
+/* Search entry - special styling */
+searchentry {
+  border-radius: 12px;
+}
+
+searchentry entry {
+  border-radius: 12px;
+  background-color: @light_card_bg;
+  border: 1px solid @light_border;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+searchentry entry:focus {
+  border-color: @light_accent;
+  box-shadow: 0 0 0 3px alpha(@light_accent, 0.1), 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+/* Notebook tabs - modern styling */
+notebook > header {
+  background-color: @light_bg_color;
+  border-bottom: 1px solid @light_border;
+}
+
+notebook > header > tabs > tab {
+  border-radius: 8px 8px 0 0;
+  padding: 10px 20px;
+  margin: 0 2px;
+  background-color: transparent;
+  border: 1px solid transparent;
+  font-weight: 500;
+  color: @light_dim_text;
+  transition: all 150ms ease-out;
+}
+
+notebook > header > tabs > tab:hover {
+  background-color: @light_hover_bg;
+  color: @light_text;
+}
+
+notebook > header > tabs > tab:checked {
+  background-color: @light_bg_color;
+  border-color: @light_border @light_border transparent @light_border;
+  color: @light_accent;
+  font-weight: 600;
+}
+
+/* Paned separator - subtle */
+paned > separator {
+  background-color: @light_border;
+  min-width: 1px;
+  min-height: 1px;
+}
+
+paned > separator:hover {
+  background-color: @light_accent;
+}
+
+/* ListBox rows - modern selection */
+listbox row {
+  border-radius: 8px;
+  margin: 2px 6px;
+  padding: 8px;
+  transition: all 150ms ease-out;
+}
+
+listbox row:hover {
+  background-color: @light_hover_bg;
+}
+
+listbox row:selected {
+  background-color: alpha(@light_accent, 0.12);
+  color: @light_accent;
+}
+
+listbox row:selected:hover {
+  background-color: alpha(@light_accent, 0.18);
+}
+
+/* Scrollbars - minimal modern style */
+scrollbar {
+  background: transparent;
+}
+
+scrollbar slider {
+  background-color: alpha(@light_dim_text, 0.3);
+  border-radius: 8px;
+  min-width: 10px;
+  min-height: 10px;
+  margin: 2px;
+}
+
+scrollbar slider:hover {
+  background-color: alpha(@light_dim_text, 0.5);
+}
+
+scrollbar slider:active {
+  background-color: alpha(@light_dim_text, 0.7);
+}
+
+/* Separators - subtle */
+separator {
+  background-color: @light_border;
+  min-width: 1px;
+  min-height: 1px;
+}
+
+/* Caption text */
+.caption {
+  font-size: 0.9em;
+  color: #5e5c64;
+  opacity: 0.9;
+}
+
+/* Sidebar section headers (Challenges, References, Tools, etc.) */
+.sidebar-header,
+.sidebar label.heading {
+  font-size: 0.75em;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #5e5c64;
+  padding: 12px 12px 4px 12px;
+  opacity: 0.9;
+}
+
+/* Make all sidebar text more visible */
+.sidebar label {
+  color: #2e3436;
+  font-weight: 500;
+}
+
+/* Icons in general - make them darker */
+image {
+  color: #2e3436;
+  opacity: 0.9;
 }
 
 /* ============================================================================

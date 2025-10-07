@@ -25,6 +25,7 @@ from .manager.challenge_manager import ChallengeManager, STATUSES
 from .manager.models import Challenge
 from .manager.export_import import ExportImportManager
 from .manager.templates import ChallengeTemplate
+from .manager.attachments import AttachmentManager
 from .modules import ModuleRegistry
 from .modules.reverse.quick_disassembler import QuickDisassembler
 from .notes import MarkdownRenderer, NoteManager
@@ -32,6 +33,7 @@ from .offline_guard import OfflineGuard, OfflineViolation
 from .ui.cheatsheet_panel import CheatSheetPanel
 from .resources import Resources
 from .ui.filter_bar import FilterBar
+from .widgets.attachment_viewer import AttachmentViewer
 from .process_manager import get_process_manager
 from .module_loader import get_module_loader
 from .performance_monitor import get_performance_monitor
@@ -1198,6 +1200,18 @@ class MainWindow:
         notes_section.append(notes_scroller)
         content.append(notes_section)
 
+        # Attachments section
+        attachments_section = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        attachments_label = Gtk.Label(label="ATTACHMENTS", xalign=0)
+        attachments_label.add_css_class("title-4")
+        attachments_section.append(attachments_label)
+        
+        # Create AttachmentViewer widget
+        self.attachment_viewer = AttachmentViewer(manager=self.app.attachment_manager)
+        self.attachment_viewer.set_margin_top(8)
+        attachments_section.append(self.attachment_viewer)
+        content.append(attachments_section)
+
         self.status_label = Gtk.Label(xalign=1)
         self.status_label.add_css_class("dim-label")
         self.status_label.set_hexpand(True)
@@ -2078,6 +2092,9 @@ class MainWindow:
         def on_response(dialog: Adw.MessageDialog, response: str) -> None:
             if response == "delete" and self._active_challenge_id is not None:
                 try:
+                    # Delete attachments first (files and database records)
+                    self.app.attachment_manager.delete_challenge_attachments(self._active_challenge_id)
+                    # Then delete the challenge
                     self.app.challenge_manager.delete_challenge(self._active_challenge_id)
                     self._set_status_message(f"Deleted '{challenge.title}'")
                     self._show_cards()
@@ -2137,6 +2154,10 @@ class MainWindow:
         buffer.set_text(challenge.description)
         self.flag_entry.set_text(challenge.flag or "")
         self._set_notes_text(self.app.note_manager.load_markdown(challenge.id))
+        
+        # Load attachments for this challenge
+        self.attachment_viewer.load_challenge(challenge.id)
+        
         self._set_status_message(
             f"Updated {challenge.updated_at:%Y-%m-%d %H:%M} • Created {challenge.created_at:%Y-%m-%d %H:%M}"
         )
@@ -9840,6 +9861,7 @@ class CrypteaApplication(Adw.Application):
         self.challenge_manager = ChallengeManager(self.database)
         self.note_manager = NoteManager(self.challenge_manager)
         self.export_import = ExportImportManager(self.challenge_manager)
+        self.attachment_manager = AttachmentManager()
         self.markdown_renderer = MarkdownRenderer()
         self.main_window: Optional[MainWindow] = None
         self._diagnostics_cache: Optional[str] = None

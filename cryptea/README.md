@@ -107,6 +107,16 @@ sudo dnf install hashcat john ghidra radare2 gdb binutils binwalk \
 - Quick access to challenge-specific notes
 - Export notes as part of challenge packs
 
+### 📎 Screenshot & Attachment Manager
+- **Take screenshots** directly from challenge view
+- **Attach files** (PCAPs, screenshots, logs, exploits)
+- **Image previews** with inline thumbnails
+- **Organize by challenge** - all files automatically categorized
+- **Offline storage** in `~/.local/share/cryptea/attachments/`
+- **File management** - view, delete, rename, export
+- **Security validated** - file type and size restrictions
+- **Multi-tool support** - grim (Wayland), gnome-screenshot (X11), scrot (fallback)
+
 ### 📦 Import/Export
 - Export challenges as \`.ctfpack\` files
 - Import challenge packs from other installations
@@ -287,6 +297,14 @@ flatpak run org.avnixm.Cryptea
 - ✅ Easy to update and remove
 
 See [FLATPAK.md](FLATPAK.md) for detailed Flatpak documentation.
+
+### 📚 Feature Documentation
+
+- **[Attachment Manager](ATTACHMENT_MANAGER.md)** - Complete guide for screenshots and file attachments
+- **[Performance Optimization](PERFORMANCE_OPTIMIZATION.md)** - System performance tuning
+- **[Flatpak Packaging](FLATPAK.md)** - Distribution and installation
+
+---
 
 ### Option 3: System Installation
 

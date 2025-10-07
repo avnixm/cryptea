@@ -12,7 +12,7 @@ from .logger import configure_logging
 
 _LOG = configure_logging()
 
-SCHEMA_VERSION = 4
+SCHEMA_VERSION = 5
 
 BASE_SQL = """
 PRAGMA journal_mode=WAL;
@@ -43,10 +43,13 @@ CREATE TABLE IF NOT EXISTS challenges (
 
 CREATE TABLE IF NOT EXISTS attachments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    challenge_id INTEGER NOT NULL REFERENCES challenges(id) ON DELETE CASCADE,
+    challenge_id INTEGER NOT NULL,
     file_name TEXT NOT NULL,
-    stored_path TEXT NOT NULL,
-    created_at TEXT NOT NULL
+    file_path TEXT NOT NULL,
+    file_type TEXT,
+    file_size INTEGER,
+    added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE
 );
 """
 
@@ -97,6 +100,8 @@ class Database:
                 self._migrate_to_v3(cur)
             if version < 4:
                 self._migrate_to_v4(cur)
+            if version < 5:
+                self._migrate_to_v5(cur)
             cur.execute(
                 "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
                 ("schema_version", str(SCHEMA_VERSION)),
@@ -175,3 +180,78 @@ class Database:
         if "tags" not in columns:
             cur.execute("ALTER TABLE challenges ADD COLUMN tags TEXT NOT NULL DEFAULT ''")
         cur.executescript(SCHEMA_SQL)
+
+    def _migrate_to_v5(self, cur: sqlite3.Cursor) -> None:
+        _LOG.info("Upgrading database schema to version 5 - Enhanced attachments")
+        
+        # Check if attachments table exists and get its columns
+        cur.execute("PRAGMA table_info(attachments)")
+        columns = {row[1] for row in cur.fetchall()}
+        
+        if not columns:
+            # Table doesn't exist, create it with new schema
+            cur.executescript(SCHEMA_SQL)
+        else:
+            # Table exists, migrate it
+            # Check if we have the old schema (stored_path, created_at)
+            has_old_schema = "stored_path" in columns or "created_at" in columns
+            
+            if has_old_schema:
+                _LOG.info("Migrating attachments table from old schema")
+                # Rename old table
+                cur.execute("ALTER TABLE attachments RENAME TO attachments_old")
+                
+                # Create new table
+                cur.execute("""
+                    CREATE TABLE attachments (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        challenge_id INTEGER NOT NULL,
+                        file_name TEXT NOT NULL,
+                        file_path TEXT NOT NULL,
+                        file_type TEXT,
+                        file_size INTEGER,
+                        added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (challenge_id) REFERENCES challenges(id) ON DELETE CASCADE
+                    )
+                """)
+                
+                # Migrate data if old table had data
+                cur.execute("SELECT COUNT(*) FROM attachments_old")
+                if cur.fetchone()[0] > 0:
+                    # Try to migrate data (best effort)
+                    try:
+                        cur.execute("""
+                            INSERT INTO attachments (id, challenge_id, file_name, file_path, added_at)
+                            SELECT id, challenge_id, file_name, 
+                                   COALESCE(stored_path, file_name),
+                                   COALESCE(created_at, CURRENT_TIMESTAMP)
+                            FROM attachments_old
+                        """)
+                        _LOG.info("Migrated attachment records from old schema")
+                    except Exception as e:
+                        _LOG.warning(f"Could not migrate old attachment data: {e}")
+                
+                # Drop old table
+                cur.execute("DROP TABLE attachments_old")
+            else:
+                # Add missing columns to existing table
+                if "file_type" not in columns:
+                    cur.execute("ALTER TABLE attachments ADD COLUMN file_type TEXT")
+                if "file_size" not in columns:
+                    cur.execute("ALTER TABLE attachments ADD COLUMN file_size INTEGER")
+                if "added_at" not in columns:
+                    cur.execute("ALTER TABLE attachments ADD COLUMN added_at DATETIME DEFAULT CURRENT_TIMESTAMP")
+                # Rename file_path if it was stored_path
+                if "stored_path" in columns and "file_path" not in columns:
+                    # SQLite doesn't support column rename directly in old versions
+                    # We need to recreate the table
+                    cur.execute("ALTER TABLE attachments RENAME TO attachments_old")
+                    cur.executescript(SCHEMA_SQL)
+                    cur.execute("""
+                        INSERT INTO attachments (id, challenge_id, file_name, file_path, file_type, file_size, added_at)
+                        SELECT id, challenge_id, file_name, stored_path, file_type, file_size, 
+                               COALESCE(added_at, CURRENT_TIMESTAMP)
+                        FROM attachments_old
+                    """)
+                    cur.execute("DROP TABLE attachments_old")
+

@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from importlib import resources
 from pathlib import Path
-from typing import Any, Iterable, List, Mapping, TYPE_CHECKING, cast
+from typing import Any, List, Mapping, TYPE_CHECKING, cast
 
 try:  # pragma: no cover - optional dependency
     from gi.repository import Gtk  # type: ignore[import]
@@ -17,7 +17,7 @@ if TYPE_CHECKING:  # pragma: no cover - type checking only
 else:
     GtkType = Any  # type: ignore[misc]
 
-from .data_paths import help_dir, templates_dir, cheatsheets_dir
+from .data_paths import templates_dir, cheatsheets_dir
 from .logger import configure_logging
 
 _LOG = configure_logging()
@@ -28,7 +28,6 @@ class Resources:
 
     def __init__(self) -> None:
         self._ui_pkg = 'ctf_helper.ui'
-        self._help_pkg = 'ctf_helper.help'
         self._template_pkg = 'ctf_helper.templates'
         self._cheatsheet_pkg = 'ctf_helper.cheatsheets'
 
@@ -50,27 +49,10 @@ class Resources:
         provider.load_from_data(self.css_data().encode('utf-8'))
         return provider
 
-    def help_topics(self) -> Iterable[str]:
-        for entry in resources.files(self._help_pkg).iterdir():
-            name = entry.name
-            if name.endswith('.md'):
-                yield name
-
-    def load_help(self, name: str) -> str:
-        return (resources.files(self._help_pkg) / name).read_text(encoding='utf-8')
-
     def ensure_help_extracted(self) -> List[Path]:
-        extracted: List[Path] = []
-        destination = help_dir()
-        for topic in self.help_topics():
-            target = destination / topic
-            if target.exists():
-                continue
-            target.write_text(self.load_help(topic), encoding='utf-8')
-            extracted.append(target)
-        if extracted:
-            _LOG.info("Extracted %s help topics to %s", len(extracted), destination)
-        return extracted
+        """Help files are now installed via meson from data/help/"""
+        # No longer needed - help files are installed at /app/share/cryptea/help/
+        return []
 
     def template_index(self) -> Mapping[str, Mapping[str, str]]:
         content = (resources.files(self._template_pkg) / 'builtins.json').read_text(encoding='utf-8')

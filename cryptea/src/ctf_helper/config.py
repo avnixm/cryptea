@@ -24,7 +24,7 @@ SUPPRESS_SANDBOX_WARNING: bool = _truthy_env(
 
 APP_ID = "org.avnixm.Cryptea"
 APP_NAME = "Cryptea"
-APP_VERSION = "0.1.2"
+APP_VERSION = "0.1.3"
 
 try:  # pragma: no cover - optional override generated at build time
     from . import build_config as _generated  # type: ignore

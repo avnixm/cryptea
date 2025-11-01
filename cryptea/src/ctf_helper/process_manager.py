@@ -18,10 +18,22 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set
 
 from gi.repository import GLib  # type: ignore[import]
+import shlex
+import shutil
 
 from .logger import configure_logging
 
 _LOG = configure_logging()
+
+# Allowed commands for security (SEC-006)
+_ALLOWED_COMMANDS = {
+    "gdb", "radare2", "rizin", "objdump", "strings",
+    "readelf", "file", "nm", "strip", "size",
+    "addr2line", "objcopy", "ranlib", "ar",
+    "binwalk", "foremost", "tshark", "tcpdump",
+    "exiftool", "zbarimg", "ffmpeg", "sox",
+    "hashcat", "john", "nmap", "sqlmap"
+}
 
 
 @dataclass
@@ -122,9 +134,39 @@ class ProcessManager:
             _LOG.warning(f"Process '{name}' already exists, stopping it first")
             self.stop(name)
         
-        # Prepare command
-        if isinstance(cmd, str) and not shell:
-            cmd = cmd.split()
+        # Validate name (SEC-006)
+        if not name or not name.replace("_", "").replace("-", "").isalnum():
+            raise ValueError(f"Invalid process name: {name}. Must be alphanumeric with underscores/hyphens.")
+        
+        # Validate command (SEC-006)
+        if isinstance(cmd, str):
+            if shell:
+                raise ValueError("shell=True not allowed with string commands for security (SEC-006)")
+            cmd = shlex.split(cmd)  # Safer than split()
+        elif not isinstance(cmd, list):
+            raise ValueError(f"Command must be str or list, got {type(cmd)}")
+        
+        if not cmd:
+            raise ValueError("Command cannot be empty")
+        
+        # Validate binary (SEC-006)
+        binary_name = Path(cmd[0]).name
+        if binary_name not in _ALLOWED_COMMANDS:
+            raise ValueError(
+                f"Command {binary_name} not in allowlist. "
+                f"Allowed commands: {sorted(_ALLOWED_COMMANDS)}"
+            )
+        
+        # Resolve binary path safely
+        if not Path(cmd[0]).is_absolute():
+            binary_path = shutil.which(binary_name)
+            if not binary_path:
+                raise FileNotFoundError(f"Command {binary_name} not found in PATH")
+            cmd[0] = binary_path
+        
+        # Never allow shell=True (SEC-006)
+        if shell:
+            raise ValueError("shell=True is disabled for security (SEC-006)")
         
         # Start in new process group for clean termination
         try:

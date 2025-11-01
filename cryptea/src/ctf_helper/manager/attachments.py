@@ -13,6 +13,9 @@ from typing import Optional, List, Dict, Any
 import mimetypes
 
 from ..db import Database
+from ..logger import configure_logging
+
+_LOG = configure_logging()
 
 
 class AttachmentManager:
@@ -69,6 +72,8 @@ class AttachmentManager:
     
     # Maximum file size (50MB)
     MAX_FILE_SIZE = 50 * 1024 * 1024
+    # Maximum total size per user (10GB)
+    MAX_TOTAL_SIZE = 10 * 1024 * 1024 * 1024
     
     def __init__(self, base_dir: Optional[str] = None):
         """
@@ -113,11 +118,11 @@ class AttachmentManager:
         if file_path.suffix.lower() not in self.ALLOWED_EXTENSIONS:
             return False, f"File type {file_path.suffix} not allowed"
         
-        # No file size limit - allow files of any size
-        # file_size = file_path.stat().st_size
-        # if file_size > self.MAX_FILE_SIZE:
-        #     size_mb = file_size / (1024 * 1024)
-        #     return False, f"File too large ({size_mb:.1f}MB, max 50MB)"
+        # File size validation (SEC-001, REL-001)
+        file_size = file_path.stat().st_size
+        if file_size > self.MAX_FILE_SIZE:
+            size_mb = file_size / (1024 * 1024)
+            return False, f"File too large ({size_mb:.1f}MB, max {self.MAX_FILE_SIZE / (1024*1024):.0f}MB)"
         
         return True, ""
     
@@ -161,13 +166,43 @@ class AttachmentManager:
         
         # Get file metadata
         file_size = dest_path.stat().st_size
+        
+        # Check total size for challenge (REL-001)
+        total_size = self.get_total_size(challenge_id)
+        if total_size + file_size > self.MAX_TOTAL_SIZE:
+            raise ValueError(
+                f"Total attachment size would exceed "
+                f"{self.MAX_TOTAL_SIZE / (1024*1024*1024):.1f}GB limit"
+            )
+        
         file_type, _ = mimetypes.guess_type(str(dest_path))
         if not file_type:
-            # Fallback to file command
+            # Fallback to file command (SEC-001: Fixed command injection)
             try:
-                file_type = subprocess.getoutput(f"file --mime-type -b '{dest_path}'").strip()
-            except:
-                file_type = "application/octet-stream"
+                result = subprocess.run(
+                    ["file", "--mime-type", "-b", str(dest_path)],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                    check=False
+                )
+                if result.returncode == 0:
+                    file_type = result.stdout.strip()
+                else:
+                    _LOG.warning(f"file command failed for {dest_path}: {result.stderr}")
+                    file_type = None
+            except subprocess.TimeoutExpired:
+                _LOG.warning(f"File command timed out for {dest_path}")
+                file_type = None
+            except FileNotFoundError:
+                _LOG.debug(f"file command not found, using default MIME type")
+                file_type = None
+            except Exception as e:
+                _LOG.error(f"Error determining file type for {dest_path}: {e}", exc_info=True)
+                file_type = None
+        
+        if not file_type:
+            file_type = "application/octet-stream"
         
         # Store in database
         with self.db.cursor() as cur:
@@ -234,7 +269,7 @@ class AttachmentManager:
             if file_path.exists():
                 file_path.unlink()
         except Exception as e:
-            print(f"Warning: Failed to delete file {file_path}: {e}")
+            _LOG.warning(f"Failed to delete file {file_path}: {e}", exc_info=True)
         
         # Delete from database
         with self.db.cursor() as cur:
@@ -293,13 +328,26 @@ class AttachmentManager:
             if session_type == 'wayland' and shutil.which('grim'):
                 # Use grim for Wayland
                 if interactive and shutil.which('slurp'):
-                    # Interactive selection with slurp
-                    result = subprocess.run(
-                        ["grim", "-g", "$(slurp)", str(dest_path)],
-                        shell=True,
+                    # Interactive selection with slurp (SEC-002: Fixed shell=True injection)
+                    slurp_result = subprocess.run(
+                        ["slurp"],
                         capture_output=True,
-                        timeout=30
+                        text=True,
+                        timeout=10,
+                        check=False
                     )
+                    if slurp_result.returncode == 0:
+                        geometry = slurp_result.stdout.strip()
+                        result = subprocess.run(
+                            ["grim", "-g", geometry, str(dest_path)],
+                            capture_output=True,
+                            timeout=10,
+                            check=False
+                        )
+                        if result.returncode != 0:
+                            raise RuntimeError(f"grim failed: {result.stderr.decode('utf-8', errors='replace')}")
+                    else:
+                        raise RuntimeError("Failed to get selection geometry from slurp")
                 else:
                     # Full screen
                     result = subprocess.run(
@@ -485,7 +533,7 @@ class AttachmentManager:
                     shutil.copy2(src_path, dest_path)
                     count += 1
                 except Exception as e:
-                    print(f"Failed to export {attachment['file_name']}: {e}")
+                    _LOG.warning(f"Failed to export {attachment['file_name']}: {e}", exc_info=True)
         
         return count
     

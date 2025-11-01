@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Iterable, List, Sequence, Tuple
 
 from ..base import ToolResult
+from ...utils import validate_path
 
 
 @dataclass(frozen=True)
@@ -235,12 +236,18 @@ class DisassemblerLauncher:
         argv: List[str] = [binary_path]
 
         if tool.slug == "ghidra-headless":
-            project_root = Path(project_dir).expanduser() if project_dir.strip() else target.parent
+            # Validate paths (SEC-005)
+            from os.path import expanduser
+            allowed_base = Path(expanduser("~"))
+            if project_dir.strip():
+                project_root = validate_path(Path(project_dir), allowed_base)
+            else:
+                project_root = target.parent
             project_root.mkdir(parents=True, exist_ok=True)
             project_name = target.stem
             argv = [binary_path, str(project_root), project_name, "-import", str(target)]
             if script.strip():
-                script_path = Path(script).expanduser()
+                script_path = validate_path(Path(script), allowed_base)
                 if not script_path.exists():
                     raise FileNotFoundError(script_path)
                 argv.extend(["-scriptPath", str(script_path.parent), "-postScript", script_path.name])
@@ -252,7 +259,10 @@ class DisassemblerLauncher:
             argv = [binary_path, *tool.default_args]
             script_note: str | None = None
             if script.strip():
-                script_content = Path(script).expanduser()
+                # Validate path (SEC-005)
+                from os.path import expanduser
+                allowed_base = Path(expanduser("~"))
+                script_content = validate_path(Path(script), allowed_base)
                 if script_content.exists():
                     argv.extend(["-i", str(script_content)])
                 else:

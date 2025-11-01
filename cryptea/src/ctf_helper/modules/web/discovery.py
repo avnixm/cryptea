@@ -160,8 +160,46 @@ def find_wordlists() -> List[str]:
     return deduped
 
 
+# Allowed binaries for security (SEC-003)
+_ALLOWED_BINARIES = {"gobuster", "dirb", "ffuf", "dirbuster", "wfuzz"}
+
+
 def run_external(binary: str, args: List[str]) -> str:
-    proc = subprocess.run([binary] + args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    """
+    Run external binary with security validation (SEC-003).
+    
+    Args:
+        binary: Binary name to execute
+        args: Arguments to pass to binary
+        
+    Returns:
+        Output from binary (stdout or stderr)
+        
+    Raises:
+        ValueError: If binary is not in allowlist
+        FileNotFoundError: If binary is not found in PATH
+    """
+    # Validate binary name (SEC-003)
+    binary_name = Path(binary).name
+    if binary_name not in _ALLOWED_BINARIES:
+        raise ValueError(f"Binary {binary_name} not in allowlist. Allowed: {_ALLOWED_BINARIES}")
+    
+    # Resolve binary path safely
+    if not Path(binary).is_absolute():
+        binary_path = shutil.which(binary_name)
+        if not binary_path:
+            raise FileNotFoundError(f"Binary {binary_name} not found in PATH")
+        binary = binary_path
+    
+    # Run with timeout for security
+    proc = subprocess.run(
+        [binary] + args,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        timeout=300,  # 5 minute timeout
+        check=False
+    )
     return proc.stdout or proc.stderr
 
 

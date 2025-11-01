@@ -28,6 +28,7 @@ except ImportError:
     bcrypt = None
 
 from ..base import ToolResult
+from ...utils import validate_path
 
 
 # Enhanced hash identification database
@@ -198,7 +199,10 @@ class HashWorkspaceTool:
                     hash_list.append(cleaned)
         
         if file_path:
-            path = Path(file_path).expanduser()
+            # Validate path (SEC-005)
+            from os.path import expanduser
+            allowed_base = Path(expanduser("~"))
+            path = validate_path(Path(file_path), allowed_base)
             if not path.exists():
                 raise FileNotFoundError(f"File not found: {file_path}")
             try:

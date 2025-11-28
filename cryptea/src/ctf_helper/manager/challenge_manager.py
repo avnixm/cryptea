@@ -190,21 +190,23 @@ class ChallengeManager:
                 sql += " AND LOWER(tags) LIKE ?"
                 params.append(f"%{tag.lower()}%")
         
-        # Validate order_by to prevent SQL injection
-        valid_orders = {
-            "created_at ASC",
-            "created_at DESC",
-            "updated_at ASC",
-            "updated_at DESC",
-            "title COLLATE NOCASE",
-            "title COLLATE NOCASE DESC",
-            "difficulty ASC",
-            "difficulty DESC",
-            "status ASC",
-            "status DESC",
+        # Validate order_by to prevent SQL injection (SEC-008: Defense-in-depth with mapping)
+        ORDER_MAP = {
+            "created_at ASC": "created_at ASC",
+            "created_at DESC": "created_at DESC",
+            "updated_at ASC": "updated_at ASC",
+            "updated_at DESC": "updated_at DESC",
+            "title COLLATE NOCASE": "title COLLATE NOCASE",
+            "title COLLATE NOCASE DESC": "title COLLATE NOCASE DESC",
+            "difficulty ASC": "difficulty ASC",
+            "difficulty DESC": "difficulty DESC",
+            "status ASC": "status ASC",
+            "status DESC": "status DESC",
         }
-        if order_by not in valid_orders:
+        if order_by not in ORDER_MAP:
             order_by = "updated_at DESC"
+        else:
+            order_by = ORDER_MAP[order_by]  # Use mapped value for extra safety
         sql += f" ORDER BY {order_by}"
         with self.db.cursor() as cur:
             cur.execute(sql, params)

@@ -8,7 +8,32 @@ import subprocess
 from typing import List
 
 from ..base import ToolResult
+from ..logger import configure_logging
 from ...data_paths import user_data_dir
+
+_LOG = configure_logging()
+
+# Safe sqlmap options (SEC-004)
+SAFE_SQLMAP_OPTIONS = {
+    "--batch",
+    "--level",
+    "--risk",
+    "--threads",
+    "--timeout",
+    "--method",
+    "--data",
+    "--cookie",
+    "--tamper",
+    "--headers",
+    "--user-agent",
+    "--referer",
+    "--proxy",
+    "--tor",
+    "--check-tor",
+    "--randomize",
+    "--time-sec",
+    "--union-cols",
+}
 
 
 def is_sqlmap_available() -> bool:
@@ -62,8 +87,29 @@ class SqlmapTool:
         if timeout_val:
             args += ["--timeout", timeout_val]
 
+        # Validate sqlmap options (SEC-004)
         if options.strip():
-            args += options.split()
+            option_parts = options.split()
+            i = 0
+            while i < len(option_parts):
+                opt = option_parts[i]
+                # Check if it's a known safe option flag
+                if opt in SAFE_SQLMAP_OPTIONS:
+                    args.append(opt)
+                    i += 1
+                    # If option takes a value, add it (with basic validation)
+                    if i < len(option_parts) and not option_parts[i].startswith('-'):
+                        # Basic validation: no shell metacharacters
+                        value = option_parts[i]
+                        if any(char in value for char in [';', '|', '&', '$', '`', '(', ')']):
+                            _LOG.warning(f"Ignoring sqlmap option value with unsafe characters: {value}")
+                            i += 1
+                            continue
+                        args.append(value)
+                        i += 1
+                else:
+                    _LOG.warning(f"Ignoring unsafe sqlmap option: {opt}")
+                    i += 1
 
         proc = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         body = proc.stdout or proc.stderr

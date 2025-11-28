@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Sequence
 
 from ..base import ToolResult
+from ...utils import validate_path
 
 _DEFAULT_COMMANDS = ["aaa", "s main", "pdf @ main"]
 
@@ -25,7 +26,12 @@ class RizinConsole:
         tool: str = "auto",
         quiet: str = "true",
     ) -> ToolResult:
-        target = Path(file_path).expanduser()
+        # Validate path to prevent traversal (SEC-005)
+        # Allow user's home directory as base for CTF files
+        from os.path import expanduser
+        allowed_base = Path(expanduser("~"))
+        target = validate_path(Path(file_path), allowed_base)
+        
         if not target.exists():
             raise FileNotFoundError(target)
 

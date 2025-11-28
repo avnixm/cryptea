@@ -1,5 +1,5 @@
 project('cryptea',
-  version: '0.1.3',
+  version: '0.2.0',
   license: 'GPL-3.0-or-later',
   meson_version: '>=0.64.0',
   default_options: ['warning_level=2'])
@@ -22,6 +22,5 @@ config_module = configure_file(
 
 subdir('src')
 subdir('data')
-subdir('build-aux')
 
 install_data('README.md', install_dir: join_paths(get_option('datadir'), 'doc', 'cryptea'))

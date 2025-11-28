@@ -1,5 +1,5 @@
 app-id: org.avnixm.Cryptea
-version: "0.1.3"
+version: "0.2.0"
 runtime: org.gnome.Platform
 runtime-version: '47'
 sdk: org.gnome.Sdk
@@ -101,6 +101,16 @@ modules:
         url: https://files.pythonhosted.org/packages/source/p/psutil/psutil-6.1.0.tar.gz
         sha256: 353815f59a7f64cdaca1c0307ee13558a0512f6db064e92fe833784f08539c7a
 
+  - name: python3-pillow
+    buildsystem: simple
+    build-commands:
+      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
+        --prefix=${FLATPAK_DEST} Pillow --no-build-isolation
+    sources:
+      - type: file
+        url: https://files.pythonhosted.org/packages/source/P/Pillow/Pillow-10.4.0.tar.gz
+        sha256: 5947b6b20b8d752319f38c03e4c0e47f66cf1f8ae50e79c82c2b5c8510c02cd2
+
   # Optional CTF tools (reverse engineering)
   - name: capstone
     buildsystem: cmake-ninja
@@ -146,8 +156,8 @@ modules:
       - make install
     sources:
       - type: archive
-        url: https://exiftool.org/Image-ExifTool-13.38.tar.gz
-        sha256: 0256672ab507662fe42d1ae851ae1b55930a3c8eb69e9d6883c33559e90f5f01
+        url: https://exiftool.org/Image-ExifTool-13.42.tar.gz
+        sha256: faac2e68b67972084bd4dd02bcbcc094dea5a41cc0afee1cdba1d089cf11ff18
 
   - name: zbar
     buildsystem: simple

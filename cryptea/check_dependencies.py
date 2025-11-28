@@ -69,6 +69,7 @@ class DependencyChecker:
         },
         "Network Security": {
             "nmap": "Network exploration and security auditing",
+            "nping": "Network packet generation tool (part of nmap)",
             "sqlmap": "Automatic SQL injection tool",
             "hydra": "Network login cracker",
             "medusa": "Parallel network login brute-forcer",
@@ -77,6 +78,22 @@ class DependencyChecker:
             "arjun": "HTTP parameter discovery",
             "sublist3r": "Subdomain enumeration tool",
             "crackmapexec": "Network service exploitation suite",
+            "gobuster": "Directory/DNS brute-forcing tool",
+            "ffuf": "Fast web fuzzer",
+            "nikto": "Web server vulnerability scanner",
+            "masscan": "Ultra-fast TCP port scanner",
+            "enum4linux": "SMB/Windows enumeration tool",
+            "enum4linux-ng": "Improved SMB/Windows enumeration tool",
+        },
+        "Web Tools": {
+            "dirb": "Web content scanner",
+            "dirbuster": "Web directory brute-forcer",
+            "zap": "OWASP ZAP proxy and scanner",
+            "owasp-zap": "OWASP ZAP (alternative name)",
+            "zaproxy": "OWASP ZAP (alternative name)",
+        },
+        "Media Analysis": {
+            "tesseract": "OCR engine (for text extraction from images)",
         },
     }
 
@@ -92,6 +109,48 @@ class DependencyChecker:
             "category": "Reverse Engineering",
             "description": "Pwntools exploitation helpers (Python package)",
             "pip": "pwntools",
+        },
+        "numpy": {
+            "import": "numpy",
+            "category": "Media Analysis",
+            "description": "NumPy for numerical computing (audio/image analysis)",
+            "pip": "numpy",
+        },
+        "scipy": {
+            "import": "scipy",
+            "category": "Media Analysis",
+            "description": "SciPy for scientific computing (signal processing)",
+            "pip": "scipy",
+        },
+        "Pillow": {
+            "import": "PIL",
+            "category": "Media Analysis",
+            "description": "Pillow for image processing",
+            "pip": "Pillow",
+        },
+        "pytesseract": {
+            "import": "pytesseract",
+            "category": "Media Analysis",
+            "description": "Python wrapper for Tesseract OCR",
+            "pip": "pytesseract",
+        },
+        "pyzbar": {
+            "import": "pyzbar",
+            "category": "Media Analysis",
+            "description": "Python wrapper for ZBar barcode/QR scanner",
+            "pip": "pyzbar",
+        },
+        "pydub": {
+            "import": "pydub",
+            "category": "Media Analysis",
+            "description": "Audio manipulation library",
+            "pip": "pydub",
+        },
+        "librosa": {
+            "import": "librosa",
+            "category": "Media Analysis",
+            "description": "Audio and music analysis library",
+            "pip": "librosa",
         },
     }
 
@@ -229,7 +288,8 @@ class DependencyChecker:
             "hashcat", "john", "perl-Image-ExifTool", "zbar", "ffmpeg",
             "sox", "nmap", "sqlmap", "hydra", "medusa", "wfuzz", "commix",
             "arjun", "sublist3r", "crackmapexec", "foremost", "openssl",
-            "checksec"
+            "checksec", "gobuster", "ffuf", "nikto", "masscan",
+            "enum4linux-ng", "dirb", "tesseract"
         ])
         if self.missing_required:
             print(f"  sudo dnf install {fedora_required}")
@@ -244,7 +304,8 @@ class DependencyChecker:
             "hashcat", "john", "zbar-tools", "ffmpeg", "sox",
             "nmap", "sqlmap", "hydra", "medusa", "wfuzz", "commix",
             "arjun", "sublist3r", "crackmapexec", "foremost", "openssl",
-            "checksec"
+            "checksec", "gobuster", "ffuf", "nikto", "masscan",
+            "enum4linux", "dirb", "dirbuster", "tesseract-ocr"
         ])
         if self.missing_required:
             print(f"  sudo apt install {debian_required}")
@@ -259,7 +320,8 @@ class DependencyChecker:
             "hashcat", "john", "zbar", "ffmpeg", "sox", "nmap",
             "sqlmap", "hydra", "medusa", "wfuzz", "commix", "arjun",
             "sublist3r", "crackmapexec", "foremost", "openssl",
-            "checksec"
+            "checksec", "gobuster", "ffuf", "nikto", "masscan",
+            "enum4linux-ng", "dirb", "tesseract"
         ])
         if self.missing_required:
             print(f"  sudo pacman -S {arch_required}")

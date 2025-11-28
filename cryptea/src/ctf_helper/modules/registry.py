@@ -11,11 +11,19 @@ from .crypto.morse_decoder import MorseDecoderTool
 from .crypto.hash_suite import HashSuite
 from .crypto.rsa_toolkit import RSAToolkit
 from .crypto.xor_analyzer import XORKeystreamAnalyzer
+from .crypto.rsactftool import RsaCtfToolTool
+from .crypto.featherduster import FeatherDusterTool
+from .crypto.cyberchef import CyberChefTool
 from .forensics.disk_image_tools import DiskImageToolkit
 from .forensics.file_inspector import FileInspectorTool
 from .forensics.memory_analyzer import MemoryAnalyzerTool
 from .forensics.pcap_viewer import PcapViewerTool
 from .forensics.timeline_builder import TimelineBuilderTool
+from .forensics.foremost import ForemostTool
+from .forensics.bulk_extractor import BulkExtractorTool
+from .forensics.volatility import VolatilityTool
+from .forensics.sleuthkit import SleuthkitTool
+from .forensics.scalpel import ScalpelTool
 from .media import (
     AudioAnalyzerTool,
     ExifMetadataTool,
@@ -24,6 +32,9 @@ from .media import (
     VideoFrameExporterTool,
 )
 from .misc.wordlist_generator import WordlistGenerator
+from .misc.hydra import HydraTool
+from .misc.medusa import MedusaTool
+from .misc.crackmapexec import CrackMapExecTool
 from .reverse.bin_analysis import StringsExtractTool
 from .reverse.binary_diff import BinaryDiffTool
 from .reverse.binary_inspector import BinaryInspector
@@ -32,13 +43,26 @@ from .reverse.exe_decompiler import ExeDecompiler
 from .reverse.gdb_helper import GDBHelper
 from .reverse.rizin_console import RizinConsole
 from .reverse.rop_gadget import ROPGadgetTool
+from .reverse.pwntools_helper import PwntoolsHelperTool
+from .reverse.angr_helper import AngrHelperTool
+from .reverse.checksec import ChecksecTool
+from .reverse.syscall_tracer import SyscallTracerTool
 from .web.discovery import DirDiscoveryTool
 from .web.file_upload import FileUploadTester
 from .web.jwt_tool import JWTTool
 from .web.sqli_tester import SQLInjectionTester
 from .web.sqlmap import SqlmapTool
 from .web.xss_tester import XSSTester
+from .web.wfuzz import WfuzzTool
+from .web.commix import CommixTool
+from .web.arjun import ArjunTool
+from .web.sublist3r import Sublist3rTool
 from .network.nmap import NmapTool, is_nmap_available, network_consent_enabled
+from .network.gobuster import GobusterTool
+from .network.ffuf import FfufTool
+from .network.nikto import NiktoTool
+from .network.masscan import MasscanTool
+from .network.enum4linux import Enum4linuxTool
 
 
 class ModuleRegistry:
@@ -56,6 +80,9 @@ class ModuleRegistry:
             RSAToolkit(),
             CaesarCipherTool(),
             VigenereCipherTool(),
+            RsaCtfToolTool(),
+            FeatherDusterTool(),
+            CyberChefTool(),
             
             # Forensics
             FileInspectorTool(),
@@ -63,6 +90,11 @@ class ModuleRegistry:
             MemoryAnalyzerTool(),
             DiskImageToolkit(),
             TimelineBuilderTool(),
+            ForemostTool(),
+            BulkExtractorTool(),
+            VolatilityTool(),
+            SleuthkitTool(),
+            ScalpelTool(),
             
             # Media
             ImageStegoTool(),
@@ -71,7 +103,7 @@ class ModuleRegistry:
             VideoFrameExporterTool(),
             QRScannerTool(),
             
-                        # Reverse Engineering
+            # Reverse Engineering
             StringsExtractTool(),
             BinaryDiffTool(),
             BinaryInspector(),
@@ -80,9 +112,16 @@ class ModuleRegistry:
             GDBHelper(),
             RizinConsole(),
             ROPGadgetTool(),
+            PwntoolsHelperTool(),
+            AngrHelperTool(),
+            ChecksecTool(),
+            SyscallTracerTool(),
             
             # Miscellaneous
             WordlistGenerator(),
+            HydraTool(),
+            MedusaTool(),
+            CrackMapExecTool(),
             
             # Web
             DirDiscoveryTool(),
@@ -91,9 +130,32 @@ class ModuleRegistry:
             XSSTester(),
             JWTTool(),
             FileUploadTester(),
+            WfuzzTool(),
+            CommixTool(),
+            ArjunTool(),
+            Sublist3rTool(),
         ]
-        if network_consent_enabled() and is_nmap_available():
-            self._tools.append(NmapTool())
+        # Network tools (require consent)
+        if network_consent_enabled():
+            if is_nmap_available():
+                self._tools.append(NmapTool())
+            # Add other network tools
+            from .network.gobuster import is_gobuster_available
+            from .network.ffuf import is_ffuf_available
+            from .network.nikto import is_nikto_available
+            from .network.masscan import is_masscan_available
+            from .network.enum4linux import is_enum4linux_available
+            
+            if is_gobuster_available():
+                self._tools.append(GobusterTool())
+            if is_ffuf_available():
+                self._tools.append(FfufTool())
+            if is_nikto_available():
+                self._tools.append(NiktoTool())
+            if is_masscan_available():
+                self._tools.append(MasscanTool())
+            if is_enum4linux_available():
+                self._tools.append(Enum4linuxTool())
 
     def categories(self) -> List[str]:
         return sorted({tool.category for tool in self._tools})

@@ -29,9 +29,10 @@
 - 🔒 **100% Offline** - No network access, no telemetry, no external dependencies
 - 🛡️ **Air-Gap Safe** - Perfect for sensitive security research and exam environments
 - 🎯 **CTF Focused** - Built specifically for capture-the-flag workflows
-- 🧰 **40+ Tools** - Comprehensive offline security toolkit
+- 🧰 **65+ Tools** - Comprehensive offline security toolkit with preset profiles
 - 📝 **Note Taking** - Integrated Markdown editor with live preview
 - 💾 **Local Storage** - SQLite database, no cloud dependencies
+- 🎛️ **Hybrid UI** - Preset buttons for quick scans + advanced options for customization
 
 ---
 
@@ -75,10 +76,10 @@
 
 ## 🛠️ Available Tools
 
-Cryptea includes **40+ offline security tools** organized by category:
+Cryptea includes **65+ offline security tools** organized by category:
 
 <details>
-<summary><b>🔐 Crypto & Encoding (10 tools)</b></summary>
+<summary><b>🔐 Crypto & Encoding (13 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
@@ -92,11 +93,14 @@ Cryptea includes **40+ offline security tools** organized by category:
 | **Hash Digest** | Compute message digests using Python's hashlib |
 | **Hash Identifier** | Quick hash type identification |
 | **htpasswd Generator** | Generate Apache htpasswd entries |
+| **RsaCtfTool** | Automated RSA attack tool with multiple attack methods |
+| **FeatherDuster** | Automated cryptanalysis for weak encryption |
+| **CyberChef Recipes** | Chain encoding/decoding operations (offline Python implementation) |
 
 </details>
 
 <details>
-<summary><b>🔍 Forensics (6 tools)</b></summary>
+<summary><b>🔍 Forensics (11 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
@@ -106,11 +110,16 @@ Cryptea includes **40+ offline security tools** organized by category:
 | **Memory Analyzer** | Scan memory dumps for suspicious strings |
 | **File Inspector** | Analyze file metadata, hashes, and magic bytes |
 | **Binwalk** | Firmware analysis and extraction |
+| **Foremost** | File carving from disk images with preset file types |
+| **Bulk Extractor** | Digital forensics extraction tool for features |
+| **Volatility** | Memory forensics framework with common plugins |
+| **Sleuthkit** | Disk analysis and file system forensics tools |
+| **Scalpel** | Fast file carving with configuration support |
 
 </details>
 
 <details>
-<summary><b>🔧 Reverse Engineering (10 tools)</b></summary>
+<summary><b>🔧 Reverse Engineering (14 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
@@ -124,6 +133,10 @@ Cryptea includes **40+ offline security tools** organized by category:
 | **GDB Runner** | Execute scripted GDB sessions |
 | **Radare/Rizin Console** | Run scripted rizin/radare2 commands |
 | **objdump Viewer** | View disassembly and sections |
+| **Pwntools Helper** | CTF exploit development utilities (cyclic patterns, shellcode) |
+| **Angr Helper** | Binary analysis and symbolic execution framework |
+| **Checksec** | Check binary security properties (NX, PIE, RELRO, etc.) |
+| **Syscall Tracer** | Trace system calls and library calls (strace/ltrace) |
 
 </details>
 
@@ -141,7 +154,7 @@ Cryptea includes **40+ offline security tools** organized by category:
 </details>
 
 <details>
-<summary><b>🌐 Web Exploitation (7 tools)</b></summary>
+<summary><b>🌐 Web Exploitation (11 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
@@ -152,26 +165,38 @@ Cryptea includes **40+ offline security tools** organized by category:
 | **File Upload Tester** | Generate upload bypass payloads |
 | **Payload Library** | Browse curated payload examples |
 | **OWASP ZAP** | Launch and manage ZAP proxy |
+| **Wfuzz** | Web application fuzzer with preset payloads |
+| **Commix** | Command injection exploitation tool |
+| **Arjun** | HTTP parameter discovery tool |
+| **Sublist3r** | Subdomain enumeration tool |
 
 </details>
 
 <details>
-<summary><b>🌐 Network (2 tools)</b></summary>
+<summary><b>🌐 Network (7 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | **Nmap** | Run local network scans (opt-in) |
 | **nping** | Send crafted packets (opt-in) |
+| **Gobuster** | Directory/DNS/VHost brute-forcing tool |
+| **ffuf** | Fast web fuzzer for directory/parameter discovery |
+| **Nikto** | Web server vulnerability scanner |
+| **Masscan** | Ultra-fast TCP port scanner |
+| **Enum4linux** | SMB/Windows enumeration tool |
 
 </details>
 
 <details>
-<summary><b>🔑 Password Tools (2 tools)</b></summary>
+<summary><b>🔑 Password & Credential Tools (5 tools)</b></summary>
 
 | Tool | Description |
 |------|-------------|
 | **Wordlist Generator** | Generate custom wordlists and permutations |
 | **Hash Cracker** | Multi-algorithm password cracking |
+| **Hydra** | Network login brute-forcer with protocol presets |
+| **Medusa** | Parallel network brute-forcing tool |
+| **CrackMapExec** | Network service exploitation framework |
 
 </details>
 
@@ -190,13 +215,32 @@ Cryptea includes **40+ offline security tools** organized by category:
 - SQLite 3
 
 **Optional (for specific tools):**
+
+*Cryptography & Password Cracking:*
 - `hashcat` - GPU-accelerated hash cracking
 - `john` - Password cracking
+- `RsaCtfTool` - Automated RSA attacks
+- `featherduster` - Automated cryptanalysis
+
+*Reverse Engineering:*
 - `ghidra` - Advanced reverse engineering
 - `radare2` or `rizin` - Binary analysis
 - `gdb` - Debugging
 - `objdump` - Disassembly
+- `checksec` - Binary security checker
+- `strace` / `ltrace` - System/library call tracing
+- `angr` - Binary analysis framework (Python package)
+- `pwntools` - CTF framework (Python package)
+
+*Forensics:*
 - `binwalk` - Firmware analysis
+- `foremost` - File carving
+- `scalpel` - File carving
+- `bulk_extractor` - Digital forensics extraction
+- `volatility` - Memory forensics
+- `sleuthkit` - Disk analysis tools
+
+*Media Analysis:*
 - `strings` - String extraction
 - `exiftool` - EXIF metadata
 - `zsteg` - PNG/BMP steganography
@@ -204,7 +248,21 @@ Cryptea includes **40+ offline security tools** organized by category:
 - `zbarimg` - QR/barcode scanning
 - `ffmpeg` - Video frame extraction
 - `sox` - Audio analysis
-- `nmap` - Network scanning (local only)
+
+*Network & Web (opt-in, use responsibly):*
+- `nmap` - Network scanning
+- `masscan` - Fast port scanning
+- `gobuster` - Directory/DNS brute-forcing
+- `ffuf` - Web fuzzing
+- `nikto` - Web server scanner
+- `enum4linux` - SMB enumeration
+- `wfuzz` - Web application fuzzer
+- `commix` - Command injection tool
+- `arjun` - Parameter discovery
+- `sublist3r` - Subdomain enumeration
+- `hydra` - Network login brute-forcer
+- `medusa` - Parallel brute-forcer
+- `crackmapexec` - Network service exploitation
 
 ### Quick Install (Fedora)
 
@@ -214,7 +272,8 @@ sudo dnf install python3 python3-pip python3-gobject gtk4 libadwaita meson
 
 # Install optional tools
 sudo dnf install hashcat john ghidra radare2 gdb binutils binwalk \
-    exiftool zbar ffmpeg sox nmap
+    exiftool zbar ffmpeg sox nmap masscan gobuster nikto hydra \
+    foremost scalpel volatility sleuthkit strace ltrace
 
 # Clone repository
 git clone https://github.com/avnixm/cryptea.git
@@ -242,7 +301,8 @@ sudo apt install python3 python3-pip python3-gi gir1.2-gtk-4.0 \
 
 # Install optional tools
 sudo apt install hashcat john radare2 gdb binutils binwalk exiftool \
-    zbar-tools ffmpeg sox nmap
+    zbar-tools ffmpeg sox nmap masscan gobuster nikto hydra \
+    foremost scalpel volatility sleuthkit strace ltrace
 
 # Clone and build
 git clone https://github.com/avnixm/cryptea.git
@@ -267,7 +327,8 @@ sudo pacman -S python python-pip python-gobject gtk4 libadwaita meson
 
 # Install optional tools
 sudo pacman -S hashcat john-jumbo radare2 gdb binutils binwalk \
-    perl-image-exiftool zbar ffmpeg sox nmap
+    perl-image-exiftool zbar ffmpeg sox nmap masscan gobuster nikto hydra \
+    foremost scalpel volatility sleuthkit strace ltrace
 
 # Clone and build
 git clone https://github.com/avnixm/cryptea.git

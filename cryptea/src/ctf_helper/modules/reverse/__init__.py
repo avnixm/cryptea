@@ -9,6 +9,10 @@ from .gdb_helper import GDBHelper
 from .rizin_console import RizinConsole
 from .rop_gadget import ROPGadgetTool
 from .exe_decompiler import ExeDecompiler
+from .pwntools_helper import PwntoolsHelperTool
+from .angr_helper import AngrHelperTool
+from .checksec import ChecksecTool
+from .syscall_tracer import SyscallTracerTool
 
 __all__ = [
     "StringsExtractTool",
@@ -20,4 +24,8 @@ __all__ = [
     "BinaryDiffTool",
     "BinaryInspector",
     "ExeDecompiler",
+    "PwntoolsHelperTool",
+    "AngrHelperTool",
+    "ChecksecTool",
+    "SyscallTracerTool",
 ]

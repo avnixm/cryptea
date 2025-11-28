@@ -122,6 +122,36 @@ TOOL_ICON_MAP: Dict[str, str] = {
     "xss tester": "applications-internet-symbolic",
     "jwt tool": "security-high-symbolic",
     "file upload tester": "document-send-symbolic",
+    # New network tools
+    "gobuster": "system-search-symbolic",
+    "ffuf": "system-search-symbolic",
+    "nikto": "security-medium-symbolic",
+    "masscan": "network-workgroup-symbolic",
+    "enum4linux": "network-server-symbolic",
+    # New web tools
+    "wfuzz": "system-search-symbolic",
+    "commix": "applications-engineering-symbolic",
+    "arjun": "system-search-symbolic",
+    "sublist3r": "network-server-symbolic",
+    # New forensics tools
+    "foremost": "drive-harddisk-symbolic",
+    "bulk extractor": "drive-harddisk-symbolic",
+    "volatility": "utilities-system-monitor-symbolic",
+    "sleuthkit": "drive-harddisk-symbolic",
+    "scalpel": "drive-harddisk-symbolic",
+    # New crypto tools
+    "rsactftool": "emblem-locked-symbolic",
+    "featherduster": "emblem-locked-symbolic",
+    "cyberchef recipes": "accessories-calculator-symbolic",
+    # New reverse engineering tools
+    "pwntools helper": "utilities-terminal-symbolic",
+    "angr helper": "media-playlist-repeat-symbolic",
+    "checksec": "security-high-symbolic",
+    "syscall tracer": "utilities-terminal-symbolic",
+    # New password/credential tools
+    "hydra": "dialog-password-symbolic",
+    "medusa": "dialog-password-symbolic",
+    "crackmapexec": "network-server-symbolic",
 }
 
  

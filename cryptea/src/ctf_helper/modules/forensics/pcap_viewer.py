@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import json
+import os
+import shutil
 import struct
+import subprocess
+import tempfile
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from ..base import ToolResult
+from ...utils.extraction_manager import ExtractionManager
 
 
 class PcapViewerTool:
@@ -19,14 +24,49 @@ class PcapViewerTool:
     description = "Summarise packet captures (PCAP and PCAPNG), conversations, and top talkers."
     category = "Forensics"
 
-    def run(self, file_path: str, packet_limit: str = "200", include_hex: str = "false") -> ToolResult:
+    def run(
+        self,
+        file_path: str,
+        packet_limit: str = "200",
+        include_hex: str = "false",
+        extract_http_objects: str = "false",
+        extract_tcp_streams: str = "false",
+        extract_ftp_files: str = "false",
+        extraction_dir: str = "",
+    ) -> ToolResult:
         path = Path(file_path).expanduser()
         if not path.exists():
             raise FileNotFoundError(path)
 
         limit = max(1, int(packet_limit or "200"))
         hex_preview = self._truthy(include_hex)
+        extract_http = self._truthy(extract_http_objects)
+        extract_tcp = self._truthy(extract_tcp_streams)
+        extract_ftp = self._truthy(extract_ftp_files)
+        extraction_base: Optional[Path] = None
+        if extraction_dir.strip():
+            extraction_base = Path(extraction_dir).expanduser()
+            extraction_base.mkdir(parents=True, exist_ok=True)
+
         summary = self._summarise_capture(path, limit=limit, include_hex=hex_preview)
+        artifacts: Dict[str, object] = {}
+        if extract_http:
+            http_dir = (extraction_base / "http_objects") if extraction_base else Path(
+                tempfile.mkdtemp(prefix="pcap_http_")
+            )
+            artifacts["http_objects"] = self._extract_http_objects(path, http_dir)
+        if extract_tcp:
+            tcp_dir = (extraction_base / "tcp_streams") if extraction_base else Path(
+                tempfile.mkdtemp(prefix="pcap_tcp_")
+            )
+            artifacts["tcp_streams"] = self._extract_tcp_streams(path, tcp_dir)
+        if extract_ftp:
+            ftp_dir = (extraction_base / "ftp_objects") if extraction_base else Path(
+                tempfile.mkdtemp(prefix="pcap_ftp_")
+            )
+            artifacts["ftp_files"] = self._extract_ftp_files(path, ftp_dir)
+        if artifacts:
+            summary["artifacts"] = artifacts
         body = json.dumps(summary, indent=2)
         title = f"PCAP summary for {path.name}"
         return ToolResult(title=title, body=body, mime_type="application/json")
@@ -477,3 +517,269 @@ class PcapViewerTool:
         if value is None:
             return False
         return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+    def _extract_http_objects(self, path: Path, output_dir: Path) -> Dict[str, object]:
+        command = self._resolve_command("tshark", "CTF_HELPER_TSHARK")
+        if not command:
+            return {
+                "available": False,
+                "message": (
+                    "tshark was not detected. Install it with:\n"
+                    "  Fedora/RHEL: sudo dnf install wireshark-cli\n"
+                    "  Ubuntu/Debian: sudo apt install tshark\n"
+                    "  Arch: sudo pacman -S wireshark-cli\n"
+                    "Or set CTF_HELPER_TSHARK environment variable to the tshark binary path."
+                ),
+            }
+
+        manager = ExtractionManager(str(output_dir))
+        try:
+            proc = subprocess.run(
+                [
+                    command,
+                    "-r",
+                    str(path),
+                    "--export-objects",
+                    f"http,{manager.root}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=300,
+                check=False,
+            )
+        except FileNotFoundError:
+            return {
+                "available": False,
+                "message": "tshark command could not be executed.",
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "available": True,
+                "timed_out": True,
+                "message": "tshark export timed out after 300 seconds.",
+            }
+
+        exported_files: List[Dict[str, object]] = []
+        for exported in sorted(manager.root.iterdir()):
+            if exported.is_file():
+                exported_files.append(manager.record(exported, method="http"))
+
+        return {
+            "available": True,
+            "exit_code": proc.returncode,
+            "files": exported_files,
+            "output_dir": str(manager.root),
+            "stdout": (proc.stdout or "").strip(),
+            "stderr": (proc.stderr or "").strip(),
+        }
+
+    def _extract_ftp_files(self, path: Path, output_dir: Path) -> Dict[str, object]:
+        command = self._resolve_command("tshark", "CTF_HELPER_TSHARK")
+        if not command:
+            return {
+                "available": False,
+                "message": (
+                    "tshark was not detected. Install it with:\n"
+                    "  Fedora/RHEL: sudo dnf install wireshark-cli\n"
+                    "  Ubuntu/Debian: sudo apt install tshark\n"
+                    "  Arch: sudo pacman -S wireshark-cli\n"
+                    "Or set CTF_HELPER_TSHARK environment variable to the tshark binary path."
+                ),
+            }
+
+        manager = ExtractionManager(str(output_dir))
+        try:
+            proc = subprocess.run(
+                [
+                    command,
+                    "-r",
+                    str(path),
+                    "--export-objects",
+                    f"ftp,{manager.root}",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=300,
+                check=False,
+            )
+        except FileNotFoundError:
+            return {
+                "available": False,
+                "message": "tshark command could not be executed.",
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "available": True,
+                "timed_out": True,
+                "message": "tshark FTP export timed out after 300 seconds.",
+            }
+
+        exported_files: List[Dict[str, object]] = []
+        for exported in sorted(manager.root.iterdir()):
+            if exported.is_file():
+                exported_files.append(manager.record(exported, method="ftp"))
+
+        return {
+            "available": True,
+            "exit_code": proc.returncode,
+            "files": exported_files,
+            "output_dir": str(manager.root),
+            "stdout": (proc.stdout or "").strip(),
+            "stderr": (proc.stderr or "").strip(),
+        }
+
+    def _resolve_command(self, name: str, env_var: str) -> Optional[str]:
+        explicit = os.environ.get(env_var)
+        if explicit:
+            return explicit
+        resolved = shutil.which(name)
+        if resolved:
+            return resolved
+        return None
+
+    def _extract_tcp_streams(
+        self,
+        path: Path,
+        output_dir: Path,
+        max_streams: int = 40,
+    ) -> Dict[str, object]:
+        command = self._resolve_command("tshark", "CTF_HELPER_TSHARK")
+        if not command:
+            return {
+                "available": False,
+                "message": (
+                    "tshark was not detected. Install it with:\n"
+                    "  Fedora/RHEL: sudo dnf install wireshark-cli\n"
+                    "  Ubuntu/Debian: sudo apt install tshark\n"
+                    "  Arch: sudo pacman -S wireshark-cli\n"
+                    "Or set CTF_HELPER_TSHARK environment variable to the tshark binary path."
+                ),
+            }
+
+        manager = ExtractionManager(str(output_dir))
+        try:
+            proc = subprocess.run(
+                [command, "-r", str(path), "-Y", "tcp", "-T", "fields", "-e", "tcp.stream"],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=False,
+            )
+        except FileNotFoundError:
+            return {
+                "available": False,
+                "message": "tshark command could not be executed.",
+            }
+        except subprocess.TimeoutExpired:
+            return {
+                "available": True,
+                "timed_out": True,
+                "message": "tshark stream enumeration timed out after 120 seconds.",
+            }
+
+        stream_ids: List[int] = []
+        for line in (proc.stdout or "").splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            try:
+                stream_ids.append(int(stripped))
+            except ValueError:
+                continue
+        unique_ids = sorted(set(stream_ids))
+        stream_results: List[Dict[str, object]] = []
+
+        for stream_id in unique_ids[:max_streams]:
+            metadata = self._extract_stream_metadata(command, path, stream_id)
+            raw_bytes = self._extract_stream_payload(command, path, stream_id)
+            file_path = manager.root / f"stream_{stream_id}.bin"
+            with file_path.open("wb") as fh:
+                fh.write(raw_bytes)
+            info = manager.record(
+                file_path,
+                method="tcp-stream",
+                extra={
+                    "id": stream_id,
+                    "source": metadata.get("source"),
+                    "destination": metadata.get("destination"),
+                },
+            )
+            stream_results.append(info)
+
+        return {
+            "available": True,
+            "streams": stream_results,
+            "output_dir": str(manager.root),
+        }
+
+    def _extract_stream_metadata(self, command: str, path: Path, stream_id: int) -> Dict[str, str]:
+        try:
+            meta_proc = subprocess.run(
+                [
+                    command,
+                    "-r",
+                    str(path),
+                    "-Y",
+                    f"tcp.stream=={stream_id}",
+                    "-T",
+                    "fields",
+                    "-e",
+                    "ip.src",
+                    "-e",
+                    "tcp.srcport",
+                    "-e",
+                    "ip.dst",
+                    "-e",
+                    "tcp.dstport",
+                    "-c",
+                    "1",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+        except Exception:
+            return {}
+        line = (meta_proc.stdout or "").splitlines()
+        if not line:
+            return {}
+        parts = line[0].split("\t")
+        if len(parts) < 4:
+            return {}
+        src = f"{parts[0]}:{parts[1]}"
+        dst = f"{parts[2]}:{parts[3]}"
+        return {"source": src, "destination": dst}
+
+    def _extract_stream_payload(self, command: str, path: Path, stream_id: int) -> bytes:
+        try:
+            data_proc = subprocess.run(
+                [
+                    command,
+                    "-r",
+                    str(path),
+                    "-Y",
+                    f"tcp.stream=={stream_id} && data",
+                    "-T",
+                    "fields",
+                    "-e",
+                    "data",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=180,
+                check=False,
+            )
+        except Exception:
+            return b""
+        hex_lines = [
+            line.strip()
+            for line in (data_proc.stdout or "").splitlines()
+            if line.strip()
+        ]
+        if not hex_lines:
+            return b""
+        try:
+            return bytes.fromhex("".join(hex_lines))
+        except ValueError:
+            return b""

@@ -8,7 +8,7 @@ import subprocess
 from typing import List
 
 from ..base import ToolResult
-from ..logger import configure_logging
+from ...logger import configure_logging
 from ...data_paths import user_data_dir
 
 _LOG = configure_logging()

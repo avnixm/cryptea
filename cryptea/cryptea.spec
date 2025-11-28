@@ -24,6 +24,7 @@ Requires:       python3-cryptography
 Requires:       python3-pycryptodome
 Requires:       python3-markdown2
 Requires:       python3-pynacl
+Requires:       python3-psutil
 
 %description
 Cryptea is an offline-first GTK4/Libadwaita application designed for

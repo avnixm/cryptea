@@ -69,7 +69,11 @@ class RsaCtfToolTool:
         # Check for both possible command names
         tool_name = "RsaCtfTool" if shutil.which("RsaCtfTool") else "rsactftool"
         if not is_rsactftool_available():
-            raise RuntimeError("RsaCtfTool not found in PATH. Install RsaCtfTool locally.")
+            raise RuntimeError(
+                "RsaCtfTool not found in PATH. Install it with:\n"
+                "  pip install RsaCtfTool\n"
+                "Or clone from: https://github.com/RsaCtfTool/RsaCtfTool"
+            )
 
         # Find profile
         selected_profile = None

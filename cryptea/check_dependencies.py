@@ -4,6 +4,7 @@ Cryptea Dependency Checker
 Checks for required and optional external tools before installation.
 """
 
+import importlib
 import shutil
 import sys
 from typing import Dict, List, Tuple
@@ -41,6 +42,7 @@ class DependencyChecker:
             "ghidra": "NSA's software reverse engineering suite",
             "cutter": "GUI for Rizin reverse engineering framework",
             "radiff2": "Binary diff tool (part of radare2)",
+            "checksec": "Checksec script for binary hardening checks",
         },
         "Forensics": {
             "binwalk": "Firmware analysis and extraction tool",
@@ -62,11 +64,34 @@ class DependencyChecker:
             "hashcat": "Advanced password recovery",
             "john": "John the Ripper password cracker",
             "openssl": "SSL/TLS toolkit and crypto library",
+            "RsaCtfTool": "RSA attack automation toolkit",
+            "featherduster": "Automated cryptanalysis framework",
         },
         "Network Security": {
             "nmap": "Network exploration and security auditing",
             "sqlmap": "Automatic SQL injection tool",
             "hydra": "Network login cracker",
+            "medusa": "Parallel network login brute-forcer",
+            "wfuzz": "Web fuzzing framework",
+            "commix": "Command injection exploitation tool",
+            "arjun": "HTTP parameter discovery",
+            "sublist3r": "Subdomain enumeration tool",
+            "crackmapexec": "Network service exploitation suite",
+        },
+    }
+
+    OPTIONAL_PYTHON = {
+        "angr": {
+            "import": "angr",
+            "category": "Reverse Engineering",
+            "description": "Angr symbolic execution engine (Python package)",
+            "pip": "angr",
+        },
+        "pwntools": {
+            "import": "pwn",
+            "category": "Reverse Engineering",
+            "description": "Pwntools exploitation helpers (Python package)",
+            "pip": "pwntools",
         },
     }
 
@@ -74,6 +99,8 @@ class DependencyChecker:
         self.missing_required: List[str] = []
         self.missing_optional: Dict[str, List[str]] = {}
         self.found_optional: Dict[str, List[str]] = {}
+        self.missing_python_optional: Dict[str, List[str]] = {}
+        self.found_python_optional: Dict[str, List[str]] = {}
 
     def check_command(self, command: str) -> bool:
         """Check if a command is available in PATH."""
@@ -116,6 +143,33 @@ class DependencyChecker:
             if missing:
                 self.missing_optional[category] = missing
 
+    def check_optional_python(self) -> None:
+        """Check optional Python packages."""
+        if not self.OPTIONAL_PYTHON:
+            return
+
+        print(f"\n{BOLD}{BLUE}=== Checking Optional Python Packages ==={RESET}\n")
+
+        categorized_missing: Dict[str, List[str]] = {}
+        categorized_found: Dict[str, List[str]] = {}
+
+        for name, data in self.OPTIONAL_PYTHON.items():
+            category = data["category"]
+            description = data["description"]
+            module_name = data["import"]
+            try:
+                importlib.import_module(module_name)
+                print(f"{GREEN}✓{RESET} {name:<15} - {description}")
+                categorized_found.setdefault(category, []).append(name)
+            except ImportError:
+                print(f"{YELLOW}○{RESET} {name:<15} - {description}")
+                categorized_missing.setdefault(category, []).append(name)
+
+        if categorized_found:
+            self.found_python_optional = categorized_found
+        if categorized_missing:
+            self.missing_python_optional = categorized_missing
+
     def print_summary(self) -> bool:
         """Print installation summary and recommendations."""
         print(f"\n{BOLD}{BLUE}{'=' * 70}{RESET}")
@@ -139,11 +193,18 @@ class DependencyChecker:
         total_found = sum(len(tools) for tools in self.found_optional.values())
         total_missing = sum(len(tools) for tools in self.missing_optional.values())
 
+        python_optional_total = len(self.OPTIONAL_PYTHON)
+        python_optional_found = sum(len(tools) for tools in self.found_python_optional.values())
+        python_optional_missing = sum(len(tools) for tools in self.missing_python_optional.values())
+
         print(f"\n{BOLD}Optional Tools:{RESET}")
         print(f"  {GREEN}Found:{RESET} {total_found}/{total_optional}")
         print(f"  {YELLOW}Missing:{RESET} {total_missing}/{total_optional}")
+        if python_optional_total:
+            print(f"  {BOLD}Python packages:{RESET} {python_optional_found}/{python_optional_total} available")
 
-        if total_missing > 0:
+        optional_missing_any = total_missing > 0 or python_optional_missing > 0
+        if optional_missing_any:
             print(f"\n{YELLOW}⚠ Some optional tools are missing.{RESET}")
             print(f"{YELLOW}Cryptea will work, but some features may be limited.{RESET}")
             print(f"\n{BOLD}To install missing optional tools:{RESET}")
@@ -166,7 +227,9 @@ class DependencyChecker:
         fedora_optional = " ".join([
             "radare2", "gdb", "binutils", "binwalk", "exiftool",
             "hashcat", "john", "perl-Image-ExifTool", "zbar", "ffmpeg",
-            "sox", "nmap", "sqlmap", "hydra", "foremost", "openssl"
+            "sox", "nmap", "sqlmap", "hydra", "medusa", "wfuzz", "commix",
+            "arjun", "sublist3r", "crackmapexec", "foremost", "openssl",
+            "checksec"
         ])
         if self.missing_required:
             print(f"  sudo dnf install {fedora_required}")
@@ -179,7 +242,9 @@ class DependencyChecker:
         debian_optional = " ".join([
             "radare2", "gdb", "binutils", "binwalk", "exiftool",
             "hashcat", "john", "zbar-tools", "ffmpeg", "sox",
-            "nmap", "sqlmap", "hydra", "foremost", "openssl"
+            "nmap", "sqlmap", "hydra", "medusa", "wfuzz", "commix",
+            "arjun", "sublist3r", "crackmapexec", "foremost", "openssl",
+            "checksec"
         ])
         if self.missing_required:
             print(f"  sudo apt install {debian_required}")
@@ -192,7 +257,9 @@ class DependencyChecker:
         arch_optional = " ".join([
             "radare2", "gdb", "binutils", "binwalk", "perl-image-exiftool",
             "hashcat", "john", "zbar", "ffmpeg", "sox", "nmap",
-            "sqlmap", "hydra", "foremost", "openssl"
+            "sqlmap", "hydra", "medusa", "wfuzz", "commix", "arjun",
+            "sublist3r", "crackmapexec", "foremost", "openssl",
+            "checksec"
         ])
         if self.missing_required:
             print(f"  sudo pacman -S {arch_required}")
@@ -200,9 +267,13 @@ class DependencyChecker:
             print(f"  sudo pacman -S {arch_optional}")
 
         # Python packages
-        if any("ROPgadget" in tools or "ropper" in tools or "zsteg" in tools 
-               for tools in self.missing_optional.values()):
+        python_missing = sorted({pkg for pkgs in self.missing_python_optional.values() for pkg in pkgs})
+        if python_missing:
             print(f"\n{BOLD}Python packages (via pip):{RESET}")
+            print(f"  pip install --user {' '.join(python_missing)}")
+
+        if any("ROPgadget" in tools or "ropper" in tools or "zsteg" in tools
+               for tools in self.missing_optional.values()):
             print(f"  pip install --user ROPgadget ropper")
             print(f"  gem install zsteg  # for steganography")
 
@@ -220,6 +291,7 @@ class DependencyChecker:
 
         # Check optional dependencies
         self.check_optional()
+        self.check_optional_python()
 
         # Print summary
         success = self.print_summary()

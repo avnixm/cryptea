@@ -57,13 +57,52 @@ dnf install -y \
     python3-cryptography \
     python3-pycryptodome \
     python3-markdown2 \
-    python3-pynacl || {
+    python3-pynacl \
+    python3-psutil \
+    python3-pwntools || {
     echo "Some Python packages not available in DNF, installing via pip..."
-    pip3 install markdown2 PyNaCl cryptography
+    pip3 install markdown2 PyNaCl cryptography psutil pwntools
 }
 
+# Install angr separately (requires unicorn compilation)
 echo ""
-echo "Step 3: Configuring build with Meson..."
+echo "Installing angr (optional, may take 5-10 minutes due to unicorn compilation)..."
+if dnf install -y python3-angr 2>/dev/null; then
+    echo "✓ angr installed via dnf"
+else
+    echo "Installing build dependencies for unicorn..."
+    dnf install -y cmake gcc gcc-c++ python3-devel make
+    echo "Installing unicorn-engine (dependency of angr)..."
+    if pip3 install unicorn-engine; then
+        echo "✓ unicorn-engine installed"
+        if pip3 install angr; then
+            echo "✓ angr installed via pip"
+        else
+            echo "⚠ Warning: angr installation failed (unicorn succeeded)"
+            echo "  You can try installing angr later with: pip3 install angr"
+        fi
+    else
+        echo "⚠ Warning: unicorn-engine installation failed"
+        echo "  This prevents angr from being installed. The application will work without angr."
+        echo "  To install later, ensure build dependencies are installed and run:"
+        echo "    pip3 install unicorn-engine angr"
+    fi
+fi
+
+echo ""
+echo "Step 3: Installing optional network tooling (recommended)..."
+NETWORK_PACKAGES=(nmap sqlmap hydra medusa wfuzz commix arjun sublist3r crackmapexec)
+for pkg in "${NETWORK_PACKAGES[@]}"; do
+    if rpm -q "$pkg" >/dev/null 2>&1; then
+        continue
+    fi
+    if ! dnf install -y "$pkg"; then
+        echo "  • Unable to install $pkg automatically. Please install it manually if required."
+    fi
+done
+
+echo ""
+echo "Step 4: Configuring build with Meson..."
 if [ -d "builddir" ]; then
     echo "Removing existing build directory..."
     rm -rf builddir
@@ -71,15 +110,15 @@ fi
 meson setup builddir --prefix=/usr/local
 
 echo ""
-echo "Step 4: Compiling..."
+echo "Step 5: Compiling..."
 meson compile -C builddir
 
 echo ""
-echo "Step 5: Installing..."
+echo "Step 6: Installing..."
 meson install -C builddir
 
 echo ""
-echo "Step 6: Updating desktop database and icon cache..."
+echo "Step 7: Updating desktop database and icon cache..."
 update-desktop-database /usr/local/share/applications 2>/dev/null || true
 gtk4-update-icon-cache /usr/local/share/icons/hicolor 2>/dev/null || true
 

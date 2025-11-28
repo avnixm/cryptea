@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 import json
+import subprocess
 import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, TypedDict
@@ -342,6 +343,8 @@ class MainWindow:
         self.notes_preview = None
         self.tool_output_view = None
         self.status_label = None
+        self._image_stego_last_extract_dir: Optional[str] = None
+        self._pcap_last_extract_dirs: List[str] = []
 
         root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.toast_overlay.set_child(root)
@@ -774,6 +777,89 @@ class MainWindow:
         self._build_file_upload_detail(upload_box)
         self.tool_detail_stack.add_named(upload_box, "file_upload")
 
+        # RsaCtfTool page
+        rsactftool_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_rsactftool_detail(rsactftool_box)
+        self.tool_detail_stack.add_named(rsactftool_box, "rsactftool")
+
+        # FeatherDuster page
+        featherduster_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_featherduster_detail(featherduster_box)
+        self.tool_detail_stack.add_named(featherduster_box, "featherduster")
+
+        # CyberChef Recipes page
+        cyberchef_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_cyberchef_detail(cyberchef_box)
+        self.tool_detail_stack.add_named(cyberchef_box, "cyberchef")
+
+        # Bulk Extractor page
+        bulk_extractor_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_bulk_extractor_detail(bulk_extractor_box)
+        self.tool_detail_stack.add_named(bulk_extractor_box, "bulk_extractor")
+
+        # Foremost page
+        foremost_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_foremost_detail(foremost_box)
+        self.tool_detail_stack.add_named(foremost_box, "foremost")
+
+        # Scalpel page
+        scalpel_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_scalpel_detail(scalpel_box)
+        self.tool_detail_stack.add_named(scalpel_box, "scalpel")
+
+        # Sleuthkit page
+        sleuthkit_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_sleuthkit_detail(sleuthkit_box)
+        self.tool_detail_stack.add_named(sleuthkit_box, "sleuthkit")
+
+        # Volatility page
+        volatility_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_volatility_detail(volatility_box)
+        self.tool_detail_stack.add_named(volatility_box, "volatility")
+
+        # Web tools pages
+        wfuzz_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_wfuzz_detail(wfuzz_box)
+        self.tool_detail_stack.add_named(wfuzz_box, "wfuzz")
+
+        commix_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_commix_detail(commix_box)
+        self.tool_detail_stack.add_named(commix_box, "commix")
+
+        arjun_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_arjun_detail(arjun_box)
+        self.tool_detail_stack.add_named(arjun_box, "arjun")
+
+        sublist3r_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_sublist3r_detail(sublist3r_box)
+        self.tool_detail_stack.add_named(sublist3r_box, "sublist3r")
+
+        # Misc tools pages
+        hydra_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_hydra_detail(hydra_box)
+        self.tool_detail_stack.add_named(hydra_box, "hydra")
+
+        medusa_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_medusa_detail(medusa_box)
+        self.tool_detail_stack.add_named(medusa_box, "medusa")
+
+        crackmapexec_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_crackmapexec_detail(crackmapexec_box)
+        self.tool_detail_stack.add_named(crackmapexec_box, "crackmapexec")
+
+        # Reverse tools pages
+        angr_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_angr_helper_detail(angr_box)
+        self.tool_detail_stack.add_named(angr_box, "angr_helper")
+
+        checksec_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_checksec_detail(checksec_box)
+        self.tool_detail_stack.add_named(checksec_box, "checksec")
+
+        pwntools_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_pwntools_helper_detail(pwntools_box)
+        self.tool_detail_stack.add_named(pwntools_box, "pwntools_helper")
+
     def _setup_responsive_sidebar(self) -> None:
         self._sidebar_collapse_width = 960
         self.split_view.set_collapsed(False)
@@ -1040,10 +1126,32 @@ class MainWindow:
             if handler is not None:
                 handler(tool)
             else:
-                self.toast_overlay.add_toast(Adw.Toast.new("This tool requires additional input."))
+                error_msg = "This tool requires additional input."
+                self.toast_overlay.add_toast(Adw.Toast.new(error_msg))
+                # Also show in output area
+                self._set_tool_output(f"Error: {error_msg}")
+                self.output_frame.set_visible(True)
+            return
+        except FileNotFoundError as exc:
+            error_msg = f"File not found: {exc}\n\nPlease check that the file path is correct and the file exists."
+            _LOG.error(f"Tool execution error: {error_msg}", exc_info=True)
+            self.toast_overlay.add_toast(Adw.Toast.new("File not found. Check output for details."))
+            self._set_tool_output(error_msg)
+            self.output_frame.set_visible(True)
+            return
+        except RuntimeError as exc:
+            error_msg = str(exc)
+            _LOG.error(f"Tool execution error: {error_msg}", exc_info=True)
+            self.toast_overlay.add_toast(Adw.Toast.new("Execution error. Check output for details."))
+            self._set_tool_output(f"Error: {error_msg}")
+            self.output_frame.set_visible(True)
             return
         except Exception as exc:
-            self.toast_overlay.add_toast(Adw.Toast.new(f"Error: {exc}"))
+            error_msg = f"Unexpected error: {exc}\n\n{type(exc).__name__}: {str(exc)}"
+            _LOG.error(f"Tool execution error: {error_msg}", exc_info=True)
+            self.toast_overlay.add_toast(Adw.Toast.new("Error occurred. Check output for details."))
+            self._set_tool_output(error_msg)
+            self.output_frame.set_visible(True)
             return
 
         body = getattr(result, "body", str(result))
@@ -1763,11 +1871,19 @@ class MainWindow:
             "caesar cipher": self._open_caesar_cipher,
             "vigenère cipher": self._open_vigenere_cipher,
             "vigenere cipher": self._open_vigenere_cipher,
+            "rsactftool": self._open_rsactftool,
+            "featherduster": self._open_featherduster,
+            "cyberchef recipes": self._open_cyberchef,
             "file inspector": self._open_file_inspector,
             "pcap viewer": self._open_pcap_viewer,
             "memory analyzer": self._open_memory_analyzer,
             "disk image tools": self._open_disk_image_tools,
             "timeline builder": self._open_timeline_builder,
+            "bulk extractor": self._open_bulk_extractor,
+            "foremost": self._open_foremost,
+            "scalpel": self._open_scalpel,
+            "sleuthkit": self._open_sleuthkit,
+            "volatility": self._open_volatility,
             "image stego toolkit": self._open_image_stego,
             "exif metadata viewer": self._open_exif_metadata,
             "audio analyzer": self._open_audio_analyzer,
@@ -1781,6 +1897,16 @@ class MainWindow:
             "xss tester": self._open_xss_tester,
             "jwt tool": self._open_jwt_tool,
             "file upload tester": self._open_file_upload,
+            "wfuzz": self._open_wfuzz,
+            "commix": self._open_commix,
+            "arjun": self._open_arjun,
+            "sublist3r": self._open_sublist3r,
+            "hydra": self._open_hydra,
+            "medusa": self._open_medusa,
+            "crackmapexec": self._open_crackmapexec,
+            "angr helper": self._open_angr_helper,
+            "checksec": self._open_checksec,
+            "pwntools helper": self._open_pwntools_helper,
             "extract strings": self._open_strings,
             "disassembler launcher": self._open_disassembler,
             "radare/rizin console": self._open_rizin_console,
@@ -1824,28 +1950,69 @@ class MainWindow:
 
         grouped = self.app.module_registry.by_category()
         seen: set[str] = set()
+        
+        total_tools = sum(len(tools) for tools in grouped.values())
+        _LOG.info(f"Refreshing sidebar with {len(grouped)} categories, {total_tools} total tools")
+        _LOG.debug(f"Categories found: {sorted(grouped.keys())}")
 
         def _category_label(value: str) -> str:
+            """Convert category name to display label."""
             pretty = value.strip() or "Other"
-            if pretty.lower() == "reverse":
-                return "Reverse Engineering"
+            # Handle special cases
+            category_map = {
+                "reverse": "Reverse Engineering",
+                "crypto & encoding": "Crypto & Encoding",
+                "stego & media": "Stego & Media",
+            }
+            lower_val = pretty.lower()
+            if lower_val in category_map:
+                return category_map[lower_val]
             return pretty.title()
 
+        tools_added = 0
+        tools_skipped = 0
+        categories_processed = 0
+        
         for category in sorted(grouped, key=lambda cat: cat.casefold()):
-            self._append_sidebar_heading(_category_label(category))
-            tools = sorted(
-                grouped.get(category, []),
-                key=lambda tool: (getattr(tool, "name", "") or "").casefold(),
-            )
-            for tool in tools:
-                raw_name = getattr(tool, "name", "")
-                name = (raw_name or "").strip()
-                if not name or name in seen:
-                    continue
-                seen.add(name)
-                row_name = self._encode_view_name("tool", name)
-                icon = TOOL_ICON_MAP.get(name.lower(), "applications-utilities-symbolic")
-                self._append_sidebar_item(row_name, icon, name, selectable=True)
+            tools_in_category = grouped.get(category, [])
+            _LOG.debug(f"Processing category: '{category}' with {len(tools_in_category)} tools")
+            try:
+                category_label = _category_label(category)
+                self._append_sidebar_heading(category_label)
+                categories_processed += 1
+                
+                tools = sorted(
+                    tools_in_category,
+                    key=lambda tool: (getattr(tool, "name", "") or "").casefold(),
+                )
+                for tool in tools:
+                    try:
+                        raw_name = getattr(tool, "name", "")
+                        name = (raw_name or "").strip()
+                        if not name:
+                            _LOG.warning(f"Tool in category '{category}' has empty name, skipping")
+                            tools_skipped += 1
+                            continue
+                        if name in seen:
+                            _LOG.debug(f"Tool '{name}' already added (duplicate), skipping")
+                            tools_skipped += 1
+                            continue
+                        seen.add(name)
+                        row_name = self._encode_view_name("tool", name)
+                        icon = TOOL_ICON_MAP.get(name.lower(), "applications-utilities-symbolic")
+                        self._append_sidebar_item(row_name, icon, name, selectable=True)
+                        tools_added += 1
+                    except Exception as e:
+                        _LOG.warning(f"Failed to add tool '{getattr(tool, 'name', 'UNKNOWN')}' from category '{category}' to sidebar: {e}", exc_info=True)
+                        tools_skipped += 1
+                        continue
+            except Exception as e:
+                _LOG.error(f"Failed to process category '{category}' in sidebar: {e}", exc_info=True)
+                continue
+        
+        _LOG.info(f"Sidebar refresh complete: {categories_processed}/{len(grouped)} categories, {tools_added} tools added, {tools_skipped} tools skipped")
+        if tools_added != total_tools:
+            _LOG.warning(f"Tool count mismatch: expected {total_tools} tools, but {tools_added} were added to sidebar")
 
         self._select_sidebar_row()
 
@@ -5349,11 +5516,36 @@ class MainWindow:
         options_row.append(self.pcap_hex_check)
         form.append(options_row)
 
+        extract_options_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.pcap_http_check = Gtk.CheckButton(label="Extract HTTP objects")
+        extract_options_row.append(self.pcap_http_check)
+        self.pcap_tcp_check = Gtk.CheckButton(label="Extract TCP streams")
+        extract_options_row.append(self.pcap_tcp_check)
+        self.pcap_ftp_check = Gtk.CheckButton(label="Extract FTP files")
+        extract_options_row.append(self.pcap_ftp_check)
+        form.append(extract_options_row)
+
+        output_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        output_row.append(Gtk.Label(label="Extraction folder", xalign=0))
+        self.pcap_output_entry = Gtk.Entry()
+        self.pcap_output_entry.add_css_class("modern-entry")
+        self.pcap_output_entry.set_placeholder_text("Optional output directory (defaults to temp)")
+        self.pcap_output_entry.set_hexpand(True)
+        output_row.append(self.pcap_output_entry)
+        output_browse_btn = Gtk.Button(label="Browse…")
+        output_browse_btn.connect("clicked", self._on_pcap_output_browse)
+        output_row.append(output_browse_btn)
+        form.append(output_row)
+
         actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.pcap_run_btn = Gtk.Button(label="Analyze")
         self.pcap_run_btn.add_css_class("suggested-action")
         self.pcap_run_btn.connect("clicked", self._on_pcap_run)
         actions_row.append(self.pcap_run_btn)
+        self.pcap_extract_btn = Gtk.Button(label="Extract Files")
+        self.pcap_extract_btn.add_css_class("suggested-action")
+        self.pcap_extract_btn.connect("clicked", self._on_pcap_extract)
+        actions_row.append(self.pcap_extract_btn)
         self.pcap_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
         self.pcap_copy_btn.set_tooltip_text("Copy result")
         self.pcap_copy_btn.set_sensitive(False)
@@ -5376,13 +5568,41 @@ class MainWindow:
         result_scroller.set_child(self.pcap_result_view)
         form.append(result_scroller)
 
+        files_label = Gtk.Label(label="Extracted Files", xalign=0)
+        files_label.add_css_class("title-4")
+        form.append(files_label)
+
+        pcap_files_actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.pcap_open_folder_btn = Gtk.Button(label="Open Extraction Folder")
+        self.pcap_open_folder_btn.set_sensitive(False)
+        self.pcap_open_folder_btn.connect("clicked", self._on_pcap_open_folder)
+        pcap_files_actions.append(self.pcap_open_folder_btn)
+        form.append(pcap_files_actions)
+
+        self.pcap_files_list = Gtk.ListBox()
+        self.pcap_files_list.add_css_class("boxed-list")
+        files_placeholder = Gtk.Label(label="No files extracted yet")
+        files_placeholder.add_css_class("dim-label")
+        self.pcap_files_list.set_placeholder(files_placeholder)
+        pcap_files_scroller = Gtk.ScrolledWindow()
+        pcap_files_scroller.set_min_content_height(200)
+        pcap_files_scroller.set_child(self.pcap_files_list)
+        form.append(pcap_files_scroller)
+
     def _open_pcap_viewer(self, tool) -> None:
         self._active_tool = tool
         self.pcap_file_entry.set_text("")
         self.pcap_limit_spin.set_value(500)
         self.pcap_hex_check.set_active(False)
+        self.pcap_http_check.set_active(False)
+        self.pcap_tcp_check.set_active(False)
+        self.pcap_ftp_check.set_active(False)
+        self.pcap_output_entry.set_text("")
         self._set_text_view_text(self.pcap_result_view, "")
         self.pcap_copy_btn.set_sensitive(False)
+        self.pcap_open_folder_btn.set_sensitive(False)
+        self._pcap_last_extract_dirs = []
+        self._clear_pcap_files_list()
         self.tool_detail_stack.set_visible_child_name("pcap_viewer")
         self.content_stack.set_visible_child_name("tool_detail")
 
@@ -5397,29 +5617,13 @@ class MainWindow:
         dialog.destroy()
 
     def _on_pcap_run(self, _btn: Gtk.Button) -> None:
-        if not getattr(self, "_active_tool", None):
-            return
-        path = self.pcap_file_entry.get_text().strip()
-        if not path:
-            self.toast_overlay.add_toast(Adw.Toast.new("Choose a capture file"))
-            return
-        limit = str(int(self.pcap_limit_spin.get_value()))
-        include_hex = "true" if self.pcap_hex_check.get_active() else "false"
-        self.pcap_run_btn.set_sensitive(False)
-        self._set_text_view_text(self.pcap_result_view, "Analyzing capture…")
+        self._execute_pcap_analysis(extraction_mode=False)
 
-        def worker() -> None:
-            try:
-                result = self._active_tool.run(file_path=path, packet_limit=limit, include_hex=include_hex)
-                body = getattr(result, "body", str(result))
-                GLib.idle_add(self._set_text_view_text, self.pcap_result_view, body)
-                GLib.idle_add(self.pcap_copy_btn.set_sensitive, bool(body.strip()))
-            except Exception as exc:
-                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
-            finally:
-                GLib.idle_add(self.pcap_run_btn.set_sensitive, True)
-
-        threading.Thread(target=worker, daemon=True).start()
+    def _on_pcap_extract(self, _btn: Gtk.Button) -> None:
+        if not (self.pcap_http_check.get_active() or self.pcap_tcp_check.get_active() or self.pcap_ftp_check.get_active()):
+            self.toast_overlay.add_toast(Adw.Toast.new("Enable at least one extraction option"))
+            return
+        self._execute_pcap_analysis(extraction_mode=True)
 
     def _on_pcap_copy(self, _btn: Gtk.Button) -> None:
         display = self.window.get_display()
@@ -5429,6 +5633,163 @@ class MainWindow:
         buffer = self.pcap_result_view.get_buffer()
         start, end = buffer.get_bounds()
         clipboard.set_text(buffer.get_text(start, end, True))
+
+    def _on_pcap_output_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select extraction folder", self.window, Gtk.FileChooserAction.SELECT_FOLDER, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.pcap_output_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _execute_pcap_analysis(self, extraction_mode: bool) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        path = self.pcap_file_entry.get_text().strip()
+        if not path:
+            self.toast_overlay.add_toast(Adw.Toast.new("Choose a capture file"))
+            return
+        limit = str(int(self.pcap_limit_spin.get_value()))
+        include_hex = "true" if self.pcap_hex_check.get_active() else "false"
+        extract_http = "true" if self.pcap_http_check.get_active() else "false"
+        extract_tcp = "true" if self.pcap_tcp_check.get_active() else "false"
+        extract_ftp = "true" if self.pcap_ftp_check.get_active() else "false"
+        output_dir = self.pcap_output_entry.get_text().strip()
+
+        self.pcap_run_btn.set_sensitive(False)
+        self.pcap_extract_btn.set_sensitive(False)
+        self.pcap_copy_btn.set_sensitive(False)
+        self.pcap_open_folder_btn.set_sensitive(False)
+        self._pcap_last_extract_dirs = []
+        self._clear_pcap_files_list()
+        status_text = "Extracting files…" if extraction_mode else "Analyzing capture…"
+        self._set_text_view_text(self.pcap_result_view, status_text)
+
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(
+                    file_path=path,
+                    packet_limit=limit,
+                    include_hex=include_hex,
+                    extract_http_objects=extract_http,
+                    extract_tcp_streams=extract_tcp,
+                    extract_ftp_files=extract_ftp,
+                    extraction_dir=output_dir,
+                )
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._handle_pcap_result, body)
+            except Exception as exc:
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.pcap_run_btn.set_sensitive, True)
+                GLib.idle_add(self.pcap_extract_btn.set_sensitive, True)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _handle_pcap_result(self, body: str) -> None:
+        self._set_text_view_text(self.pcap_result_view, body)
+        self.pcap_copy_btn.set_sensitive(bool(body.strip()))
+        try:
+            parsed = json.loads(body)
+        except json.JSONDecodeError:
+            self._clear_pcap_files_list()
+            self.pcap_open_folder_btn.set_sensitive(False)
+            return
+        artifacts = parsed.get("artifacts")
+        if not isinstance(artifacts, dict):
+            self._clear_pcap_files_list()
+            self.pcap_open_folder_btn.set_sensitive(False)
+            return
+
+        files: List[Dict[str, object]] = []
+        directories: List[str] = []
+        for method, info in artifacts.items():
+            if not isinstance(info, dict):
+                continue
+            output_dir = info.get("output_dir")
+            if isinstance(output_dir, str) and output_dir:
+                directories.append(output_dir)
+            file_entries = info.get("files")
+            if isinstance(file_entries, list):
+                for entry in file_entries:
+                    if isinstance(entry, dict):
+                        files.append({"method": method, "file": entry})
+        self._pcap_last_extract_dirs = directories
+        self.pcap_open_folder_btn.set_sensitive(any(Path(d).exists() for d in directories))
+        self._populate_pcap_files_list(files)
+
+    def _clear_pcap_files_list(self) -> None:
+        if not hasattr(self, "pcap_files_list"):
+            return
+        while (child := self.pcap_files_list.get_first_child()):
+            self.pcap_files_list.remove(child)
+
+    def _populate_pcap_files_list(self, records: List[Dict[str, object]]) -> None:
+        self._clear_pcap_files_list()
+        for record in records:
+            file_info = record.get("file")
+            if not isinstance(file_info, dict):
+                continue
+            file_path = file_info.get("path")
+            if not isinstance(file_path, str) or not file_path:
+                continue
+            method = record.get("method")
+            method_label = method.upper() if isinstance(method, str) else "ARTIFACT"
+            name_value = file_info.get("name")
+            name = name_value if isinstance(name_value, str) and name_value else Path(file_path).name
+            size = file_info.get("size_bytes")
+            row = Gtk.ListBoxRow()
+            row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            row_box.set_margin_top(4)
+            row_box.set_margin_bottom(4)
+            labels = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            name_label = Gtk.Label(label=name)
+            name_label.set_xalign(0)
+            name_label.set_ellipsize(Pango.EllipsizeMode.END)
+            labels.append(name_label)
+            detail_parts = [self._format_file_size(size), method_label]
+            stream_id = file_info.get("id")
+            if isinstance(stream_id, int):
+                detail_parts.append(f"Stream {stream_id}")
+            source = file_info.get("source")
+            destination = file_info.get("destination")
+            if isinstance(source, str) and isinstance(destination, str):
+                detail_parts.append(f"{source} → {destination}")
+            detail_label = Gtk.Label(label=" • ".join(detail_parts))
+            detail_label.add_css_class("dim-label")
+            detail_label.set_xalign(0)
+            labels.append(detail_label)
+            row_box.append(labels)
+            open_btn = Gtk.Button()
+            open_btn.set_icon_name("document-open-symbolic")
+            open_btn.set_tooltip_text("Open file")
+            open_btn.add_css_class("flat")
+            open_btn.connect("clicked", self._on_pcap_file_open, file_path)
+            row_box.append(open_btn)
+            row.set_child(row_box)
+            self.pcap_files_list.append(row)
+        self.pcap_files_list.show()
+
+    def _on_pcap_file_open(self, _btn: Gtk.Button, file_path: str) -> None:
+        if not file_path:
+            return
+        try:
+            subprocess.Popen(["xdg-open", file_path])
+        except Exception as exc:
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Failed to open file: {exc}"))
+
+    def _on_pcap_open_folder(self, _btn: Gtk.Button) -> None:
+        for directory in self._pcap_last_extract_dirs:
+            dir_path = Path(directory)
+            if dir_path.exists():
+                try:
+                    subprocess.Popen(["xdg-open", str(dir_path)])
+                except Exception as exc:
+                    self.toast_overlay.add_toast(Adw.Toast.new(f"Failed to open folder: {exc}"))
+                return
+        self.toast_overlay.add_toast(Adw.Toast.new("No extraction folder available"))
 
     # ---------------------- Memory analyzer detail ----------------------
     def _build_memory_analyzer_detail(self, root: Gtk.Box) -> None:
@@ -5943,6 +6304,18 @@ class MainWindow:
         password_row.append(self.image_stego_extract_check)
         form.append(password_row)
 
+        output_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        output_row.append(Gtk.Label(label="Extraction folder", xalign=0))
+        self.image_stego_output_entry = Gtk.Entry()
+        self.image_stego_output_entry.add_css_class("modern-entry")
+        self.image_stego_output_entry.set_placeholder_text("Optional output directory (defaults to temp)")
+        self.image_stego_output_entry.set_hexpand(True)
+        output_row.append(self.image_stego_output_entry)
+        output_browse_btn = Gtk.Button(label="Browse…")
+        output_browse_btn.connect("clicked", self._on_image_stego_output_browse)
+        output_row.append(output_browse_btn)
+        form.append(output_row)
+
         stegsolve_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         stegsolve_row.append(Gtk.Label(label="stegsolve.jar", xalign=0))
         self.image_stego_jar_entry = Gtk.Entry()
@@ -5970,6 +6343,10 @@ class MainWindow:
         self.image_stego_run_btn.add_css_class("suggested-action")
         self.image_stego_run_btn.connect("clicked", self._on_image_stego_run)
         actions_row.append(self.image_stego_run_btn)
+        self.image_stego_extract_btn = Gtk.Button(label="Extract Files")
+        self.image_stego_extract_btn.add_css_class("suggested-action")
+        self.image_stego_extract_btn.connect("clicked", self._on_image_stego_extract)
+        actions_row.append(self.image_stego_extract_btn)
         self.image_stego_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
         self.image_stego_copy_btn.set_tooltip_text("Copy result")
         self.image_stego_copy_btn.set_sensitive(False)
@@ -5992,15 +6369,40 @@ class MainWindow:
         result_scroller.set_child(self.image_stego_result_view)
         form.append(result_scroller)
 
+        files_label = Gtk.Label(label="Extracted Files", xalign=0)
+        files_label.add_css_class("title-4")
+        form.append(files_label)
+
+        files_actions = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.image_stego_open_folder_btn = Gtk.Button(label="Open Extraction Folder")
+        self.image_stego_open_folder_btn.set_sensitive(False)
+        self.image_stego_open_folder_btn.connect("clicked", self._on_image_stego_open_folder)
+        files_actions.append(self.image_stego_open_folder_btn)
+        form.append(files_actions)
+
+        self.image_stego_files_list = Gtk.ListBox()
+        self.image_stego_files_list.add_css_class("boxed-list")
+        placeholder = Gtk.Label(label="No files extracted yet")
+        placeholder.add_css_class("dim-label")
+        self.image_stego_files_list.set_placeholder(placeholder)
+        files_scroller = Gtk.ScrolledWindow()
+        files_scroller.set_min_content_height(200)
+        files_scroller.set_child(self.image_stego_files_list)
+        form.append(files_scroller)
+
     def _open_image_stego(self, tool) -> None:
         self._active_tool = tool
         self.image_stego_file_entry.set_text("")
         self.image_stego_password_entry.set_text("")
         self.image_stego_extract_check.set_active(False)
         self.image_stego_jar_entry.set_text("")
+        self.image_stego_output_entry.set_text("")
         self.image_stego_tool_combo.set_active(0)
         self._set_text_view_text(self.image_stego_result_view, "")
         self.image_stego_copy_btn.set_sensitive(False)
+        self.image_stego_open_folder_btn.set_sensitive(False)
+        self._image_stego_last_extract_dir = None
+        self._clear_image_stego_files_list()
         self.tool_detail_stack.set_visible_child_name("image_stego")
         self.content_stack.set_visible_child_name("tool_detail")
 
@@ -6024,7 +6426,23 @@ class MainWindow:
                 self.image_stego_jar_entry.set_text(file.get_path() or "")
         dialog.destroy()
 
+    def _on_image_stego_output_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select extraction folder", self.window, Gtk.FileChooserAction.SELECT_FOLDER, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.image_stego_output_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
     def _on_image_stego_run(self, _btn: Gtk.Button) -> None:
+        self._execute_image_stego(force_extract=False)
+
+    def _on_image_stego_extract(self, _btn: Gtk.Button) -> None:
+        self._execute_image_stego(force_extract=True, tool_choice_override="all")
+
+    def _execute_image_stego(self, *, force_extract: bool, tool_choice_override: Optional[str] = None) -> None:
         if not getattr(self, "_active_tool", None):
             return
         path = self.image_stego_file_entry.get_text().strip()
@@ -6032,10 +6450,17 @@ class MainWindow:
             self.toast_overlay.add_toast(Adw.Toast.new("Choose an image file"))
             return
         password = self.image_stego_password_entry.get_text()
-        extract = "true" if self.image_stego_extract_check.get_active() else "false"
         jar = self.image_stego_jar_entry.get_text().strip()
-        tool_choice = self.image_stego_tool_combo.get_active_id() or "zsteg"
+        output_dir = self.image_stego_output_entry.get_text().strip()
+        tool_choice = tool_choice_override or (self.image_stego_tool_combo.get_active_id() or "zsteg")
+        extract_flag = "true" if force_extract or self.image_stego_extract_check.get_active() else "false"
+
         self.image_stego_run_btn.set_sensitive(False)
+        self.image_stego_extract_btn.set_sensitive(False)
+        self.image_stego_copy_btn.set_sensitive(False)
+        self.image_stego_open_folder_btn.set_sensitive(False)
+        self._image_stego_last_extract_dir = None
+        self._clear_image_stego_files_list()
         self._set_text_view_text(self.image_stego_result_view, f"Running {tool_choice}…")
 
         def worker() -> None:
@@ -6043,19 +6468,146 @@ class MainWindow:
                 result = self._active_tool.run(
                     image_path=path,
                     steghide_password=password,
-                    steghide_extract=extract,
+                    steghide_extract=extract_flag,
                     stegsolve_jar=jar,
                     tool_choice=tool_choice,
+                    extraction_dir=output_dir,
                 )
                 body = getattr(result, "body", str(result))
-                GLib.idle_add(self._set_text_view_text, self.image_stego_result_view, body)
-                GLib.idle_add(self.image_stego_copy_btn.set_sensitive, bool(body.strip()))
+                GLib.idle_add(self._handle_image_stego_result, body)
             except Exception as exc:
                 GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
             finally:
                 GLib.idle_add(self.image_stego_run_btn.set_sensitive, True)
+                GLib.idle_add(self.image_stego_extract_btn.set_sensitive, True)
 
         threading.Thread(target=worker, daemon=True).start()
+
+    def _handle_image_stego_result(self, body: str) -> None:
+        self._set_text_view_text(self.image_stego_result_view, body)
+        self.image_stego_copy_btn.set_sensitive(bool(body.strip()))
+        try:
+            parsed = json.loads(body)
+        except json.JSONDecodeError:
+            self._clear_image_stego_files_list()
+            self.image_stego_open_folder_btn.set_sensitive(False)
+            return
+
+        operations = parsed.get("operations")
+        if not isinstance(operations, dict):
+            self._clear_image_stego_files_list()
+            self.image_stego_open_folder_btn.set_sensitive(False)
+            return
+
+        extraction = operations.get("extraction")
+        if not isinstance(extraction, dict):
+            self._clear_image_stego_files_list()
+            self.image_stego_open_folder_btn.set_sensitive(False)
+            return
+
+        files = extraction.get("files")
+        output_dir = extraction.get("output_dir")
+        file_list = files if isinstance(files, list) else []
+        base_dir = output_dir if isinstance(output_dir, str) else None
+        self._image_stego_last_extract_dir = base_dir
+        self._populate_image_stego_files_list(file_list, base_dir)
+        self.image_stego_open_folder_btn.set_sensitive(bool(base_dir and Path(base_dir).exists()))
+
+    def _clear_image_stego_files_list(self) -> None:
+        if not hasattr(self, "image_stego_files_list"):
+            return
+        while (child := self.image_stego_files_list.get_first_child()):
+            self.image_stego_files_list.remove(child)
+
+    def _populate_image_stego_files_list(self, files: List[Dict[str, object]], base_dir: Optional[str]) -> None:
+        self._clear_image_stego_files_list()
+        for info in files:
+            if not isinstance(info, dict):
+                continue
+            file_path_value = info.get("path")
+            file_path: Optional[str] = None
+            if isinstance(file_path_value, str) and file_path_value:
+                file_path = file_path_value
+            else:
+                alt_name = info.get("name")
+                if isinstance(alt_name, str) and alt_name and base_dir:
+                    file_path = str(Path(base_dir) / alt_name)
+            if not file_path:
+                continue
+            name_value = info.get("name")
+            name = name_value if isinstance(name_value, str) and name_value else Path(file_path).name
+            size = info.get("size_bytes")
+            method_value = info.get("method")
+            method = method_value if isinstance(method_value, str) and method_value else "extraction"
+            row = Gtk.ListBoxRow()
+            row_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+            row_box.set_margin_top(4)
+            row_box.set_margin_bottom(4)
+            label_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            name_label = Gtk.Label(label=name)
+            name_label.set_xalign(0)
+            name_label.set_ellipsize(Pango.EllipsizeMode.END)
+            label_box.append(name_label)
+            detail = f"{self._format_file_size(size)} • {method.capitalize()}"
+            detail_label = Gtk.Label(label=detail)
+            detail_label.add_css_class("dim-label")
+            detail_label.set_xalign(0)
+            label_box.append(detail_label)
+            row_box.append(label_box)
+            button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            open_btn = Gtk.Button()
+            open_btn.set_icon_name("document-open-symbolic")
+            open_btn.set_tooltip_text("Open file")
+            open_btn.add_css_class("flat")
+            open_btn.connect("clicked", self._on_image_stego_file_open, file_path)
+            button_box.append(open_btn)
+            row_box.append(button_box)
+            row.set_child(row_box)
+            self.image_stego_files_list.append(row)
+        self.image_stego_files_list.show()
+
+    def _on_image_stego_file_open(self, _btn: Gtk.Button, file_path: str) -> None:
+        if not file_path:
+            return
+        try:
+            subprocess.Popen(["xdg-open", file_path])
+        except Exception as exc:
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Failed to open file: {exc}"))
+
+    def _on_image_stego_open_folder(self, _btn: Gtk.Button) -> None:
+        directory = self._image_stego_last_extract_dir
+        if not directory:
+            self.toast_overlay.add_toast(Adw.Toast.new("No extraction folder available"))
+            return
+        dir_path = Path(directory)
+        if not dir_path.exists():
+            self.toast_overlay.add_toast(Adw.Toast.new("Extraction folder no longer exists"))
+            self.image_stego_open_folder_btn.set_sensitive(False)
+            return
+        try:
+            subprocess.Popen(["xdg-open", str(dir_path)])
+        except Exception as exc:
+            self.toast_overlay.add_toast(Adw.Toast.new(f"Failed to open folder: {exc}"))
+
+    def _format_file_size(self, value: object) -> str:
+        try:
+            if isinstance(value, (int, float)):
+                size = int(value)
+            elif isinstance(value, str):
+                size = int(value)
+            else:
+                raise ValueError
+        except (TypeError, ValueError):
+            return "unknown size"
+        units = ["B", "KB", "MB", "GB", "TB"]
+        idx = 0
+        size_float = float(size)
+        while size_float >= 1024 and idx < len(units) - 1:
+            size_float /= 1024.0
+            idx += 1
+        if idx == 0:
+            return f"{int(size_float)} {units[idx]}"
+        return f"{size_float:.1f} {units[idx]}"
 
     def _on_image_stego_copy(self, _btn: Gtk.Button) -> None:
         display = self.window.get_display()
@@ -6493,6 +7045,3048 @@ class MainWindow:
             return
         clipboard = display.get_clipboard()
         buffer = self.video_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- RsaCtfTool detail ----------------------
+    def _build_rsactftool_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("RsaCtfTool")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        # Public Key section
+        public_key_label = Gtk.Label(label="Public Key", xalign=0)
+        public_key_label.add_css_class("title-4")
+        form.append(public_key_label)
+
+        public_key_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.rsactftool_public_key_entry = Gtk.Entry()
+        self.rsactftool_public_key_entry.add_css_class("modern-entry")
+        self.rsactftool_public_key_entry.set_placeholder_text("Select a public key file...")
+        self.rsactftool_public_key_entry.set_hexpand(True)
+        public_key_row.append(self.rsactftool_public_key_entry)
+        browse_public_key_btn = Gtk.Button(label="Browse…")
+        browse_public_key_btn.connect("clicked", self._on_rsactftool_public_key_browse)
+        public_key_row.append(browse_public_key_btn)
+        form.append(public_key_row)
+
+        # OR RSA Parameters section
+        or_label = Gtk.Label(label="OR RSA Parameters", xalign=0)
+        or_label.add_css_class("title-4")
+        form.append(or_label)
+
+        params_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        params_row.append(Gtk.Label(label="n (modulus)", xalign=0))
+        self.rsactftool_n_entry = Gtk.Entry()
+        self.rsactftool_n_entry.add_css_class("modern-entry")
+        self.rsactftool_n_entry.set_placeholder_text("Enter modulus value...")
+        params_row.append(self.rsactftool_n_entry)
+        params_row.append(Gtk.Label(label="e (exponent)", xalign=0))
+        self.rsactftool_e_entry = Gtk.Entry()
+        self.rsactftool_e_entry.add_css_class("modern-entry")
+        self.rsactftool_e_entry.set_placeholder_text("Enter exponent value...")
+        params_row.append(self.rsactftool_e_entry)
+        form.append(params_row)
+
+        # Ciphertext section
+        ciphertext_label = Gtk.Label(label="Ciphertext", xalign=0)
+        ciphertext_label.add_css_class("title-4")
+        form.append(ciphertext_label)
+
+        ciphertext_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.rsactftool_ciphertext_entry = Gtk.Entry()
+        self.rsactftool_ciphertext_entry.add_css_class("modern-entry")
+        self.rsactftool_ciphertext_entry.set_placeholder_text("Enter ciphertext or file path...")
+        self.rsactftool_ciphertext_entry.set_hexpand(True)
+        ciphertext_row.append(self.rsactftool_ciphertext_entry)
+        browse_ciphertext_btn = Gtk.Button(label="Browse…")
+        browse_ciphertext_btn.connect("clicked", self._on_rsactftool_ciphertext_browse)
+        ciphertext_row.append(browse_ciphertext_btn)
+        form.append(ciphertext_row)
+
+        # Attack Profile section
+        profile_label = Gtk.Label(label="Attack Profile", xalign=0)
+        profile_label.add_css_class("title-4")
+        form.append(profile_label)
+
+        profile_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        profile_row.append(Gtk.Label(label="Profile", xalign=0))
+        self.rsactftool_profile_combo = Gtk.ComboBoxText()
+        self.rsactftool_profile_combo.append("auto", "Auto - Automatic attack selection")
+        self.rsactftool_profile_combo.append("factordb", "FactorDB - Check FactorDB for known factors")
+        self.rsactftool_profile_combo.append("wiener", "Wiener - Wiener attack for small private exponents")
+        self.rsactftool_profile_combo.append("fermat", "Fermat - Fermat factorization for close primes")
+        self.rsactftool_profile_combo.set_active_id("auto")
+        profile_row.append(self.rsactftool_profile_combo)
+        form.append(profile_row)
+
+        # Custom Attack (optional)
+        custom_attack_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        custom_attack_row.append(Gtk.Label(label="Custom Attack (optional)", xalign=0))
+        self.rsactftool_custom_attack_entry = Gtk.Entry()
+        self.rsactftool_custom_attack_entry.add_css_class("modern-entry")
+        self.rsactftool_custom_attack_entry.set_placeholder_text("Override attack type...")
+        custom_attack_row.append(self.rsactftool_custom_attack_entry)
+        form.append(custom_attack_row)
+
+        # Extra arguments
+        extra_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        extra_row.append(Gtk.Label(label="Extra Arguments (optional)", xalign=0))
+        self.rsactftool_extra_entry = Gtk.Entry()
+        self.rsactftool_extra_entry.add_css_class("modern-entry")
+        self.rsactftool_extra_entry.set_placeholder_text("Additional arguments...")
+        extra_row.append(self.rsactftool_extra_entry)
+        form.append(extra_row)
+
+        # Action buttons
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.rsactftool_run_btn = Gtk.Button(label="Run Attack")
+        self.rsactftool_run_btn.add_css_class("suggested-action")
+        self.rsactftool_run_btn.connect("clicked", self._on_rsactftool_run)
+        actions_row.append(self.rsactftool_run_btn)
+        self.rsactftool_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.rsactftool_copy_btn.set_tooltip_text("Copy result")
+        self.rsactftool_copy_btn.set_sensitive(False)
+        self.rsactftool_copy_btn.connect("clicked", self._on_rsactftool_copy)
+        actions_row.append(self.rsactftool_copy_btn)
+        form.append(actions_row)
+
+        # Result section
+        result_label = Gtk.Label(label="Result", xalign=0)
+        result_label.add_css_class("title-4")
+        form.append(result_label)
+
+        self.rsactftool_result_view = Gtk.TextView()
+        self.rsactftool_result_view.add_css_class("output-text")
+        self.rsactftool_result_view.set_editable(False)
+        self.rsactftool_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.rsactftool_result_view)
+        form.append(result_scroller)
+
+    def _open_rsactftool(self, tool) -> None:
+        self._active_tool = tool
+        self.rsactftool_public_key_entry.set_text("")
+        self.rsactftool_n_entry.set_text("")
+        self.rsactftool_e_entry.set_text("")
+        self.rsactftool_ciphertext_entry.set_text("")
+        self.rsactftool_profile_combo.set_active_id("auto")
+        self.rsactftool_custom_attack_entry.set_text("")
+        self.rsactftool_extra_entry.set_text("")
+        self._set_text_view_text(self.rsactftool_result_view, "")
+        self.rsactftool_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("rsactftool")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_rsactftool_public_key_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select public key file", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.rsactftool_public_key_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_rsactftool_ciphertext_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select ciphertext file", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.rsactftool_ciphertext_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_rsactftool_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        
+        public_key = self.rsactftool_public_key_entry.get_text().strip()
+        n_modulus = self.rsactftool_n_entry.get_text().strip()
+        e_exponent = self.rsactftool_e_entry.get_text().strip()
+        
+        if not public_key and not n_modulus:
+            self.toast_overlay.add_toast(Adw.Toast.new("Either public key file or n (modulus) must be provided"))
+            return
+        
+        ciphertext = self.rsactftool_ciphertext_entry.get_text().strip()
+        profile = self.rsactftool_profile_combo.get_active_id() or "auto"
+        attack = self.rsactftool_custom_attack_entry.get_text().strip()
+        extra = self.rsactftool_extra_entry.get_text().strip()
+        
+        self.rsactftool_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.rsactftool_result_view, "Running RSA attack…")
+
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(
+                    public_key=public_key,
+                    n_modulus=n_modulus,
+                    e_exponent=e_exponent,
+                    ciphertext=ciphertext,
+                    profile=profile,
+                    attack=attack,
+                    extra=extra,
+                )
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.rsactftool_result_view, body)
+                GLib.idle_add(self.rsactftool_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.rsactftool_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.rsactftool_run_btn.set_sensitive, True)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_rsactftool_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.rsactftool_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- FeatherDuster detail ----------------------
+    def _build_featherduster_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("FeatherDuster")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        # Input file section
+        input_label = Gtk.Label(label="Input File", xalign=0)
+        input_label.add_css_class("title-4")
+        form.append(input_label)
+
+        file_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.featherduster_file_entry = Gtk.Entry()
+        self.featherduster_file_entry.add_css_class("modern-entry")
+        self.featherduster_file_entry.set_placeholder_text("Select a ciphertext file...")
+        self.featherduster_file_entry.set_hexpand(True)
+        file_row.append(self.featherduster_file_entry)
+        browse_file_btn = Gtk.Button(label="Browse…")
+        browse_file_btn.connect("clicked", self._on_featherduster_file_browse)
+        file_row.append(browse_file_btn)
+        form.append(file_row)
+
+        # OR Ciphertext section
+        or_label = Gtk.Label(label="OR Direct Ciphertext", xalign=0)
+        or_label.add_css_class("title-4")
+        form.append(or_label)
+
+        ciphertext_scroller = Gtk.ScrolledWindow()
+        ciphertext_scroller.set_min_content_height(100)
+        ciphertext_scroller.set_max_content_height(200)
+        self.featherduster_ciphertext_view = Gtk.TextView()
+        self.featherduster_ciphertext_view.add_css_class("modern-entry")
+        self.featherduster_ciphertext_view.set_wrap_mode(Gtk.WrapMode.WORD)
+        self.featherduster_ciphertext_view.get_buffer().set_text("")
+        ciphertext_scroller.set_child(self.featherduster_ciphertext_view)
+        form.append(ciphertext_scroller)
+
+        # Options section
+        options_label = Gtk.Label(label="Options", xalign=0)
+        options_label.add_css_class("title-4")
+        form.append(options_label)
+
+        options_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.featherduster_analysis_only_check = Gtk.CheckButton(label="Analysis Only")
+        options_row.append(self.featherduster_analysis_only_check)
+        form.append(options_row)
+
+        # Extra arguments
+        extra_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        extra_row.append(Gtk.Label(label="Extra Arguments (optional)", xalign=0))
+        self.featherduster_extra_entry = Gtk.Entry()
+        self.featherduster_extra_entry.add_css_class("modern-entry")
+        self.featherduster_extra_entry.set_placeholder_text("Additional arguments...")
+        extra_row.append(self.featherduster_extra_entry)
+        form.append(extra_row)
+
+        # Action buttons
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.featherduster_run_btn = Gtk.Button(label="Run Analysis")
+        self.featherduster_run_btn.add_css_class("suggested-action")
+        self.featherduster_run_btn.connect("clicked", self._on_featherduster_run)
+        actions_row.append(self.featherduster_run_btn)
+        self.featherduster_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.featherduster_copy_btn.set_tooltip_text("Copy result")
+        self.featherduster_copy_btn.set_sensitive(False)
+        self.featherduster_copy_btn.connect("clicked", self._on_featherduster_copy)
+        actions_row.append(self.featherduster_copy_btn)
+        form.append(actions_row)
+
+        # Result section
+        result_label = Gtk.Label(label="Result", xalign=0)
+        result_label.add_css_class("title-4")
+        form.append(result_label)
+
+        self.featherduster_result_view = Gtk.TextView()
+        self.featherduster_result_view.add_css_class("output-text")
+        self.featherduster_result_view.set_editable(False)
+        self.featherduster_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.featherduster_result_view)
+        form.append(result_scroller)
+
+    def _open_featherduster(self, tool) -> None:
+        self._active_tool = tool
+        self.featherduster_file_entry.set_text("")
+        self.featherduster_ciphertext_view.get_buffer().set_text("")
+        self.featherduster_analysis_only_check.set_active(False)
+        self.featherduster_extra_entry.set_text("")
+        self._set_text_view_text(self.featherduster_result_view, "")
+        self.featherduster_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("featherduster")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_featherduster_file_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select ciphertext file", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.featherduster_file_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_featherduster_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        
+        input_file = self.featherduster_file_entry.get_text().strip()
+        ciphertext_buffer = self.featherduster_ciphertext_view.get_buffer()
+        start, end = ciphertext_buffer.get_bounds()
+        ciphertext = ciphertext_buffer.get_text(start, end, True).strip()
+        
+        if not input_file and not ciphertext:
+            self.toast_overlay.add_toast(Adw.Toast.new("Either input file or ciphertext must be provided"))
+            return
+        
+        analysis_only = "true" if self.featherduster_analysis_only_check.get_active() else "false"
+        extra = self.featherduster_extra_entry.get_text().strip()
+        
+        self.featherduster_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.featherduster_result_view, "Running FeatherDuster analysis…")
+
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(
+                    ciphertext=ciphertext if not input_file else "",
+                    input_file=input_file,
+                    analysis_only=analysis_only,
+                    extra=extra,
+                )
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.featherduster_result_view, body)
+                GLib.idle_add(self.featherduster_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.featherduster_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.featherduster_run_btn.set_sensitive, True)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_featherduster_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.featherduster_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- CyberChef Recipes detail ----------------------
+    def _build_cyberchef_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("CyberChef Recipes")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        # Input data section
+        input_label = Gtk.Label(label="Input Data", xalign=0)
+        input_label.add_css_class("title-4")
+        form.append(input_label)
+
+        input_scroller = Gtk.ScrolledWindow()
+        input_scroller.set_min_content_height(100)
+        input_scroller.set_max_content_height(200)
+        self.cyberchef_input_view = Gtk.TextView()
+        self.cyberchef_input_view.add_css_class("modern-entry")
+        self.cyberchef_input_view.set_wrap_mode(Gtk.WrapMode.WORD)
+        self.cyberchef_input_view.get_buffer().set_text("")
+        input_scroller.set_child(self.cyberchef_input_view)
+        form.append(input_scroller)
+
+        # Recipe section
+        recipe_label = Gtk.Label(label="Recipe", xalign=0)
+        recipe_label.add_css_class("title-4")
+        form.append(recipe_label)
+
+        # Preset recipe dropdown
+        preset_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        preset_row.append(Gtk.Label(label="Preset Recipe", xalign=0))
+        self.cyberchef_recipe_combo = Gtk.ComboBoxText()
+        self.cyberchef_recipe_combo.append("base64_decode", "Base64 Decode")
+        self.cyberchef_recipe_combo.append("base64_encode", "Base64 Encode")
+        self.cyberchef_recipe_combo.append("hex_decode", "Hex Decode")
+        self.cyberchef_recipe_combo.append("hex_encode", "Hex Encode")
+        self.cyberchef_recipe_combo.append("url_decode", "URL Decode")
+        self.cyberchef_recipe_combo.append("url_encode", "URL Encode")
+        self.cyberchef_recipe_combo.append("rot13", "ROT13")
+        self.cyberchef_recipe_combo.append("reverse", "Reverse")
+        self.cyberchef_recipe_combo.append("md5", "MD5 Hash")
+        self.cyberchef_recipe_combo.append("sha256", "SHA256 Hash")
+        self.cyberchef_recipe_combo.set_active_id("base64_decode")
+        preset_row.append(self.cyberchef_recipe_combo)
+        form.append(preset_row)
+
+        # OR Custom recipe
+        or_custom_label = Gtk.Label(label="OR Custom Recipe", xalign=0)
+        or_custom_label.add_css_class("title-4")
+        form.append(or_custom_label)
+
+        custom_recipe_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.cyberchef_custom_recipe_entry = Gtk.Entry()
+        self.cyberchef_custom_recipe_entry.add_css_class("modern-entry")
+        self.cyberchef_custom_recipe_entry.set_placeholder_text("Enter comma-separated operations (e.g., base64_decode,hex_decode,rot13)")
+        custom_recipe_row.append(self.cyberchef_custom_recipe_entry)
+        form.append(custom_recipe_row)
+
+        # Action buttons
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.cyberchef_run_btn = Gtk.Button(label="Execute Recipe")
+        self.cyberchef_run_btn.add_css_class("suggested-action")
+        self.cyberchef_run_btn.connect("clicked", self._on_cyberchef_run)
+        actions_row.append(self.cyberchef_run_btn)
+        self.cyberchef_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.cyberchef_copy_btn.set_tooltip_text("Copy result")
+        self.cyberchef_copy_btn.set_sensitive(False)
+        self.cyberchef_copy_btn.connect("clicked", self._on_cyberchef_copy)
+        actions_row.append(self.cyberchef_copy_btn)
+        form.append(actions_row)
+
+        # Result section
+        result_label = Gtk.Label(label="Result", xalign=0)
+        result_label.add_css_class("title-4")
+        form.append(result_label)
+
+        self.cyberchef_result_view = Gtk.TextView()
+        self.cyberchef_result_view.add_css_class("output-text")
+        self.cyberchef_result_view.set_editable(False)
+        self.cyberchef_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.cyberchef_result_view)
+        form.append(result_scroller)
+
+    def _open_cyberchef(self, tool) -> None:
+        self._active_tool = tool
+        self.cyberchef_input_view.get_buffer().set_text("")
+        self.cyberchef_recipe_combo.set_active_id("base64_decode")
+        self.cyberchef_custom_recipe_entry.set_text("")
+        self._set_text_view_text(self.cyberchef_result_view, "")
+        self.cyberchef_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("cyberchef")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_cyberchef_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        
+        input_buffer = self.cyberchef_input_view.get_buffer()
+        start, end = input_buffer.get_bounds()
+        input_data = input_buffer.get_text(start, end, True).strip()
+        
+        if not input_data:
+            self.toast_overlay.add_toast(Adw.Toast.new("Input data is required"))
+            return
+        
+        custom_recipe = self.cyberchef_custom_recipe_entry.get_text().strip()
+        recipe = self.cyberchef_recipe_combo.get_active_id() or "base64_decode"
+        
+        self.cyberchef_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.cyberchef_result_view, "Executing recipe…")
+
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(
+                    input_data=input_data,
+                    recipe=recipe if not custom_recipe else "",
+                    custom_recipe=custom_recipe,
+                )
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.cyberchef_result_view, body)
+                GLib.idle_add(self.cyberchef_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.cyberchef_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.cyberchef_run_btn.set_sensitive, True)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_cyberchef_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.cyberchef_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- Bulk Extractor detail ----------------------
+    def _build_bulk_extractor_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("Bulk Extractor")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        # Input file section
+        input_label = Gtk.Label(label="Input File", xalign=0)
+        input_label.add_css_class("title-4")
+        form.append(input_label)
+
+        file_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.bulk_extractor_file_entry = Gtk.Entry()
+        self.bulk_extractor_file_entry.add_css_class("modern-entry")
+        self.bulk_extractor_file_entry.set_placeholder_text("Select a disk image file...")
+        self.bulk_extractor_file_entry.set_hexpand(True)
+        file_row.append(self.bulk_extractor_file_entry)
+        browse_file_btn = Gtk.Button(label="Browse…")
+        browse_file_btn.connect("clicked", self._on_bulk_extractor_file_browse)
+        file_row.append(browse_file_btn)
+        form.append(file_row)
+
+        # Profile section
+        profile_label = Gtk.Label(label="Profile", xalign=0)
+        profile_label.add_css_class("title-4")
+        form.append(profile_label)
+
+        profile_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        profile_row.append(Gtk.Label(label="Profile", xalign=0))
+        self.bulk_extractor_profile_combo = Gtk.ComboBoxText()
+        self.bulk_extractor_profile_combo.append("quick", "Quick - Fast extraction of common artifacts")
+        self.bulk_extractor_profile_combo.append("default", "Default - Standard extraction")
+        self.bulk_extractor_profile_combo.append("full", "Full - Comprehensive extraction with all scanners")
+        self.bulk_extractor_profile_combo.set_active_id("default")
+        profile_row.append(self.bulk_extractor_profile_combo)
+        form.append(profile_row)
+
+        # Output directory
+        output_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        output_row.append(Gtk.Label(label="Output Directory (optional)", xalign=0))
+        self.bulk_extractor_output_entry = Gtk.Entry()
+        self.bulk_extractor_output_entry.add_css_class("modern-entry")
+        self.bulk_extractor_output_entry.set_placeholder_text("Leave empty for default output...")
+        output_row.append(self.bulk_extractor_output_entry)
+        browse_output_btn = Gtk.Button(label="Browse…")
+        browse_output_btn.connect("clicked", self._on_bulk_extractor_output_browse)
+        output_row.append(browse_output_btn)
+        form.append(output_row)
+
+        # Custom scanners
+        scanners_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        scanners_row.append(Gtk.Label(label="Custom Scanners (optional)", xalign=0))
+        self.bulk_extractor_scanners_entry = Gtk.Entry()
+        self.bulk_extractor_scanners_entry.add_css_class("modern-entry")
+        self.bulk_extractor_scanners_entry.set_placeholder_text("Override scanners...")
+        scanners_row.append(self.bulk_extractor_scanners_entry)
+        form.append(scanners_row)
+
+        # Extra arguments
+        extra_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        extra_row.append(Gtk.Label(label="Extra Arguments (optional)", xalign=0))
+        self.bulk_extractor_extra_entry = Gtk.Entry()
+        self.bulk_extractor_extra_entry.add_css_class("modern-entry")
+        self.bulk_extractor_extra_entry.set_placeholder_text("Additional arguments...")
+        extra_row.append(self.bulk_extractor_extra_entry)
+        form.append(extra_row)
+
+        # Action buttons
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.bulk_extractor_run_btn = Gtk.Button(label="Run Extraction")
+        self.bulk_extractor_run_btn.add_css_class("suggested-action")
+        self.bulk_extractor_run_btn.connect("clicked", self._on_bulk_extractor_run)
+        actions_row.append(self.bulk_extractor_run_btn)
+        self.bulk_extractor_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.bulk_extractor_copy_btn.set_tooltip_text("Copy result")
+        self.bulk_extractor_copy_btn.set_sensitive(False)
+        self.bulk_extractor_copy_btn.connect("clicked", self._on_bulk_extractor_copy)
+        actions_row.append(self.bulk_extractor_copy_btn)
+        form.append(actions_row)
+
+        # Result section
+        result_label = Gtk.Label(label="Result", xalign=0)
+        result_label.add_css_class("title-4")
+        form.append(result_label)
+
+        self.bulk_extractor_result_view = Gtk.TextView()
+        self.bulk_extractor_result_view.add_css_class("output-text")
+        self.bulk_extractor_result_view.set_editable(False)
+        self.bulk_extractor_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.bulk_extractor_result_view)
+        form.append(result_scroller)
+
+    def _open_bulk_extractor(self, tool) -> None:
+        self._active_tool = tool
+        self.bulk_extractor_file_entry.set_text("")
+        self.bulk_extractor_profile_combo.set_active_id("default")
+        self.bulk_extractor_output_entry.set_text("")
+        self.bulk_extractor_scanners_entry.set_text("")
+        self.bulk_extractor_extra_entry.set_text("")
+        self._set_text_view_text(self.bulk_extractor_result_view, "")
+        self.bulk_extractor_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("bulk_extractor")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_bulk_extractor_file_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select disk image file", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.bulk_extractor_file_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_bulk_extractor_output_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select output directory", self.window, Gtk.FileChooserAction.SELECT_FOLDER, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.bulk_extractor_output_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_bulk_extractor_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        
+        input_file = self.bulk_extractor_file_entry.get_text().strip()
+        if not input_file:
+            self.toast_overlay.add_toast(Adw.Toast.new("Input file is required"))
+            return
+        
+        profile = self.bulk_extractor_profile_combo.get_active_id() or "default"
+        output_dir = self.bulk_extractor_output_entry.get_text().strip()
+        scanners = self.bulk_extractor_scanners_entry.get_text().strip()
+        extra = self.bulk_extractor_extra_entry.get_text().strip()
+        
+        self.bulk_extractor_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.bulk_extractor_result_view, "Running Bulk Extractor…")
+
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(
+                    input_file=input_file,
+                    profile=profile,
+                    output_dir=output_dir,
+                    scanners=scanners,
+                    extra=extra,
+                )
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.bulk_extractor_result_view, body)
+                GLib.idle_add(self.bulk_extractor_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.bulk_extractor_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.bulk_extractor_run_btn.set_sensitive, True)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_bulk_extractor_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.bulk_extractor_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- Foremost detail ----------------------
+    def _build_foremost_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("Foremost")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        # Input file section
+        input_label = Gtk.Label(label="Input File", xalign=0)
+        input_label.add_css_class("title-4")
+        form.append(input_label)
+
+        file_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.foremost_file_entry = Gtk.Entry()
+        self.foremost_file_entry.add_css_class("modern-entry")
+        self.foremost_file_entry.set_placeholder_text("Select a disk image file...")
+        self.foremost_file_entry.set_hexpand(True)
+        file_row.append(self.foremost_file_entry)
+        browse_file_btn = Gtk.Button(label="Browse…")
+        browse_file_btn.connect("clicked", self._on_foremost_file_browse)
+        file_row.append(browse_file_btn)
+        form.append(file_row)
+
+        # Profile section
+        profile_label = Gtk.Label(label="File Types Profile", xalign=0)
+        profile_label.add_css_class("title-4")
+        form.append(profile_label)
+
+        profile_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        profile_row.append(Gtk.Label(label="Profile", xalign=0))
+        self.foremost_profile_combo = Gtk.ComboBoxText()
+        self.foremost_profile_combo.append("all", "All - Recover all supported file types")
+        self.foremost_profile_combo.append("images", "Images - JPEG, PNG, GIF")
+        self.foremost_profile_combo.append("documents", "Documents - PDF, DOC, XLS")
+        self.foremost_profile_combo.append("archives", "Archives - ZIP, RAR, GZ")
+        self.foremost_profile_combo.append("executables", "Executables - EXE, ELF")
+        self.foremost_profile_combo.set_active_id("all")
+        profile_row.append(self.foremost_profile_combo)
+        form.append(profile_row)
+
+        # Custom file types
+        file_types_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        file_types_row.append(Gtk.Label(label="Custom File Types (optional)", xalign=0))
+        self.foremost_file_types_entry = Gtk.Entry()
+        self.foremost_file_types_entry.add_css_class("modern-entry")
+        self.foremost_file_types_entry.set_placeholder_text("Override file types (e.g., jpg,pdf)")
+        file_types_row.append(self.foremost_file_types_entry)
+        form.append(file_types_row)
+
+        # Output directory
+        output_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        output_row.append(Gtk.Label(label="Output Directory (optional)", xalign=0))
+        self.foremost_output_entry = Gtk.Entry()
+        self.foremost_output_entry.add_css_class("modern-entry")
+        self.foremost_output_entry.set_placeholder_text("Leave empty for default output...")
+        output_row.append(self.foremost_output_entry)
+        browse_output_btn = Gtk.Button(label="Browse…")
+        browse_output_btn.connect("clicked", self._on_foremost_output_browse)
+        output_row.append(browse_output_btn)
+        form.append(output_row)
+
+        # Extra arguments
+        extra_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        extra_row.append(Gtk.Label(label="Extra Arguments (optional)", xalign=0))
+        self.foremost_extra_entry = Gtk.Entry()
+        self.foremost_extra_entry.add_css_class("modern-entry")
+        self.foremost_extra_entry.set_placeholder_text("Additional arguments...")
+        extra_row.append(self.foremost_extra_entry)
+        form.append(extra_row)
+
+        # Action buttons
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.foremost_run_btn = Gtk.Button(label="Run Carving")
+        self.foremost_run_btn.add_css_class("suggested-action")
+        self.foremost_run_btn.connect("clicked", self._on_foremost_run)
+        actions_row.append(self.foremost_run_btn)
+        self.foremost_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.foremost_copy_btn.set_tooltip_text("Copy result")
+        self.foremost_copy_btn.set_sensitive(False)
+        self.foremost_copy_btn.connect("clicked", self._on_foremost_copy)
+        actions_row.append(self.foremost_copy_btn)
+        form.append(actions_row)
+
+        # Result section
+        result_label = Gtk.Label(label="Result", xalign=0)
+        result_label.add_css_class("title-4")
+        form.append(result_label)
+
+        self.foremost_result_view = Gtk.TextView()
+        self.foremost_result_view.add_css_class("output-text")
+        self.foremost_result_view.set_editable(False)
+        self.foremost_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.foremost_result_view)
+        form.append(result_scroller)
+
+    def _open_foremost(self, tool) -> None:
+        self._active_tool = tool
+        self.foremost_file_entry.set_text("")
+        self.foremost_profile_combo.set_active_id("all")
+        self.foremost_file_types_entry.set_text("")
+        self.foremost_output_entry.set_text("")
+        self.foremost_extra_entry.set_text("")
+        self._set_text_view_text(self.foremost_result_view, "")
+        self.foremost_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("foremost")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_foremost_file_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select disk image file", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.foremost_file_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_foremost_output_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select output directory", self.window, Gtk.FileChooserAction.SELECT_FOLDER, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.foremost_output_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_foremost_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        
+        input_file = self.foremost_file_entry.get_text().strip()
+        if not input_file:
+            self.toast_overlay.add_toast(Adw.Toast.new("Input file is required"))
+            return
+        
+        profile = self.foremost_profile_combo.get_active_id() or "all"
+        file_types = self.foremost_file_types_entry.get_text().strip()
+        output_dir = self.foremost_output_entry.get_text().strip()
+        extra = self.foremost_extra_entry.get_text().strip()
+        
+        self.foremost_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.foremost_result_view, "Running Foremost file carving…")
+
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(
+                    input_file=input_file,
+                    profile=profile,
+                    output_dir=output_dir,
+                    file_types=file_types,
+                    extra=extra,
+                )
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.foremost_result_view, body)
+                GLib.idle_add(self.foremost_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.foremost_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.foremost_run_btn.set_sensitive, True)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_foremost_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.foremost_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- Scalpel detail ----------------------
+    def _build_scalpel_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("Scalpel")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        file_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.scalpel_file_entry = Gtk.Entry()
+        self.scalpel_file_entry.add_css_class("modern-entry")
+        self.scalpel_file_entry.set_placeholder_text("Select a disk image file...")
+        self.scalpel_file_entry.set_hexpand(True)
+        file_row.append(self.scalpel_file_entry)
+        browse_file_btn = Gtk.Button(label="Browse…")
+        browse_file_btn.connect("clicked", self._on_scalpel_file_browse)
+        file_row.append(browse_file_btn)
+        form.append(file_row)
+
+        profile_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        profile_row.append(Gtk.Label(label="Profile", xalign=0))
+        self.scalpel_profile_combo = Gtk.ComboBoxText()
+        self.scalpel_profile_combo.append("all", "All file types")
+        self.scalpel_profile_combo.append("images", "Images only")
+        self.scalpel_profile_combo.append("documents", "Documents only")
+        self.scalpel_profile_combo.append("archives", "Archives only")
+        self.scalpel_profile_combo.set_active_id("all")
+        profile_row.append(self.scalpel_profile_combo)
+        form.append(profile_row)
+
+        config_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        config_row.append(Gtk.Label(label="Config File (optional)", xalign=0))
+        self.scalpel_config_entry = Gtk.Entry()
+        self.scalpel_config_entry.add_css_class("modern-entry")
+        self.scalpel_config_entry.set_placeholder_text("Leave empty for default...")
+        config_row.append(self.scalpel_config_entry)
+        browse_config_btn = Gtk.Button(label="Browse…")
+        browse_config_btn.connect("clicked", self._on_scalpel_config_browse)
+        config_row.append(browse_config_btn)
+        form.append(config_row)
+
+        output_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        output_row.append(Gtk.Label(label="Output Directory (optional)", xalign=0))
+        self.scalpel_output_entry = Gtk.Entry()
+        self.scalpel_output_entry.add_css_class("modern-entry")
+        self.scalpel_output_entry.set_placeholder_text("Leave empty for default output...")
+        output_row.append(self.scalpel_output_entry)
+        browse_output_btn = Gtk.Button(label="Browse…")
+        browse_output_btn.connect("clicked", self._on_scalpel_output_browse)
+        output_row.append(browse_output_btn)
+        form.append(output_row)
+
+        extra_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        extra_row.append(Gtk.Label(label="Extra Arguments (optional)", xalign=0))
+        self.scalpel_extra_entry = Gtk.Entry()
+        self.scalpel_extra_entry.add_css_class("modern-entry")
+        extra_row.append(self.scalpel_extra_entry)
+        form.append(extra_row)
+
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.scalpel_run_btn = Gtk.Button(label="Run Carving")
+        self.scalpel_run_btn.add_css_class("suggested-action")
+        self.scalpel_run_btn.connect("clicked", self._on_scalpel_run)
+        actions_row.append(self.scalpel_run_btn)
+        self.scalpel_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.scalpel_copy_btn.set_tooltip_text("Copy result")
+        self.scalpel_copy_btn.set_sensitive(False)
+        self.scalpel_copy_btn.connect("clicked", self._on_scalpel_copy)
+        actions_row.append(self.scalpel_copy_btn)
+        form.append(actions_row)
+
+        self.scalpel_result_view = Gtk.TextView()
+        self.scalpel_result_view.add_css_class("output-text")
+        self.scalpel_result_view.set_editable(False)
+        self.scalpel_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.scalpel_result_view)
+        form.append(result_scroller)
+
+    def _open_scalpel(self, tool) -> None:
+        self._active_tool = tool
+        self.scalpel_file_entry.set_text("")
+        self.scalpel_profile_combo.set_active_id("all")
+        self.scalpel_config_entry.set_text("")
+        self.scalpel_output_entry.set_text("")
+        self.scalpel_extra_entry.set_text("")
+        self._set_text_view_text(self.scalpel_result_view, "")
+        self.scalpel_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("scalpel")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_scalpel_file_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select disk image", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.scalpel_file_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_scalpel_config_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select config file", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.scalpel_config_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_scalpel_output_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select output directory", self.window, Gtk.FileChooserAction.SELECT_FOLDER, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.scalpel_output_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_scalpel_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        input_file = self.scalpel_file_entry.get_text().strip()
+        if not input_file:
+            self.toast_overlay.add_toast(Adw.Toast.new("Input file is required"))
+            return
+        profile = self.scalpel_profile_combo.get_active_id() or "all"
+        config_file = self.scalpel_config_entry.get_text().strip()
+        output_dir = self.scalpel_output_entry.get_text().strip()
+        extra = self.scalpel_extra_entry.get_text().strip()
+        self.scalpel_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.scalpel_result_view, "Running Scalpel…")
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(input_file=input_file, profile=profile, output_dir=output_dir, config_file=config_file, extra=extra)
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.scalpel_result_view, body)
+                GLib.idle_add(self.scalpel_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.scalpel_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.scalpel_run_btn.set_sensitive, True)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_scalpel_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.scalpel_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- Sleuthkit detail ----------------------
+    def _build_sleuthkit_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("Sleuthkit")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        file_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.sleuthkit_file_entry = Gtk.Entry()
+        self.sleuthkit_file_entry.add_css_class("modern-entry")
+        self.sleuthkit_file_entry.set_placeholder_text("Select disk image...")
+        self.sleuthkit_file_entry.set_hexpand(True)
+        file_row.append(self.sleuthkit_file_entry)
+        browse_file_btn = Gtk.Button(label="Browse…")
+        browse_file_btn.connect("clicked", self._on_sleuthkit_file_browse)
+        file_row.append(browse_file_btn)
+        form.append(file_row)
+
+        profile_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        profile_row.append(Gtk.Label(label="Tool", xalign=0))
+        self.sleuthkit_profile_combo = Gtk.ComboBoxText()
+        self.sleuthkit_profile_combo.append("mmls", "mmls - Partition Table")
+        self.sleuthkit_profile_combo.append("fsstat", "fsstat - Filesystem Info")
+        self.sleuthkit_profile_combo.append("fls", "fls - File Listing")
+        self.sleuthkit_profile_combo.append("ils", "ils - Inode Listing")
+        self.sleuthkit_profile_combo.set_active_id("fls")
+        profile_row.append(self.sleuthkit_profile_combo)
+        form.append(profile_row)
+
+        options_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.sleuthkit_recursive_check = Gtk.CheckButton(label="Recursive")
+        options_row.append(self.sleuthkit_recursive_check)
+        self.sleuthkit_deleted_check = Gtk.CheckButton(label="Show Deleted")
+        options_row.append(self.sleuthkit_deleted_check)
+        form.append(options_row)
+
+        offset_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        offset_row.append(Gtk.Label(label="Offset (optional)", xalign=0))
+        self.sleuthkit_offset_entry = Gtk.Entry()
+        self.sleuthkit_offset_entry.add_css_class("modern-entry")
+        self.sleuthkit_offset_entry.set_placeholder_text("Partition offset...")
+        offset_row.append(self.sleuthkit_offset_entry)
+        form.append(offset_row)
+
+        inode_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        inode_row.append(Gtk.Label(label="Inode (optional)", xalign=0))
+        self.sleuthkit_inode_entry = Gtk.Entry()
+        self.sleuthkit_inode_entry.add_css_class("modern-entry")
+        self.sleuthkit_inode_entry.set_placeholder_text("Starting inode for fls...")
+        inode_row.append(self.sleuthkit_inode_entry)
+        form.append(inode_row)
+
+        extra_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        extra_row.append(Gtk.Label(label="Extra Arguments (optional)", xalign=0))
+        self.sleuthkit_extra_entry = Gtk.Entry()
+        self.sleuthkit_extra_entry.add_css_class("modern-entry")
+        extra_row.append(self.sleuthkit_extra_entry)
+        form.append(extra_row)
+
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.sleuthkit_run_btn = Gtk.Button(label="Run Analysis")
+        self.sleuthkit_run_btn.add_css_class("suggested-action")
+        self.sleuthkit_run_btn.connect("clicked", self._on_sleuthkit_run)
+        actions_row.append(self.sleuthkit_run_btn)
+        self.sleuthkit_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.sleuthkit_copy_btn.set_tooltip_text("Copy result")
+        self.sleuthkit_copy_btn.set_sensitive(False)
+        self.sleuthkit_copy_btn.connect("clicked", self._on_sleuthkit_copy)
+        actions_row.append(self.sleuthkit_copy_btn)
+        form.append(actions_row)
+
+        self.sleuthkit_result_view = Gtk.TextView()
+        self.sleuthkit_result_view.add_css_class("output-text")
+        self.sleuthkit_result_view.set_editable(False)
+        self.sleuthkit_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.sleuthkit_result_view)
+        form.append(result_scroller)
+
+    def _open_sleuthkit(self, tool) -> None:
+        self._active_tool = tool
+        self.sleuthkit_file_entry.set_text("")
+        self.sleuthkit_profile_combo.set_active_id("fls")
+        self.sleuthkit_recursive_check.set_active(False)
+        self.sleuthkit_deleted_check.set_active(False)
+        self.sleuthkit_offset_entry.set_text("")
+        self.sleuthkit_inode_entry.set_text("")
+        self.sleuthkit_extra_entry.set_text("")
+        self._set_text_view_text(self.sleuthkit_result_view, "")
+        self.sleuthkit_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("sleuthkit")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_sleuthkit_file_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select disk image", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.sleuthkit_file_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_sleuthkit_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        image_file = self.sleuthkit_file_entry.get_text().strip()
+        if not image_file:
+            self.toast_overlay.add_toast(Adw.Toast.new("Image file is required"))
+            return
+        profile = self.sleuthkit_profile_combo.get_active_id() or "fls"
+        offset = self.sleuthkit_offset_entry.get_text().strip()
+        inode = self.sleuthkit_inode_entry.get_text().strip()
+        recursive = "true" if self.sleuthkit_recursive_check.get_active() else "false"
+        deleted = "true" if self.sleuthkit_deleted_check.get_active() else "false"
+        extra = self.sleuthkit_extra_entry.get_text().strip()
+        self.sleuthkit_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.sleuthkit_result_view, "Running Sleuthkit analysis…")
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(image_file=image_file, profile=profile, offset=offset, inode=inode, recursive=recursive, deleted=deleted, extra=extra)
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.sleuthkit_result_view, body)
+                GLib.idle_add(self.sleuthkit_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.sleuthkit_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.sleuthkit_run_btn.set_sensitive, True)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_sleuthkit_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.sleuthkit_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- Volatility detail ----------------------
+    def _build_volatility_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("Volatility")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        file_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.volatility_file_entry = Gtk.Entry()
+        self.volatility_file_entry.add_css_class("modern-entry")
+        self.volatility_file_entry.set_placeholder_text("Select memory dump...")
+        self.volatility_file_entry.set_hexpand(True)
+        file_row.append(self.volatility_file_entry)
+        browse_file_btn = Gtk.Button(label="Browse…")
+        browse_file_btn.connect("clicked", self._on_volatility_file_browse)
+        file_row.append(browse_file_btn)
+        form.append(file_row)
+
+        profile_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        profile_row.append(Gtk.Label(label="Profile", xalign=0))
+        self.volatility_profile_combo = Gtk.ComboBoxText()
+        self.volatility_profile_combo.append("processes", "Processes - List running processes")
+        self.volatility_profile_combo.append("network", "Network - Network connections")
+        self.volatility_profile_combo.append("files", "Files - File handles and open files")
+        self.volatility_profile_combo.append("registry", "Registry - Windows registry hives")
+        self.volatility_profile_combo.set_active_id("processes")
+        profile_row.append(self.volatility_profile_combo)
+        form.append(profile_row)
+
+        os_profile_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        os_profile_row.append(Gtk.Label(label="OS Profile (optional)", xalign=0))
+        self.volatility_os_profile_entry = Gtk.Entry()
+        self.volatility_os_profile_entry.add_css_class("modern-entry")
+        self.volatility_os_profile_entry.set_placeholder_text("e.g., Win7SP1x64")
+        os_profile_row.append(self.volatility_os_profile_entry)
+        form.append(os_profile_row)
+
+        plugin_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        plugin_row.append(Gtk.Label(label="Custom Plugin (optional)", xalign=0))
+        self.volatility_plugin_entry = Gtk.Entry()
+        self.volatility_plugin_entry.add_css_class("modern-entry")
+        self.volatility_plugin_entry.set_placeholder_text("Override plugin...")
+        plugin_row.append(self.volatility_plugin_entry)
+        form.append(plugin_row)
+
+        extra_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        extra_row.append(Gtk.Label(label="Extra Arguments (optional)", xalign=0))
+        self.volatility_extra_entry = Gtk.Entry()
+        self.volatility_extra_entry.add_css_class("modern-entry")
+        extra_row.append(self.volatility_extra_entry)
+        form.append(extra_row)
+
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.volatility_run_btn = Gtk.Button(label="Run Analysis")
+        self.volatility_run_btn.add_css_class("suggested-action")
+        self.volatility_run_btn.connect("clicked", self._on_volatility_run)
+        actions_row.append(self.volatility_run_btn)
+        self.volatility_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.volatility_copy_btn.set_tooltip_text("Copy result")
+        self.volatility_copy_btn.set_sensitive(False)
+        self.volatility_copy_btn.connect("clicked", self._on_volatility_copy)
+        actions_row.append(self.volatility_copy_btn)
+        form.append(actions_row)
+
+        self.volatility_result_view = Gtk.TextView()
+        self.volatility_result_view.add_css_class("output-text")
+        self.volatility_result_view.set_editable(False)
+        self.volatility_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.volatility_result_view)
+        form.append(result_scroller)
+
+    def _open_volatility(self, tool) -> None:
+        self._active_tool = tool
+        self.volatility_file_entry.set_text("")
+        self.volatility_profile_combo.set_active_id("processes")
+        self.volatility_os_profile_entry.set_text("")
+        self.volatility_plugin_entry.set_text("")
+        self.volatility_extra_entry.set_text("")
+        self._set_text_view_text(self.volatility_result_view, "")
+        self.volatility_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("volatility")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_volatility_file_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select memory dump", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.volatility_file_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_volatility_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        memory_dump = self.volatility_file_entry.get_text().strip()
+        if not memory_dump:
+            self.toast_overlay.add_toast(Adw.Toast.new("Memory dump file is required"))
+            return
+        profile = self.volatility_profile_combo.get_active_id() or "processes"
+        os_profile = self.volatility_os_profile_entry.get_text().strip()
+        plugin = self.volatility_plugin_entry.get_text().strip()
+        extra = self.volatility_extra_entry.get_text().strip()
+        self.volatility_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.volatility_result_view, "Running Volatility analysis…")
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(memory_dump=memory_dump, profile=profile, plugin=plugin, os_profile=os_profile, extra=extra)
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.volatility_result_view, body)
+                GLib.idle_add(self.volatility_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.volatility_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.volatility_run_btn.set_sensitive, True)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_volatility_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.volatility_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- Wfuzz detail ----------------------
+    def _build_wfuzz_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("Wfuzz")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        consent_label = Gtk.Label(label="Network Tools", xalign=0)
+        consent_label.add_css_class("title-4")
+        form.append(consent_label)
+        self.wfuzz_notice = Gtk.Label(xalign=0)
+        self.wfuzz_notice.add_css_class("dim-label")
+        form.append(self.wfuzz_notice)
+        consent_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.wfuzz_enable_btn = Gtk.Button(label="Enable Network Tools")
+        self.wfuzz_enable_btn.connect("clicked", self._on_enable_network_tools)
+        self.wfuzz_disable_btn = Gtk.Button(label="Disable Network Tools")
+        self.wfuzz_disable_btn.connect("clicked", self._on_disable_network_tools)
+        consent_row.append(self.wfuzz_enable_btn)
+        consent_row.append(self.wfuzz_disable_btn)
+        form.append(consent_row)
+
+        target_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.wfuzz_target_entry = Gtk.Entry()
+        self.wfuzz_target_entry.add_css_class("modern-entry")
+        self.wfuzz_target_entry.set_placeholder_text("Target URL (must contain FUZZ keyword)...")
+        self.wfuzz_target_entry.set_hexpand(True)
+        target_row.append(self.wfuzz_target_entry)
+        form.append(target_row)
+
+        profile_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        profile_row.append(Gtk.Label(label="Profile", xalign=0))
+        self.wfuzz_profile_combo = Gtk.ComboBoxText()
+        self.wfuzz_profile_combo.append("quick", "Quick - Fast fuzzing")
+        self.wfuzz_profile_combo.append("default", "Default - Balanced fuzzing")
+        self.wfuzz_profile_combo.append("full", "Full - Comprehensive fuzzing")
+        self.wfuzz_profile_combo.append("stealth", "Stealth - Slow, evasive")
+        self.wfuzz_profile_combo.set_active_id("default")
+        profile_row.append(self.wfuzz_profile_combo)
+        form.append(profile_row)
+
+        wordlist_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        wordlist_row.append(Gtk.Label(label="Wordlist (optional)", xalign=0))
+        self.wfuzz_wordlist_entry = Gtk.Entry()
+        self.wfuzz_wordlist_entry.add_css_class("modern-entry")
+        self.wfuzz_wordlist_entry.set_placeholder_text("Leave empty for default...")
+        wordlist_row.append(self.wfuzz_wordlist_entry)
+        browse_wordlist_btn = Gtk.Button(label="Browse…")
+        browse_wordlist_btn.connect("clicked", self._on_wfuzz_wordlist_browse)
+        wordlist_row.append(browse_wordlist_btn)
+        form.append(wordlist_row)
+
+        options_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        options_row.append(Gtk.Label(label="Fuzz Keyword", xalign=0))
+        self.wfuzz_keyword_entry = Gtk.Entry()
+        self.wfuzz_keyword_entry.add_css_class("modern-entry")
+        self.wfuzz_keyword_entry.set_text("FUZZ")
+        options_row.append(self.wfuzz_keyword_entry)
+        options_row.append(Gtk.Label(label="Threads", xalign=0))
+        self.wfuzz_threads_entry = Gtk.Entry()
+        self.wfuzz_threads_entry.add_css_class("modern-entry")
+        self.wfuzz_threads_entry.set_text("100")
+        options_row.append(self.wfuzz_threads_entry)
+        form.append(options_row)
+
+        codes_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        codes_row.append(Gtk.Label(label="Hide Codes (optional)", xalign=0))
+        self.wfuzz_hide_codes_entry = Gtk.Entry()
+        self.wfuzz_hide_codes_entry.add_css_class("modern-entry")
+        self.wfuzz_hide_codes_entry.set_placeholder_text("e.g., 404,403")
+        codes_row.append(self.wfuzz_hide_codes_entry)
+        codes_row.append(Gtk.Label(label="Show Codes (optional)", xalign=0))
+        self.wfuzz_show_codes_entry = Gtk.Entry()
+        self.wfuzz_show_codes_entry.add_css_class("modern-entry")
+        self.wfuzz_show_codes_entry.set_placeholder_text("e.g., 200,301")
+        codes_row.append(self.wfuzz_show_codes_entry)
+        form.append(codes_row)
+
+        extra_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        extra_row.append(Gtk.Label(label="Extra Arguments (optional)", xalign=0))
+        self.wfuzz_extra_entry = Gtk.Entry()
+        self.wfuzz_extra_entry.add_css_class("modern-entry")
+        extra_row.append(self.wfuzz_extra_entry)
+        form.append(extra_row)
+
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.wfuzz_run_btn = Gtk.Button(label="Run Fuzzing")
+        self.wfuzz_run_btn.add_css_class("suggested-action")
+        self.wfuzz_run_btn.connect("clicked", self._on_wfuzz_run)
+        actions_row.append(self.wfuzz_run_btn)
+        self.wfuzz_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.wfuzz_copy_btn.set_tooltip_text("Copy result")
+        self.wfuzz_copy_btn.set_sensitive(False)
+        self.wfuzz_copy_btn.connect("clicked", self._on_wfuzz_copy)
+        actions_row.append(self.wfuzz_copy_btn)
+        form.append(actions_row)
+
+        result_label = Gtk.Label(label="Result", xalign=0)
+        result_label.add_css_class("title-4")
+        form.append(result_label)
+        self.wfuzz_result_view = Gtk.TextView()
+        self.wfuzz_result_view.add_css_class("output-text")
+        self.wfuzz_result_view.set_editable(False)
+        self.wfuzz_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.wfuzz_result_view)
+        form.append(result_scroller)
+
+    def _open_wfuzz(self, tool) -> None:
+        self._active_tool = tool
+        self.wfuzz_target_entry.set_text("")
+        self.wfuzz_profile_combo.set_active_id("default")
+        self.wfuzz_wordlist_entry.set_text("")
+        self.wfuzz_keyword_entry.set_text("FUZZ")
+        self.wfuzz_threads_entry.set_text("100")
+        self.wfuzz_hide_codes_entry.set_text("")
+        self.wfuzz_show_codes_entry.set_text("")
+        self.wfuzz_extra_entry.set_text("")
+        self._set_text_view_text(self.wfuzz_result_view, "")
+        self.wfuzz_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("wfuzz")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_wfuzz_wordlist_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select wordlist", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.wfuzz_wordlist_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_wfuzz_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        target = self.wfuzz_target_entry.get_text().strip()
+        if not target:
+            self.toast_overlay.add_toast(Adw.Toast.new("Target URL is required"))
+            return
+        profile = self.wfuzz_profile_combo.get_active_id() or "default"
+        wordlist = self.wfuzz_wordlist_entry.get_text().strip()
+        fuzz_keyword = self.wfuzz_keyword_entry.get_text().strip() or "FUZZ"
+        hide_codes = self.wfuzz_hide_codes_entry.get_text().strip()
+        show_codes = self.wfuzz_show_codes_entry.get_text().strip()
+        threads = self.wfuzz_threads_entry.get_text().strip() or "100"
+        extra = self.wfuzz_extra_entry.get_text().strip()
+        self.wfuzz_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.wfuzz_result_view, "Running Wfuzz…")
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(target=target, profile=profile, wordlist=wordlist, fuzz_keyword=fuzz_keyword, hide_codes=hide_codes, show_codes=show_codes, threads=threads, extra=extra)
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.wfuzz_result_view, body)
+                GLib.idle_add(self.wfuzz_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.wfuzz_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.wfuzz_run_btn.set_sensitive, True)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_wfuzz_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.wfuzz_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- Commix detail ----------------------
+    def _build_commix_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("Commix")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        consent_label = Gtk.Label(label="Network Tools", xalign=0)
+        consent_label.add_css_class("title-4")
+        form.append(consent_label)
+        self.commix_notice = Gtk.Label(xalign=0)
+        self.commix_notice.add_css_class("dim-label")
+        form.append(self.commix_notice)
+        consent_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.commix_enable_btn = Gtk.Button(label="Enable Network Tools")
+        self.commix_enable_btn.connect("clicked", self._on_enable_network_tools)
+        self.commix_disable_btn = Gtk.Button(label="Disable Network Tools")
+        self.commix_disable_btn.connect("clicked", self._on_disable_network_tools)
+        consent_row.append(self.commix_enable_btn)
+        consent_row.append(self.commix_disable_btn)
+        form.append(consent_row)
+
+        target_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.commix_target_entry = Gtk.Entry()
+        self.commix_target_entry.add_css_class("modern-entry")
+        self.commix_target_entry.set_placeholder_text("Target URL...")
+        self.commix_target_entry.set_hexpand(True)
+        target_row.append(self.commix_target_entry)
+        form.append(target_row)
+
+        profile_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        profile_row.append(Gtk.Label(label="Profile", xalign=0))
+        self.commix_profile_combo = Gtk.ComboBoxText()
+        self.commix_profile_combo.append("quick", "Quick - Fast detection")
+        self.commix_profile_combo.append("default", "Default - Standard detection")
+        self.commix_profile_combo.append("full", "Full - Comprehensive scan")
+        self.commix_profile_combo.set_active_id("default")
+        profile_row.append(self.commix_profile_combo)
+        form.append(profile_row)
+
+        method_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        method_row.append(Gtk.Label(label="HTTP Method", xalign=0))
+        self.commix_method_combo = Gtk.ComboBoxText()
+        self.commix_method_combo.append("GET", "GET")
+        self.commix_method_combo.append("POST", "POST")
+        self.commix_method_combo.append("PUT", "PUT")
+        self.commix_method_combo.append("DELETE", "DELETE")
+        self.commix_method_combo.set_active_id("GET")
+        method_row.append(self.commix_method_combo)
+        form.append(method_row)
+
+        data_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        data_row.append(Gtk.Label(label="POST Data (optional)", xalign=0))
+        self.commix_data_entry = Gtk.Entry()
+        self.commix_data_entry.add_css_class("modern-entry")
+        self.commix_data_entry.set_placeholder_text("POST data...")
+        data_row.append(self.commix_data_entry)
+        form.append(data_row)
+
+        cookie_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        cookie_row.append(Gtk.Label(label="Cookie (optional)", xalign=0))
+        self.commix_cookie_entry = Gtk.Entry()
+        self.commix_cookie_entry.add_css_class("modern-entry")
+        self.commix_cookie_entry.set_placeholder_text("Cookie header...")
+        cookie_row.append(self.commix_cookie_entry)
+        form.append(cookie_row)
+
+        level_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        level_row.append(Gtk.Label(label="Level Override (optional)", xalign=0))
+        self.commix_level_entry = Gtk.Entry()
+        self.commix_level_entry.add_css_class("modern-entry")
+        self.commix_level_entry.set_placeholder_text("1-3")
+        level_row.append(self.commix_level_entry)
+        form.append(level_row)
+
+        extra_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        extra_row.append(Gtk.Label(label="Extra Arguments (optional)", xalign=0))
+        self.commix_extra_entry = Gtk.Entry()
+        self.commix_extra_entry.add_css_class("modern-entry")
+        extra_row.append(self.commix_extra_entry)
+        form.append(extra_row)
+
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.commix_run_btn = Gtk.Button(label="Run Commix")
+        self.commix_run_btn.add_css_class("suggested-action")
+        self.commix_run_btn.connect("clicked", self._on_commix_run)
+        actions_row.append(self.commix_run_btn)
+        self.commix_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.commix_copy_btn.set_tooltip_text("Copy result")
+        self.commix_copy_btn.set_sensitive(False)
+        self.commix_copy_btn.connect("clicked", self._on_commix_copy)
+        actions_row.append(self.commix_copy_btn)
+        form.append(actions_row)
+
+        result_label = Gtk.Label(label="Result", xalign=0)
+        result_label.add_css_class("title-4")
+        form.append(result_label)
+        self.commix_result_view = Gtk.TextView()
+        self.commix_result_view.add_css_class("output-text")
+        self.commix_result_view.set_editable(False)
+        self.commix_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.commix_result_view)
+        form.append(result_scroller)
+
+    def _open_commix(self, tool) -> None:
+        self._active_tool = tool
+        self.commix_target_entry.set_text("")
+        self.commix_profile_combo.set_active_id("default")
+        self.commix_method_combo.set_active_id("GET")
+        self.commix_data_entry.set_text("")
+        self.commix_cookie_entry.set_text("")
+        self.commix_level_entry.set_text("")
+        self.commix_extra_entry.set_text("")
+        self._set_text_view_text(self.commix_result_view, "")
+        self.commix_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("commix")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_commix_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        target = self.commix_target_entry.get_text().strip()
+        if not target:
+            self.toast_overlay.add_toast(Adw.Toast.new("Target URL is required"))
+            return
+        profile = self.commix_profile_combo.get_active_id() or "default"
+        method = self.commix_method_combo.get_active_id() or "GET"
+        data = self.commix_data_entry.get_text().strip()
+        cookie = self.commix_cookie_entry.get_text().strip()
+        level = self.commix_level_entry.get_text().strip()
+        extra = self.commix_extra_entry.get_text().strip()
+        self.commix_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.commix_result_view, "Running Commix…")
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(target=target, profile=profile, method=method, data=data, cookie=cookie, level=level, extra=extra)
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.commix_result_view, body)
+                GLib.idle_add(self.commix_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.commix_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.commix_run_btn.set_sensitive, True)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_commix_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.commix_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- Arjun detail ----------------------
+    def _build_arjun_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("Arjun")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        consent_label = Gtk.Label(label="Network Tools", xalign=0)
+        consent_label.add_css_class("title-4")
+        form.append(consent_label)
+        self.arjun_notice = Gtk.Label(xalign=0)
+        self.arjun_notice.add_css_class("dim-label")
+        form.append(self.arjun_notice)
+        consent_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.arjun_enable_btn = Gtk.Button(label="Enable Network Tools")
+        self.arjun_enable_btn.connect("clicked", self._on_enable_network_tools)
+        self.arjun_disable_btn = Gtk.Button(label="Disable Network Tools")
+        self.arjun_disable_btn.connect("clicked", self._on_disable_network_tools)
+        consent_row.append(self.arjun_enable_btn)
+        consent_row.append(self.arjun_disable_btn)
+        form.append(consent_row)
+
+        target_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.arjun_target_entry = Gtk.Entry()
+        self.arjun_target_entry.add_css_class("modern-entry")
+        self.arjun_target_entry.set_placeholder_text("Target URL...")
+        self.arjun_target_entry.set_hexpand(True)
+        target_row.append(self.arjun_target_entry)
+        form.append(target_row)
+
+        profile_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        profile_row.append(Gtk.Label(label="Profile", xalign=0))
+        self.arjun_profile_combo = Gtk.ComboBoxText()
+        self.arjun_profile_combo.append("quick", "Quick - Fast discovery")
+        self.arjun_profile_combo.append("default", "Default - Standard discovery")
+        self.arjun_profile_combo.append("full", "Full - Comprehensive discovery")
+        self.arjun_profile_combo.set_active_id("default")
+        profile_row.append(self.arjun_profile_combo)
+        form.append(profile_row)
+
+        method_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        method_row.append(Gtk.Label(label="HTTP Method", xalign=0))
+        self.arjun_method_combo = Gtk.ComboBoxText()
+        self.arjun_method_combo.append("GET", "GET")
+        self.arjun_method_combo.append("POST", "POST")
+        self.arjun_method_combo.append("JSON", "JSON")
+        self.arjun_method_combo.set_active_id("GET")
+        method_row.append(self.arjun_method_combo)
+        form.append(method_row)
+
+        headers_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        headers_row.append(Gtk.Label(label="Headers (optional)", xalign=0))
+        self.arjun_headers_entry = Gtk.Entry()
+        self.arjun_headers_entry.add_css_class("modern-entry")
+        self.arjun_headers_entry.set_placeholder_text("Header1: value1; Header2: value2")
+        headers_row.append(self.arjun_headers_entry)
+        form.append(headers_row)
+
+        options_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        options_row.append(Gtk.Label(label="Delay (optional)", xalign=0))
+        self.arjun_delay_entry = Gtk.Entry()
+        self.arjun_delay_entry.add_css_class("modern-entry")
+        self.arjun_delay_entry.set_placeholder_text("Delay in seconds...")
+        options_row.append(self.arjun_delay_entry)
+        options_row.append(Gtk.Label(label="Threads (optional)", xalign=0))
+        self.arjun_threads_entry = Gtk.Entry()
+        self.arjun_threads_entry.add_css_class("modern-entry")
+        self.arjun_threads_entry.set_placeholder_text("Number of threads...")
+        options_row.append(self.arjun_threads_entry)
+        form.append(options_row)
+
+        extra_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        extra_row.append(Gtk.Label(label="Extra Arguments (optional)", xalign=0))
+        self.arjun_extra_entry = Gtk.Entry()
+        self.arjun_extra_entry.add_css_class("modern-entry")
+        extra_row.append(self.arjun_extra_entry)
+        form.append(extra_row)
+
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.arjun_run_btn = Gtk.Button(label="Run Discovery")
+        self.arjun_run_btn.add_css_class("suggested-action")
+        self.arjun_run_btn.connect("clicked", self._on_arjun_run)
+        actions_row.append(self.arjun_run_btn)
+        self.arjun_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.arjun_copy_btn.set_tooltip_text("Copy result")
+        self.arjun_copy_btn.set_sensitive(False)
+        self.arjun_copy_btn.connect("clicked", self._on_arjun_copy)
+        actions_row.append(self.arjun_copy_btn)
+        form.append(actions_row)
+
+        result_label = Gtk.Label(label="Result", xalign=0)
+        result_label.add_css_class("title-4")
+        form.append(result_label)
+        self.arjun_result_view = Gtk.TextView()
+        self.arjun_result_view.add_css_class("output-text")
+        self.arjun_result_view.set_editable(False)
+        self.arjun_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.arjun_result_view)
+        form.append(result_scroller)
+
+    def _open_arjun(self, tool) -> None:
+        self._active_tool = tool
+        self.arjun_target_entry.set_text("")
+        self.arjun_profile_combo.set_active_id("default")
+        self.arjun_method_combo.set_active_id("GET")
+        self.arjun_headers_entry.set_text("")
+        self.arjun_delay_entry.set_text("")
+        self.arjun_threads_entry.set_text("")
+        self.arjun_extra_entry.set_text("")
+        self._set_text_view_text(self.arjun_result_view, "")
+        self.arjun_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("arjun")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_arjun_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        target = self.arjun_target_entry.get_text().strip()
+        if not target:
+            self.toast_overlay.add_toast(Adw.Toast.new("Target URL is required"))
+            return
+        profile = self.arjun_profile_combo.get_active_id() or "default"
+        method = self.arjun_method_combo.get_active_id() or "GET"
+        headers = self.arjun_headers_entry.get_text().strip()
+        delay = self.arjun_delay_entry.get_text().strip()
+        threads = self.arjun_threads_entry.get_text().strip()
+        extra = self.arjun_extra_entry.get_text().strip()
+        self.arjun_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.arjun_result_view, "Running Arjun…")
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(target=target, profile=profile, method=method, headers=headers, delay=delay, threads=threads, extra=extra)
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.arjun_result_view, body)
+                GLib.idle_add(self.arjun_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.arjun_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.arjun_run_btn.set_sensitive, True)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_arjun_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.arjun_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- Sublist3r detail ----------------------
+    def _build_sublist3r_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("Sublist3r")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        consent_label = Gtk.Label(label="Network Tools", xalign=0)
+        consent_label.add_css_class("title-4")
+        form.append(consent_label)
+        self.sublist3r_notice = Gtk.Label(xalign=0)
+        self.sublist3r_notice.add_css_class("dim-label")
+        form.append(self.sublist3r_notice)
+        consent_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.sublist3r_enable_btn = Gtk.Button(label="Enable Network Tools")
+        self.sublist3r_enable_btn.connect("clicked", self._on_enable_network_tools)
+        self.sublist3r_disable_btn = Gtk.Button(label="Disable Network Tools")
+        self.sublist3r_disable_btn.connect("clicked", self._on_disable_network_tools)
+        consent_row.append(self.sublist3r_enable_btn)
+        consent_row.append(self.sublist3r_disable_btn)
+        form.append(consent_row)
+
+        domain_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        domain_row.append(Gtk.Label(label="Domain", xalign=0))
+        self.sublist3r_domain_entry = Gtk.Entry()
+        self.sublist3r_domain_entry.add_css_class("modern-entry")
+        self.sublist3r_domain_entry.set_placeholder_text("example.com")
+        domain_row.append(self.sublist3r_domain_entry)
+        form.append(domain_row)
+
+        profile_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        profile_row.append(Gtk.Label(label="Profile", xalign=0))
+        self.sublist3r_profile_combo = Gtk.ComboBoxText()
+        self.sublist3r_profile_combo.append("quick", "Quick - Fast enumeration")
+        self.sublist3r_profile_combo.append("default", "Default - Standard enumeration")
+        self.sublist3r_profile_combo.append("full", "Full - Comprehensive with brute-force")
+        self.sublist3r_profile_combo.set_active_id("default")
+        profile_row.append(self.sublist3r_profile_combo)
+        form.append(profile_row)
+
+        options_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.sublist3r_brute_force_check = Gtk.CheckButton(label="Enable Brute Force")
+        options_row.append(self.sublist3r_brute_force_check)
+        form.append(options_row)
+
+        ports_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        ports_row.append(Gtk.Label(label="Ports (optional)", xalign=0))
+        self.sublist3r_ports_entry = Gtk.Entry()
+        self.sublist3r_ports_entry.add_css_class("modern-entry")
+        self.sublist3r_ports_entry.set_placeholder_text("80,443,8080")
+        ports_row.append(self.sublist3r_ports_entry)
+        form.append(ports_row)
+
+        engines_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        engines_row.append(Gtk.Label(label="Engines (optional)", xalign=0))
+        self.sublist3r_engines_entry = Gtk.Entry()
+        self.sublist3r_engines_entry.add_css_class("modern-entry")
+        self.sublist3r_engines_entry.set_placeholder_text("Google, Bing, Yahoo")
+        engines_row.append(self.sublist3r_engines_entry)
+        form.append(engines_row)
+
+        threads_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        threads_row.append(Gtk.Label(label="Threads (optional)", xalign=0))
+        self.sublist3r_threads_entry = Gtk.Entry()
+        self.sublist3r_threads_entry.add_css_class("modern-entry")
+        self.sublist3r_threads_entry.set_placeholder_text("Number of threads...")
+        threads_row.append(self.sublist3r_threads_entry)
+        form.append(threads_row)
+
+        extra_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        extra_row.append(Gtk.Label(label="Extra Arguments (optional)", xalign=0))
+        self.sublist3r_extra_entry = Gtk.Entry()
+        self.sublist3r_extra_entry.add_css_class("modern-entry")
+        extra_row.append(self.sublist3r_extra_entry)
+        form.append(extra_row)
+
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.sublist3r_run_btn = Gtk.Button(label="Run Enumeration")
+        self.sublist3r_run_btn.add_css_class("suggested-action")
+        self.sublist3r_run_btn.connect("clicked", self._on_sublist3r_run)
+        actions_row.append(self.sublist3r_run_btn)
+        self.sublist3r_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.sublist3r_copy_btn.set_tooltip_text("Copy result")
+        self.sublist3r_copy_btn.set_sensitive(False)
+        self.sublist3r_copy_btn.connect("clicked", self._on_sublist3r_copy)
+        actions_row.append(self.sublist3r_copy_btn)
+        form.append(actions_row)
+
+        result_label = Gtk.Label(label="Result", xalign=0)
+        result_label.add_css_class("title-4")
+        form.append(result_label)
+        self.sublist3r_result_view = Gtk.TextView()
+        self.sublist3r_result_view.add_css_class("output-text")
+        self.sublist3r_result_view.set_editable(False)
+        self.sublist3r_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.sublist3r_result_view)
+        form.append(result_scroller)
+
+    def _open_sublist3r(self, tool) -> None:
+        self._active_tool = tool
+        self.sublist3r_domain_entry.set_text("")
+        self.sublist3r_profile_combo.set_active_id("default")
+        self.sublist3r_brute_force_check.set_active(False)
+        self.sublist3r_ports_entry.set_text("")
+        self.sublist3r_engines_entry.set_text("")
+        self.sublist3r_threads_entry.set_text("")
+        self.sublist3r_extra_entry.set_text("")
+        self._set_text_view_text(self.sublist3r_result_view, "")
+        self.sublist3r_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("sublist3r")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_sublist3r_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        domain = self.sublist3r_domain_entry.get_text().strip()
+        if not domain:
+            self.toast_overlay.add_toast(Adw.Toast.new("Domain is required"))
+            return
+        profile = self.sublist3r_profile_combo.get_active_id() or "default"
+        brute_force = "true" if self.sublist3r_brute_force_check.get_active() else "false"
+        ports = self.sublist3r_ports_entry.get_text().strip()
+        engines = self.sublist3r_engines_entry.get_text().strip()
+        threads = self.sublist3r_threads_entry.get_text().strip()
+        extra = self.sublist3r_extra_entry.get_text().strip()
+        self.sublist3r_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.sublist3r_result_view, "Running Sublist3r…")
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(domain=domain, profile=profile, brute_force=brute_force, ports=ports, engines=engines, threads=threads, extra=extra)
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.sublist3r_result_view, body)
+                GLib.idle_add(self.sublist3r_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.sublist3r_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.sublist3r_run_btn.set_sensitive, True)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_sublist3r_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.sublist3r_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- Hydra detail ----------------------
+    def _build_hydra_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("Hydra")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        consent_label = Gtk.Label(label="Network Tools", xalign=0)
+        consent_label.add_css_class("title-4")
+        form.append(consent_label)
+        self.hydra_notice = Gtk.Label(xalign=0)
+        self.hydra_notice.add_css_class("dim-label")
+        form.append(self.hydra_notice)
+        consent_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.hydra_enable_btn = Gtk.Button(label="Enable Network Tools")
+        self.hydra_enable_btn.connect("clicked", self._on_enable_network_tools)
+        self.hydra_disable_btn = Gtk.Button(label="Disable Network Tools")
+        self.hydra_disable_btn.connect("clicked", self._on_disable_network_tools)
+        consent_row.append(self.hydra_enable_btn)
+        consent_row.append(self.hydra_disable_btn)
+        form.append(consent_row)
+
+        target_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        target_row.append(Gtk.Label(label="Target", xalign=0))
+        self.hydra_target_entry = Gtk.Entry()
+        self.hydra_target_entry.add_css_class("modern-entry")
+        self.hydra_target_entry.set_placeholder_text("Target host or IP...")
+        target_row.append(self.hydra_target_entry)
+        form.append(target_row)
+
+        profile_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        profile_row.append(Gtk.Label(label="Service", xalign=0))
+        self.hydra_profile_combo = Gtk.ComboBoxText()
+        self.hydra_profile_combo.append("ssh", "SSH")
+        self.hydra_profile_combo.append("ftp", "FTP")
+        self.hydra_profile_combo.append("http-get", "HTTP GET")
+        self.hydra_profile_combo.append("http-post", "HTTP POST")
+        self.hydra_profile_combo.append("smb", "SMB")
+        self.hydra_profile_combo.append("rdp", "RDP")
+        self.hydra_profile_combo.set_active_id("ssh")
+        profile_row.append(self.hydra_profile_combo)
+        form.append(profile_row)
+
+        creds_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        creds_row.append(Gtk.Label(label="Username (optional)", xalign=0))
+        self.hydra_username_entry = Gtk.Entry()
+        self.hydra_username_entry.add_css_class("modern-entry")
+        creds_row.append(self.hydra_username_entry)
+        creds_row.append(Gtk.Label(label="OR User List", xalign=0))
+        self.hydra_user_list_entry = Gtk.Entry()
+        self.hydra_user_list_entry.add_css_class("modern-entry")
+        self.hydra_user_list_entry.set_placeholder_text("Path to user list...")
+        creds_row.append(self.hydra_user_list_entry)
+        browse_users_btn = Gtk.Button(label="Browse…")
+        browse_users_btn.connect("clicked", self._on_hydra_user_list_browse)
+        creds_row.append(browse_users_btn)
+        form.append(creds_row)
+
+        pass_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        pass_row.append(Gtk.Label(label="Password (optional)", xalign=0))
+        self.hydra_password_entry = Gtk.Entry()
+        self.hydra_password_entry.add_css_class("modern-entry")
+        pass_row.append(self.hydra_password_entry)
+        pass_row.append(Gtk.Label(label="OR Pass List", xalign=0))
+        self.hydra_pass_list_entry = Gtk.Entry()
+        self.hydra_pass_list_entry.add_css_class("modern-entry")
+        self.hydra_pass_list_entry.set_placeholder_text("Path to password list...")
+        pass_row.append(self.hydra_pass_list_entry)
+        browse_pass_btn = Gtk.Button(label="Browse…")
+        browse_pass_btn.connect("clicked", self._on_hydra_pass_list_browse)
+        pass_row.append(browse_pass_btn)
+        form.append(pass_row)
+
+        options_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        options_row.append(Gtk.Label(label="Port (optional)", xalign=0))
+        self.hydra_port_entry = Gtk.Entry()
+        self.hydra_port_entry.add_css_class("modern-entry")
+        options_row.append(self.hydra_port_entry)
+        options_row.append(Gtk.Label(label="Threads", xalign=0))
+        self.hydra_threads_entry = Gtk.Entry()
+        self.hydra_threads_entry.add_css_class("modern-entry")
+        self.hydra_threads_entry.set_text("4")
+        options_row.append(self.hydra_threads_entry)
+        form.append(options_row)
+
+        extra_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        extra_row.append(Gtk.Label(label="Extra Arguments (optional)", xalign=0))
+        self.hydra_extra_entry = Gtk.Entry()
+        self.hydra_extra_entry.add_css_class("modern-entry")
+        extra_row.append(self.hydra_extra_entry)
+        form.append(extra_row)
+
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.hydra_run_btn = Gtk.Button(label="Run Attack")
+        self.hydra_run_btn.add_css_class("suggested-action")
+        self.hydra_run_btn.connect("clicked", self._on_hydra_run)
+        actions_row.append(self.hydra_run_btn)
+        self.hydra_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.hydra_copy_btn.set_tooltip_text("Copy result")
+        self.hydra_copy_btn.set_sensitive(False)
+        self.hydra_copy_btn.connect("clicked", self._on_hydra_copy)
+        actions_row.append(self.hydra_copy_btn)
+        form.append(actions_row)
+
+        result_label = Gtk.Label(label="Result", xalign=0)
+        result_label.add_css_class("title-4")
+        form.append(result_label)
+        self.hydra_result_view = Gtk.TextView()
+        self.hydra_result_view.add_css_class("output-text")
+        self.hydra_result_view.set_editable(False)
+        self.hydra_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.hydra_result_view)
+        form.append(result_scroller)
+
+    def _open_hydra(self, tool) -> None:
+        self._active_tool = tool
+        self.hydra_target_entry.set_text("")
+        self.hydra_profile_combo.set_active_id("ssh")
+        self.hydra_username_entry.set_text("")
+        self.hydra_user_list_entry.set_text("")
+        self.hydra_password_entry.set_text("")
+        self.hydra_pass_list_entry.set_text("")
+        self.hydra_port_entry.set_text("")
+        self.hydra_threads_entry.set_text("4")
+        self.hydra_extra_entry.set_text("")
+        self._set_text_view_text(self.hydra_result_view, "")
+        self.hydra_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("hydra")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_hydra_user_list_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select user list", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.hydra_user_list_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_hydra_pass_list_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select password list", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.hydra_pass_list_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_hydra_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        target = self.hydra_target_entry.get_text().strip()
+        if not target:
+            self.toast_overlay.add_toast(Adw.Toast.new("Target is required"))
+            return
+        profile = self.hydra_profile_combo.get_active_id() or "ssh"
+        username = self.hydra_username_entry.get_text().strip()
+        user_list = self.hydra_user_list_entry.get_text().strip()
+        password = self.hydra_password_entry.get_text().strip()
+        pass_list = self.hydra_pass_list_entry.get_text().strip()
+        port = self.hydra_port_entry.get_text().strip()
+        threads = self.hydra_threads_entry.get_text().strip() or "4"
+        extra = self.hydra_extra_entry.get_text().strip()
+        self.hydra_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.hydra_result_view, "Running Hydra attack…")
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(target=target, profile=profile, username=username, password=password, user_list=user_list, pass_list=pass_list, port=port, threads=threads, extra=extra)
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.hydra_result_view, body)
+                GLib.idle_add(self.hydra_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.hydra_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.hydra_run_btn.set_sensitive, True)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_hydra_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.hydra_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- Medusa detail ----------------------
+    def _build_medusa_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("Medusa")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        consent_label = Gtk.Label(label="Network Tools", xalign=0)
+        consent_label.add_css_class("title-4")
+        form.append(consent_label)
+        self.medusa_notice = Gtk.Label(xalign=0)
+        self.medusa_notice.add_css_class("dim-label")
+        form.append(self.medusa_notice)
+        consent_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.medusa_enable_btn = Gtk.Button(label="Enable Network Tools")
+        self.medusa_enable_btn.connect("clicked", self._on_enable_network_tools)
+        self.medusa_disable_btn = Gtk.Button(label="Disable Network Tools")
+        self.medusa_disable_btn.connect("clicked", self._on_disable_network_tools)
+        consent_row.append(self.medusa_enable_btn)
+        consent_row.append(self.medusa_disable_btn)
+        form.append(consent_row)
+
+        target_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        target_row.append(Gtk.Label(label="Target", xalign=0))
+        self.medusa_target_entry = Gtk.Entry()
+        self.medusa_target_entry.add_css_class("modern-entry")
+        self.medusa_target_entry.set_placeholder_text("Target host or IP...")
+        target_row.append(self.medusa_target_entry)
+        form.append(target_row)
+
+        profile_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        profile_row.append(Gtk.Label(label="Service", xalign=0))
+        self.medusa_profile_combo = Gtk.ComboBoxText()
+        self.medusa_profile_combo.append("ssh", "SSH")
+        self.medusa_profile_combo.append("ftp", "FTP")
+        self.medusa_profile_combo.append("http", "HTTP")
+        self.medusa_profile_combo.append("smb", "SMB")
+        self.medusa_profile_combo.append("telnet", "Telnet")
+        self.medusa_profile_combo.set_active_id("ssh")
+        profile_row.append(self.medusa_profile_combo)
+        form.append(profile_row)
+
+        creds_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        creds_row.append(Gtk.Label(label="Username (optional)", xalign=0))
+        self.medusa_username_entry = Gtk.Entry()
+        self.medusa_username_entry.add_css_class("modern-entry")
+        creds_row.append(self.medusa_username_entry)
+        creds_row.append(Gtk.Label(label="OR User List", xalign=0))
+        self.medusa_user_list_entry = Gtk.Entry()
+        self.medusa_user_list_entry.add_css_class("modern-entry")
+        self.medusa_user_list_entry.set_placeholder_text("Path to user list...")
+        creds_row.append(self.medusa_user_list_entry)
+        browse_users_btn = Gtk.Button(label="Browse…")
+        browse_users_btn.connect("clicked", self._on_medusa_user_list_browse)
+        creds_row.append(browse_users_btn)
+        form.append(creds_row)
+
+        pass_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        pass_row.append(Gtk.Label(label="Password (optional)", xalign=0))
+        self.medusa_password_entry = Gtk.Entry()
+        self.medusa_password_entry.add_css_class("modern-entry")
+        pass_row.append(self.medusa_password_entry)
+        pass_row.append(Gtk.Label(label="OR Pass List", xalign=0))
+        self.medusa_pass_list_entry = Gtk.Entry()
+        self.medusa_pass_list_entry.add_css_class("modern-entry")
+        self.medusa_pass_list_entry.set_placeholder_text("Path to password list...")
+        pass_row.append(self.medusa_pass_list_entry)
+        browse_pass_btn = Gtk.Button(label="Browse…")
+        browse_pass_btn.connect("clicked", self._on_medusa_pass_list_browse)
+        pass_row.append(browse_pass_btn)
+        form.append(pass_row)
+
+        options_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        options_row.append(Gtk.Label(label="Port (optional)", xalign=0))
+        self.medusa_port_entry = Gtk.Entry()
+        self.medusa_port_entry.add_css_class("modern-entry")
+        options_row.append(self.medusa_port_entry)
+        options_row.append(Gtk.Label(label="Threads", xalign=0))
+        self.medusa_threads_entry = Gtk.Entry()
+        self.medusa_threads_entry.add_css_class("modern-entry")
+        self.medusa_threads_entry.set_text("4")
+        options_row.append(self.medusa_threads_entry)
+        form.append(options_row)
+
+        extra_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        extra_row.append(Gtk.Label(label="Extra Arguments (optional)", xalign=0))
+        self.medusa_extra_entry = Gtk.Entry()
+        self.medusa_extra_entry.add_css_class("modern-entry")
+        extra_row.append(self.medusa_extra_entry)
+        form.append(extra_row)
+
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.medusa_run_btn = Gtk.Button(label="Run Attack")
+        self.medusa_run_btn.add_css_class("suggested-action")
+        self.medusa_run_btn.connect("clicked", self._on_medusa_run)
+        actions_row.append(self.medusa_run_btn)
+        self.medusa_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.medusa_copy_btn.set_tooltip_text("Copy result")
+        self.medusa_copy_btn.set_sensitive(False)
+        self.medusa_copy_btn.connect("clicked", self._on_medusa_copy)
+        actions_row.append(self.medusa_copy_btn)
+        form.append(actions_row)
+
+        result_label = Gtk.Label(label="Result", xalign=0)
+        result_label.add_css_class("title-4")
+        form.append(result_label)
+        self.medusa_result_view = Gtk.TextView()
+        self.medusa_result_view.add_css_class("output-text")
+        self.medusa_result_view.set_editable(False)
+        self.medusa_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.medusa_result_view)
+        form.append(result_scroller)
+
+    def _open_medusa(self, tool) -> None:
+        self._active_tool = tool
+        self.medusa_target_entry.set_text("")
+        self.medusa_profile_combo.set_active_id("ssh")
+        self.medusa_username_entry.set_text("")
+        self.medusa_user_list_entry.set_text("")
+        self.medusa_password_entry.set_text("")
+        self.medusa_pass_list_entry.set_text("")
+        self.medusa_port_entry.set_text("")
+        self.medusa_threads_entry.set_text("4")
+        self.medusa_extra_entry.set_text("")
+        self._set_text_view_text(self.medusa_result_view, "")
+        self.medusa_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("medusa")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_medusa_user_list_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select user list", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.medusa_user_list_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_medusa_pass_list_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select password list", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.medusa_pass_list_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_medusa_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        target = self.medusa_target_entry.get_text().strip()
+        if not target:
+            self.toast_overlay.add_toast(Adw.Toast.new("Target is required"))
+            return
+        profile = self.medusa_profile_combo.get_active_id() or "ssh"
+        username = self.medusa_username_entry.get_text().strip()
+        user_list = self.medusa_user_list_entry.get_text().strip()
+        password = self.medusa_password_entry.get_text().strip()
+        pass_list = self.medusa_pass_list_entry.get_text().strip()
+        port = self.medusa_port_entry.get_text().strip()
+        threads = self.medusa_threads_entry.get_text().strip() or "4"
+        extra = self.medusa_extra_entry.get_text().strip()
+        self.medusa_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.medusa_result_view, "Running Medusa attack…")
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(target=target, profile=profile, username=username, password=password, user_list=user_list, pass_list=pass_list, port=port, threads=threads, extra=extra)
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.medusa_result_view, body)
+                GLib.idle_add(self.medusa_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.medusa_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.medusa_run_btn.set_sensitive, True)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_medusa_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.medusa_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- CrackMapExec detail ----------------------
+    def _build_crackmapexec_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("CrackMapExec")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        consent_label = Gtk.Label(label="Network Tools", xalign=0)
+        consent_label.add_css_class("title-4")
+        form.append(consent_label)
+        self.crackmapexec_notice = Gtk.Label(xalign=0)
+        self.crackmapexec_notice.add_css_class("dim-label")
+        form.append(self.crackmapexec_notice)
+        consent_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.crackmapexec_enable_btn = Gtk.Button(label="Enable Network Tools")
+        self.crackmapexec_enable_btn.connect("clicked", self._on_enable_network_tools)
+        self.crackmapexec_disable_btn = Gtk.Button(label="Disable Network Tools")
+        self.crackmapexec_disable_btn.connect("clicked", self._on_disable_network_tools)
+        consent_row.append(self.crackmapexec_enable_btn)
+        consent_row.append(self.crackmapexec_disable_btn)
+        form.append(consent_row)
+
+        target_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        target_row.append(Gtk.Label(label="Target", xalign=0))
+        self.crackmapexec_target_entry = Gtk.Entry()
+        self.crackmapexec_target_entry.add_css_class("modern-entry")
+        self.crackmapexec_target_entry.set_placeholder_text("Target host, IP, or CIDR...")
+        target_row.append(self.crackmapexec_target_entry)
+        form.append(target_row)
+
+        profile_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        profile_row.append(Gtk.Label(label="Protocol", xalign=0))
+        self.crackmapexec_profile_combo = Gtk.ComboBoxText()
+        self.crackmapexec_profile_combo.append("smb", "SMB - Windows shares")
+        self.crackmapexec_profile_combo.append("winrm", "WinRM - Windows Remote Management")
+        self.crackmapexec_profile_combo.append("ssh", "SSH - SSH enumeration")
+        self.crackmapexec_profile_combo.append("ldap", "LDAP - LDAP enumeration")
+        self.crackmapexec_profile_combo.set_active_id("smb")
+        profile_row.append(self.crackmapexec_profile_combo)
+        form.append(profile_row)
+
+        creds_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        creds_row.append(Gtk.Label(label="Username (optional)", xalign=0))
+        self.crackmapexec_username_entry = Gtk.Entry()
+        self.crackmapexec_username_entry.add_css_class("modern-entry")
+        creds_row.append(self.crackmapexec_username_entry)
+        creds_row.append(Gtk.Label(label="Password (optional)", xalign=0))
+        self.crackmapexec_password_entry = Gtk.Entry()
+        self.crackmapexec_password_entry.add_css_class("modern-entry")
+        creds_row.append(self.crackmapexec_password_entry)
+        form.append(creds_row)
+
+        domain_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        domain_row.append(Gtk.Label(label="Domain (optional)", xalign=0))
+        self.crackmapexec_domain_entry = Gtk.Entry()
+        self.crackmapexec_domain_entry.add_css_class("modern-entry")
+        self.crackmapexec_domain_entry.set_placeholder_text("Windows domain...")
+        domain_row.append(self.crackmapexec_domain_entry)
+        form.append(domain_row)
+
+        options_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.crackmapexec_shares_check = Gtk.CheckButton(label="Enumerate Shares (SMB)")
+        options_row.append(self.crackmapexec_shares_check)
+        form.append(options_row)
+
+        command_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        command_row.append(Gtk.Label(label="Command (optional)", xalign=0))
+        self.crackmapexec_command_entry = Gtk.Entry()
+        self.crackmapexec_command_entry.add_css_class("modern-entry")
+        self.crackmapexec_command_entry.set_placeholder_text("Command to execute...")
+        command_row.append(self.crackmapexec_command_entry)
+        form.append(command_row)
+
+        extra_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        extra_row.append(Gtk.Label(label="Extra Arguments (optional)", xalign=0))
+        self.crackmapexec_extra_entry = Gtk.Entry()
+        self.crackmapexec_extra_entry.add_css_class("modern-entry")
+        extra_row.append(self.crackmapexec_extra_entry)
+        form.append(extra_row)
+
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.crackmapexec_run_btn = Gtk.Button(label="Run Attack")
+        self.crackmapexec_run_btn.add_css_class("suggested-action")
+        self.crackmapexec_run_btn.connect("clicked", self._on_crackmapexec_run)
+        actions_row.append(self.crackmapexec_run_btn)
+        self.crackmapexec_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.crackmapexec_copy_btn.set_tooltip_text("Copy result")
+        self.crackmapexec_copy_btn.set_sensitive(False)
+        self.crackmapexec_copy_btn.connect("clicked", self._on_crackmapexec_copy)
+        actions_row.append(self.crackmapexec_copy_btn)
+        form.append(actions_row)
+
+        result_label = Gtk.Label(label="Result", xalign=0)
+        result_label.add_css_class("title-4")
+        form.append(result_label)
+        self.crackmapexec_result_view = Gtk.TextView()
+        self.crackmapexec_result_view.add_css_class("output-text")
+        self.crackmapexec_result_view.set_editable(False)
+        self.crackmapexec_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.crackmapexec_result_view)
+        form.append(result_scroller)
+
+    def _open_crackmapexec(self, tool) -> None:
+        self._active_tool = tool
+        self.crackmapexec_target_entry.set_text("")
+        self.crackmapexec_profile_combo.set_active_id("smb")
+        self.crackmapexec_username_entry.set_text("")
+        self.crackmapexec_password_entry.set_text("")
+        self.crackmapexec_domain_entry.set_text("")
+        self.crackmapexec_shares_check.set_active(False)
+        self.crackmapexec_command_entry.set_text("")
+        self.crackmapexec_extra_entry.set_text("")
+        self._set_text_view_text(self.crackmapexec_result_view, "")
+        self.crackmapexec_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("crackmapexec")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_crackmapexec_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        target = self.crackmapexec_target_entry.get_text().strip()
+        if not target:
+            self.toast_overlay.add_toast(Adw.Toast.new("Target is required"))
+            return
+        profile = self.crackmapexec_profile_combo.get_active_id() or "smb"
+        username = self.crackmapexec_username_entry.get_text().strip()
+        password = self.crackmapexec_password_entry.get_text().strip()
+        domain = self.crackmapexec_domain_entry.get_text().strip()
+        shares = "true" if self.crackmapexec_shares_check.get_active() else "false"
+        command = self.crackmapexec_command_entry.get_text().strip()
+        extra = self.crackmapexec_extra_entry.get_text().strip()
+        self.crackmapexec_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.crackmapexec_result_view, "Running CrackMapExec…")
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(target=target, profile=profile, username=username, password=password, domain=domain, shares=shares, command=command, extra=extra)
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.crackmapexec_result_view, body)
+                GLib.idle_add(self.crackmapexec_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.crackmapexec_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.crackmapexec_run_btn.set_sensitive, True)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_crackmapexec_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.crackmapexec_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- Angr Helper detail ----------------------
+    def _build_angr_helper_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("Angr Helper")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        file_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.angr_file_entry = Gtk.Entry()
+        self.angr_file_entry.add_css_class("modern-entry")
+        self.angr_file_entry.set_placeholder_text("Select binary file...")
+        self.angr_file_entry.set_hexpand(True)
+        file_row.append(self.angr_file_entry)
+        browse_file_btn = Gtk.Button(label="Browse…")
+        browse_file_btn.connect("clicked", self._on_angr_file_browse)
+        file_row.append(browse_file_btn)
+        form.append(file_row)
+
+        analysis_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        analysis_row.append(Gtk.Label(label="Analysis Type", xalign=0))
+        self.angr_analysis_combo = Gtk.ComboBoxText()
+        self.angr_analysis_combo.append("info", "Info - Basic binary information")
+        self.angr_analysis_combo.append("cfg", "CFG - Control Flow Graph")
+        self.angr_analysis_combo.append("functions", "Functions - List functions")
+        self.angr_analysis_combo.append("symbolic", "Symbolic - Symbolic execution")
+        self.angr_analysis_combo.set_active_id("cfg")
+        analysis_row.append(self.angr_analysis_combo)
+        form.append(analysis_row)
+
+        find_addr_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        find_addr_row.append(Gtk.Label(label="Find Address (for symbolic)", xalign=0))
+        self.angr_find_addr_entry = Gtk.Entry()
+        self.angr_find_addr_entry.add_css_class("modern-entry")
+        self.angr_find_addr_entry.set_placeholder_text("0x400000 or decimal")
+        find_addr_row.append(self.angr_find_addr_entry)
+        form.append(find_addr_row)
+
+        avoid_addr_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        avoid_addr_row.append(Gtk.Label(label="Avoid Address (optional)", xalign=0))
+        self.angr_avoid_addr_entry = Gtk.Entry()
+        self.angr_avoid_addr_entry.add_css_class("modern-entry")
+        self.angr_avoid_addr_entry.set_placeholder_text("0x400100,0x400200 or decimal")
+        avoid_addr_row.append(self.angr_avoid_addr_entry)
+        form.append(avoid_addr_row)
+
+        extra_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        extra_row.append(Gtk.Label(label="Extra Arguments (optional)", xalign=0))
+        self.angr_extra_entry = Gtk.Entry()
+        self.angr_extra_entry.add_css_class("modern-entry")
+        extra_row.append(self.angr_extra_entry)
+        form.append(extra_row)
+
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.angr_run_btn = Gtk.Button(label="Run Analysis")
+        self.angr_run_btn.add_css_class("suggested-action")
+        self.angr_run_btn.connect("clicked", self._on_angr_run)
+        actions_row.append(self.angr_run_btn)
+        self.angr_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.angr_copy_btn.set_tooltip_text("Copy result")
+        self.angr_copy_btn.set_sensitive(False)
+        self.angr_copy_btn.connect("clicked", self._on_angr_copy)
+        actions_row.append(self.angr_copy_btn)
+        form.append(actions_row)
+
+        result_label = Gtk.Label(label="Result", xalign=0)
+        result_label.add_css_class("title-4")
+        form.append(result_label)
+        self.angr_result_view = Gtk.TextView()
+        self.angr_result_view.add_css_class("output-text")
+        self.angr_result_view.set_editable(False)
+        self.angr_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.angr_result_view)
+        form.append(result_scroller)
+
+    def _open_angr_helper(self, tool) -> None:
+        self._active_tool = tool
+        self.angr_file_entry.set_text("")
+        self.angr_analysis_combo.set_active_id("cfg")
+        self.angr_find_addr_entry.set_text("")
+        self.angr_avoid_addr_entry.set_text("")
+        self.angr_extra_entry.set_text("")
+        self._set_text_view_text(self.angr_result_view, "")
+        self.angr_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("angr_helper")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_angr_file_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select binary file", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.angr_file_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_angr_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        binary_file = self.angr_file_entry.get_text().strip()
+        if not binary_file:
+            self.toast_overlay.add_toast(Adw.Toast.new("Binary file is required"))
+            return
+        analysis_type = self.angr_analysis_combo.get_active_id() or "cfg"
+        find_address = self.angr_find_addr_entry.get_text().strip()
+        avoid_address = self.angr_avoid_addr_entry.get_text().strip()
+        extra = self.angr_extra_entry.get_text().strip()
+        self.angr_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.angr_result_view, "Running Angr analysis…")
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(binary_file=binary_file, analysis_type=analysis_type, find_address=find_address, avoid_address=avoid_address, extra=extra)
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.angr_result_view, body)
+                GLib.idle_add(self.angr_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.angr_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.angr_run_btn.set_sensitive, True)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_angr_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.angr_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- Checksec detail ----------------------
+    def _build_checksec_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("Checksec")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        file_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.checksec_file_entry = Gtk.Entry()
+        self.checksec_file_entry.add_css_class("modern-entry")
+        self.checksec_file_entry.set_placeholder_text("Select binary file...")
+        self.checksec_file_entry.set_hexpand(True)
+        file_row.append(self.checksec_file_entry)
+        browse_file_btn = Gtk.Button(label="Browse…")
+        browse_file_btn.connect("clicked", self._on_checksec_file_browse)
+        file_row.append(browse_file_btn)
+        form.append(file_row)
+
+        format_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        format_row.append(Gtk.Label(label="Output Format", xalign=0))
+        self.checksec_format_combo = Gtk.ComboBoxText()
+        self.checksec_format_combo.append("text", "Text")
+        self.checksec_format_combo.append("json", "JSON")
+        self.checksec_format_combo.set_active_id("text")
+        format_row.append(self.checksec_format_combo)
+        form.append(format_row)
+
+        extra_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        extra_row.append(Gtk.Label(label="Extra Arguments (optional)", xalign=0))
+        self.checksec_extra_entry = Gtk.Entry()
+        self.checksec_extra_entry.add_css_class("modern-entry")
+        extra_row.append(self.checksec_extra_entry)
+        form.append(extra_row)
+
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.checksec_run_btn = Gtk.Button(label="Run Checksec")
+        self.checksec_run_btn.add_css_class("suggested-action")
+        self.checksec_run_btn.connect("clicked", self._on_checksec_run)
+        actions_row.append(self.checksec_run_btn)
+        self.checksec_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.checksec_copy_btn.set_tooltip_text("Copy result")
+        self.checksec_copy_btn.set_sensitive(False)
+        self.checksec_copy_btn.connect("clicked", self._on_checksec_copy)
+        actions_row.append(self.checksec_copy_btn)
+        form.append(actions_row)
+
+        result_label = Gtk.Label(label="Result", xalign=0)
+        result_label.add_css_class("title-4")
+        form.append(result_label)
+        self.checksec_result_view = Gtk.TextView()
+        self.checksec_result_view.add_css_class("output-text")
+        self.checksec_result_view.set_editable(False)
+        self.checksec_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.checksec_result_view)
+        form.append(result_scroller)
+
+    def _open_checksec(self, tool) -> None:
+        self._active_tool = tool
+        self.checksec_file_entry.set_text("")
+        self.checksec_format_combo.set_active_id("text")
+        self.checksec_extra_entry.set_text("")
+        self._set_text_view_text(self.checksec_result_view, "")
+        self.checksec_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("checksec")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_checksec_file_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select binary file", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.checksec_file_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_checksec_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        binary_file = self.checksec_file_entry.get_text().strip()
+        if not binary_file:
+            self.toast_overlay.add_toast(Adw.Toast.new("Binary file is required"))
+            return
+        output_format = self.checksec_format_combo.get_active_id() or "text"
+        extra = self.checksec_extra_entry.get_text().strip()
+        self.checksec_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.checksec_result_view, "Running Checksec…")
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(binary_file=binary_file, output_format=output_format, extra=extra)
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.checksec_result_view, body)
+                GLib.idle_add(self.checksec_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.checksec_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.checksec_run_btn.set_sensitive, True)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_checksec_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.checksec_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- Pwntools Helper detail ----------------------
+    def _build_pwntools_helper_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("Pwntools Helper")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        operation_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        operation_row.append(Gtk.Label(label="Operation", xalign=0))
+        self.pwntools_profile_combo = Gtk.ComboBoxText()
+        self.pwntools_profile_combo.append("cyclic", "Cyclic - Generate cyclic pattern")
+        self.pwntools_profile_combo.append("cyclic_find", "Cyclic Find - Find offset in pattern")
+        self.pwntools_profile_combo.append("asm", "Assemble - Assemble shellcode")
+        self.pwntools_profile_combo.append("disasm", "Disassemble - Disassemble shellcode")
+        self.pwntools_profile_combo.set_active_id("cyclic")
+        operation_row.append(self.pwntools_profile_combo)
+        form.append(operation_row)
+
+        length_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        length_row.append(Gtk.Label(label="Length (for cyclic)", xalign=0))
+        self.pwntools_length_entry = Gtk.Entry()
+        self.pwntools_length_entry.add_css_class("modern-entry")
+        self.pwntools_length_entry.set_text("100")
+        length_row.append(self.pwntools_length_entry)
+        form.append(length_row)
+
+        value_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        value_row.append(Gtk.Label(label="Value (for cyclic_find/asm/disasm)", xalign=0))
+        value_scroller = Gtk.ScrolledWindow()
+        value_scroller.set_min_content_height(80)
+        value_scroller.set_max_content_height(150)
+        self.pwntools_value_view = Gtk.TextView()
+        self.pwntools_value_view.add_css_class("modern-entry")
+        self.pwntools_value_view.set_wrap_mode(Gtk.WrapMode.WORD)
+        value_scroller.set_child(self.pwntools_value_view)
+        value_row.append(value_scroller)
+        form.append(value_row)
+
+        arch_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        arch_row.append(Gtk.Label(label="Architecture (for asm/disasm)", xalign=0))
+        self.pwntools_arch_entry = Gtk.Entry()
+        self.pwntools_arch_entry.add_css_class("modern-entry")
+        self.pwntools_arch_entry.set_text("i386")
+        self.pwntools_arch_entry.set_placeholder_text("i386, amd64, arm, etc.")
+        arch_row.append(self.pwntools_arch_entry)
+        form.append(arch_row)
+
+        extra_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        extra_row.append(Gtk.Label(label="Extra Arguments (optional)", xalign=0))
+        self.pwntools_extra_entry = Gtk.Entry()
+        self.pwntools_extra_entry.add_css_class("modern-entry")
+        extra_row.append(self.pwntools_extra_entry)
+        form.append(extra_row)
+
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.pwntools_run_btn = Gtk.Button(label="Run Operation")
+        self.pwntools_run_btn.add_css_class("suggested-action")
+        self.pwntools_run_btn.connect("clicked", self._on_pwntools_run)
+        actions_row.append(self.pwntools_run_btn)
+        self.pwntools_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.pwntools_copy_btn.set_tooltip_text("Copy result")
+        self.pwntools_copy_btn.set_sensitive(False)
+        self.pwntools_copy_btn.connect("clicked", self._on_pwntools_copy)
+        actions_row.append(self.pwntools_copy_btn)
+        form.append(actions_row)
+
+        result_label = Gtk.Label(label="Result", xalign=0)
+        result_label.add_css_class("title-4")
+        form.append(result_label)
+        self.pwntools_result_view = Gtk.TextView()
+        self.pwntools_result_view.add_css_class("output-text")
+        self.pwntools_result_view.set_editable(False)
+        self.pwntools_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.pwntools_result_view)
+        form.append(result_scroller)
+
+    def _open_pwntools_helper(self, tool) -> None:
+        self._active_tool = tool
+        self.pwntools_profile_combo.set_active_id("cyclic")
+        self.pwntools_length_entry.set_text("100")
+        self.pwntools_value_view.get_buffer().set_text("")
+        self.pwntools_arch_entry.set_text("i386")
+        self.pwntools_extra_entry.set_text("")
+        self._set_text_view_text(self.pwntools_result_view, "")
+        self.pwntools_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("pwntools_helper")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_pwntools_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        profile = self.pwntools_profile_combo.get_active_id() or "cyclic"
+        length = self.pwntools_length_entry.get_text().strip() or "100"
+        value_buffer = self.pwntools_value_view.get_buffer()
+        start, end = value_buffer.get_bounds()
+        value = value_buffer.get_text(start, end, True).strip()
+        arch = self.pwntools_arch_entry.get_text().strip() or "i386"
+        extra = self.pwntools_extra_entry.get_text().strip()
+        self.pwntools_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.pwntools_result_view, "Running Pwntools operation…")
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(profile=profile, length=length, value=value, arch=arch, extra=extra)
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.pwntools_result_view, body)
+                GLib.idle_add(self.pwntools_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.pwntools_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.pwntools_run_btn.set_sensitive, True)
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_pwntools_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.pwntools_result_view.get_buffer()
         start, end = buffer.get_bounds()
         clipboard.set_text(buffer.get_text(start, end, True))
 

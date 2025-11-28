@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
-from typing import List, NamedTuple, Sequence
+from typing import Any, Dict, List, NamedTuple, Sequence
 
 from ..base import ToolResult
 from ...data_paths import user_config_dir, user_data_dir
@@ -39,42 +40,20 @@ class HydraProfile(NamedTuple):
 
 
 PROFILE_CHOICES: Sequence[HydraProfile] = (
-    HydraProfile(
-        "ssh",
-        "SSH",
-        "SSH login brute-force",
-        "ssh",
-    ),
-    HydraProfile(
-        "ftp",
-        "FTP",
-        "FTP login brute-force",
-        "ftp",
-    ),
-    HydraProfile(
-        "http-get",
-        "HTTP GET",
-        "HTTP GET authentication brute-force",
-        "http-get",
-    ),
-    HydraProfile(
-        "http-post",
-        "HTTP POST",
-        "HTTP POST form brute-force",
-        "http-post-form",
-    ),
-    HydraProfile(
-        "smb",
-        "SMB",
-        "SMB/Windows share brute-force",
-        "smb",
-    ),
-    HydraProfile(
-        "rdp",
-        "RDP",
-        "RDP login brute-force",
-        "rdp",
-    ),
+    HydraProfile("ssh", "SSH", "SSH login brute-force", "ssh"),
+    HydraProfile("ftp", "FTP", "FTP login brute-force", "ftp"),
+    HydraProfile("http-get", "HTTP GET", "HTTP GET authentication brute-force", "http-get"),
+    HydraProfile("http-post", "HTTP POST", "HTTP POST form brute-force", "http-post-form"),
+    HydraProfile("smb", "SMB", "SMB/Windows share brute-force", "smb"),
+    HydraProfile("rdp", "RDP", "RDP login brute-force", "rdp"),
+    HydraProfile("mysql", "MySQL", "MySQL database login", "mysql"),
+    HydraProfile("postgresql", "PostgreSQL", "PostgreSQL database login", "postgres"),
+    HydraProfile("mssql", "MSSQL", "Microsoft SQL Server login", "mssql"),
+    HydraProfile("pop3", "POP3", "POP3 email login", "pop3"),
+    HydraProfile("imap", "IMAP", "IMAP email login", "imap"),
+    HydraProfile("smtp", "SMTP", "SMTP authentication", "smtp"),
+    HydraProfile("telnet", "Telnet", "Telnet login", "telnet"),
+    HydraProfile("vnc", "VNC", "VNC remote desktop", "vnc"),
 )
 
 
@@ -94,6 +73,19 @@ class HydraTool:
         port: str = "",
         threads: str = "4",
         extra: str = "",
+        stop_on_success: str = "false",
+        delay: str = "0",
+        retry: str = "3",
+        timeout: str = "30",
+        ssh_key: str = "",
+        ssh_cipher: str = "",
+        http_form: str = "",
+        http_cookie: str = "",
+        smb_domain: str = "",
+        rdp_domain: str = "",
+        parse_results: str = "true",
+        export_results: str = "false",
+        output_file: str = "",
     ) -> ToolResult:
         if not network_consent_enabled():
             raise RuntimeError("Network modules disabled. Enable in settings.")
@@ -155,6 +147,39 @@ class HydraTool:
         if threads.strip():
             args.extend(["-t", threads.strip()])
 
+        # Stop on first success
+        if self._is_truthy(stop_on_success):
+            args.append("-f")
+
+        # Delay between attempts
+        if delay.strip() and int(delay) > 0:
+            args.extend(["-w", delay.strip()])
+
+        # Timeout
+        if timeout.strip():
+            args.extend(["-W", timeout.strip()])
+
+        # Protocol-specific options
+        if profile == "ssh":
+            if ssh_key.strip():
+                args.extend(["-I", ssh_key.strip()])  # Key file
+            if ssh_cipher.strip():
+                args.extend(["-C", ssh_cipher.strip()])  # Cipher
+        
+        elif profile in ["http-post", "http-get"]:
+            if http_form.strip():
+                args.append(http_form.strip())  # Form fields
+            if http_cookie.strip():
+                args.extend(["-C", http_cookie.strip()])  # Cookie
+        
+        elif profile == "smb":
+            if smb_domain.strip():
+                args.extend(["-m", smb_domain.strip()])  # Domain
+        
+        elif profile == "rdp":
+            if rdp_domain.strip():
+                args.extend(["-d", rdp_domain.strip()])  # Domain/workgroup
+
         # Extra arguments
         if extra.strip():
             args.extend(extra.split())
@@ -172,27 +197,112 @@ class HydraTool:
             timeout=600,  # 10 minute timeout
         )
 
+        # Parse results
+        parsed_results: Dict[str, Any] = {}
+        if self._is_truthy(parse_results):
+            parsed_results = self._parse_hydra_output(proc.stdout, proc.stderr)
+
         body_lines: List[str] = []
         body_lines.append(f"Command: {' '.join(args)}")
         body_lines.append("")
         body_lines.append("WARNING: Use only on systems you own or have permission to test!")
         body_lines.append("")
         
+        # Summary
+        if parsed_results:
+            body_lines.append("=== Summary ===")
+            body_lines.append(f"Successful logins: {len(parsed_results.get('credentials', []))}")
+            body_lines.append(f"Total attempts: {parsed_results.get('total_attempts', 'unknown')}")
+            body_lines.append(f"Success rate: {parsed_results.get('success_rate', '0')}%")
+            body_lines.append("")
+        
         if proc.stdout.strip():
-            body_lines.append("Results:")
+            body_lines.append("=== Raw Output ===")
             body_lines.append(proc.stdout.strip())
         
         if proc.stderr.strip():
             body_lines.append("")
-            body_lines.append("Errors/Warnings:")
+            body_lines.append("=== Errors/Warnings ===")
             body_lines.append(proc.stderr.strip())
+
+        # Export results if requested
+        if self._is_truthy(export_results) or output_file.strip():
+            export_path = self._export_results(parsed_results, output_file, target, protocol)
+            body_lines.append("")
+            body_lines.append(f"Results exported to: {export_path}")
 
         if proc.returncode != 0 and not proc.stdout.strip():
             raise RuntimeError(f"Hydra failed: {proc.stderr.strip()}")
 
+        # Include parsed results in JSON if available
+        result_body = "\n".join(body_lines).strip()
+        if parsed_results:
+            result_body += "\n\n=== Parsed Results (JSON) ===\n"
+            result_body += json.dumps(parsed_results, indent=2)
+
         return ToolResult(
             title=f"Hydra {protocol}: {target}",
-            body="\n".join(body_lines).strip(),
+            body=result_body,
             mime_type="text/plain",
         )
+    
+    def _parse_hydra_output(self, stdout: str, stderr: str) -> Dict[str, Any]:
+        """Parse Hydra output to extract credentials and statistics."""
+        credentials: List[Dict[str, str]] = []
+        total_attempts = 0
+        
+        # Pattern for successful login: [protocol] host:port login: password
+        # Example: [22][ssh] host: 192.168.1.1   login: admin   password: password123
+        success_pattern = re.compile(
+            r'\[(\d+)\]\[(\w+)\]\s+host:\s+([^\s]+)\s+login:\s+([^\s]+)\s+password:\s+(.+)',
+            re.IGNORECASE
+        )
+        
+        for line in stdout.splitlines():
+            match = success_pattern.search(line)
+            if match:
+                credentials.append({
+                    "port": match.group(1),
+                    "protocol": match.group(2),
+                    "host": match.group(3),
+                    "username": match.group(4),
+                    "password": match.group(5).strip()
+                })
+            
+            # Count attempts (lines with "attempts" or "tries")
+            if "attempt" in line.lower() or "tries" in line.lower():
+                numbers = re.findall(r'\d+', line)
+                if numbers:
+                    total_attempts = max(total_attempts, int(numbers[-1]))
+        
+        success_rate = 0.0
+        if total_attempts > 0:
+            success_rate = round((len(credentials) / total_attempts) * 100, 2)
+        
+        return {
+            "credentials": credentials,
+            "total_attempts": total_attempts if total_attempts > 0 else len(credentials),
+            "successful_logins": len(credentials),
+            "success_rate": success_rate,
+            "failed": len(credentials) == 0
+        }
+    
+    def _export_results(self, results: Dict[str, Any], output_file: str, target: str, protocol: str) -> Path:
+        """Export results to file."""
+        if output_file.strip():
+            output_path = Path(output_file.strip()).expanduser()
+        else:
+            output_dir = user_data_dir() / "hydra_results"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_path = output_dir / f"hydra_{protocol}_{target.replace('.', '_')}_{timestamp}.json"
+        
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        output_path.write_text(json.dumps(results, indent=2), encoding="utf-8")
+        return output_path
+    
+    def _is_truthy(self, value: str) -> bool:
+        """Check if string value is truthy."""
+        return value.lower() in {"1", "true", "yes", "y", "on"}
 

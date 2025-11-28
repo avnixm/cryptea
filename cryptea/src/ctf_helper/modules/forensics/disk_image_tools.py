@@ -4,10 +4,13 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import shutil
 import struct
+import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 from ..base import ToolResult
 
@@ -25,6 +28,9 @@ class DiskImageToolkit:
         sector_size: str = "512",
         include_hashes: str = "false",
         max_partitions: str = "16",
+        detect_hidden: str = "false",
+        navigate_filesystems: str = "false",
+        partition_index: str = "",
     ) -> ToolResult:
         path = Path(file_path).expanduser()
         if not path.exists():
@@ -33,7 +39,32 @@ class DiskImageToolkit:
         sector = max(128, int(sector_size or "512"))
         include_hash = self._truthy(include_hashes)
         partition_limit = max(1, int(max_partitions or "16"))
-        summary = self._analyze_disk(path, sector=sector, include_hashes=include_hash, max_partitions=partition_limit)
+        detect_hidden_partitions = self._truthy(detect_hidden)
+        navigate_fs = self._truthy(navigate_filesystems)
+        
+        # Check for E01 format
+        e01_info = self._detect_e01_format(path)
+        
+        # Use ewfmount if E01, otherwise use raw image
+        if e01_info.get("is_e01"):
+            # For E01, we'd need to mount it first, but we'll provide basic info
+            summary = self._analyze_e01(path, e01_info)
+        else:
+            summary = self._analyze_disk(path, sector=sector, include_hashes=include_hash, max_partitions=partition_limit)
+        
+        # Detect hidden partitions
+        if detect_hidden_partitions:
+            hidden = self._detect_hidden_partitions(path, summary, sector)
+            if hidden:
+                summary["hidden_partitions"] = hidden
+        
+        # Navigate file systems
+        if navigate_fs:
+            partition_idx = int(partition_index) if partition_index.strip() else None
+            filesystem_info = self._navigate_file_systems(path, summary, partition_idx)
+            if filesystem_info:
+                summary["filesystems"] = filesystem_info
+        
         body = json.dumps(summary, indent=2)
         title = f"Disk analysis for {path.name}"
         return ToolResult(title=title, body=body, mime_type="application/json")
@@ -293,3 +324,307 @@ class DiskImageToolkit:
         if value is None:
             return False
         return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+    def _detect_e01_format(self, path: Path) -> Dict[str, object]:
+        """Detect if file is in E01 (Expert Witness Disk Image) format."""
+        try:
+            with path.open("rb") as fh:
+                header = fh.read(64)
+        except Exception:
+            return {"is_e01": False, "message": "Could not read file header"}
+        
+        # E01 files start with "EVF" signature
+        if header[:3] == b"EVF":
+            return {
+                "is_e01": True,
+                "version": header[4:8].decode("ascii", errors="ignore") if len(header) >= 8 else "unknown",
+                "message": "E01 (Expert Witness Disk Image) format detected",
+            }
+        
+        # Check for E01 segment file pattern
+        if path.suffix.lower() == ".e01":
+            return {
+                "is_e01": True,
+                "message": "E01 format (based on extension)",
+                "note": "Full E01 parsing requires ewftools or pyewf library",
+            }
+        
+        return {"is_e01": False}
+
+    def _analyze_e01(self, path: Path, e01_info: Dict[str, object]) -> Dict[str, object]:
+        """Analyze E01 format disk image."""
+        ewf_path = self._resolve_ewftools()
+        
+        if not ewf_path:
+            return {
+                "file": str(path.resolve()),
+                "format": "E01",
+                "error": "ewftools not available. Install with:\n  Fedora/RHEL: sudo dnf install libewf-tools\n  Ubuntu/Debian: sudo apt install ewf-tools\n  Arch: sudo pacman -S libewf-tools",
+            }
+        
+        # Use ewfinfo to get basic information
+        try:
+            proc = subprocess.run(
+                [ewf_path, str(path)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            
+            info: Dict[str, object] = {
+                "file": str(path.resolve()),
+                "format": "E01",
+                "ewfinfo_available": True,
+                "raw_output": proc.stdout or "",
+            }
+            
+            # Parse ewfinfo output (simplified)
+            if proc.stdout:
+                lines = proc.stdout.splitlines()
+                for line in lines[:50]:  # First 50 lines
+                    if ":" in line:
+                        parts = line.split(":", 1)
+                        if len(parts) == 2:
+                            key = parts[0].strip()
+                            value = parts[1].strip()
+                            info[key.lower().replace(" ", "_")] = value
+            
+            return info
+            
+        except Exception as e:
+            return {
+                "file": str(path.resolve()),
+                "format": "E01",
+                "error": f"Could not analyze E01 file: {str(e)}",
+            }
+
+    def _resolve_ewftools(self) -> Optional[str]:
+        """Resolve ewfinfo command path."""
+        path = shutil.which("ewfinfo")
+        return path if path else None
+
+    def _detect_hidden_partitions(self, path: Path, summary: Dict[str, object], sector: int) -> List[Dict[str, object]]:
+        """Detect hidden partitions in unallocated space."""
+        hidden: List[Dict[str, object]] = []
+        
+        partitions = summary.get("partitions", [])
+        if not isinstance(partitions, list):
+            return hidden
+        
+        # Get partition ranges
+        partition_ranges: List[Tuple[int, int]] = []
+        for part in partitions:
+            if not isinstance(part, dict):
+                continue
+            start_val = part.get("start_bytes", 0)
+            size_val = part.get("size_bytes", 0)
+            start = int(start_val) if start_val else 0
+            size = int(size_val) if size_val else 0
+            if start > 0 and size > 0:
+                partition_ranges.append((start, start + size))
+        
+        # Sort ranges
+        partition_ranges.sort()
+        
+        # Look for gaps or suspicious areas
+        stats = path.stat()
+        total_size = stats.st_size
+        current_offset = 0
+        
+        # Check gaps between partitions
+        for start, end in partition_ranges:
+            if current_offset < start:
+                gap_size = start - current_offset
+                if gap_size > sector * 100:  # Gap larger than 100 sectors
+                    # Scan gap for partition signatures
+                    signature = self._scan_for_partition_signature(path, current_offset, gap_size, sector)
+                    if signature:
+                        hidden.append({
+                            "offset": current_offset,
+                            "size_bytes": gap_size,
+                            "type": signature["type"],
+                            "signature": signature["description"],
+                            "confidence": "medium",
+                        })
+            current_offset = max(current_offset, end)
+        
+        # Check unallocated space at end
+        unallocated = summary.get("unallocated_bytes", 0)
+        if unallocated and isinstance(unallocated, (int, float)):
+            unalloc_val = int(unallocated)
+            if unalloc_val > sector * 100:
+                last_partition_end = partition_ranges[-1][1] if partition_ranges else 0
+                signature = self._scan_for_partition_signature(path, last_partition_end, unalloc_val, sector)
+                if signature:
+                    hidden.append({
+                        "offset": last_partition_end,
+                        "size_bytes": unalloc_val,
+                        "type": signature["type"],
+                        "signature": signature["description"],
+                        "confidence": "medium",
+                    })
+        
+        return hidden
+
+    def _scan_for_partition_signature(self, path: Path, offset: int, size: int, sector: int) -> Optional[Dict[str, str]]:
+        """Scan a region for partition table signatures."""
+        try:
+            with path.open("rb") as fh:
+                fh.seek(offset)
+                # Read first few sectors
+                sample = fh.read(min(size, sector * 4))
+                
+                # Check for MBR signature
+                if len(sample) >= 512:
+                    if sample[510:512] == b"\x55\xaa":
+                        return {"type": "MBR", "description": "Legacy MBR partition table detected"}
+                    
+                    # Check for GPT signature
+                    if sample[sector:sector+8] == b"EFI PART":
+                        return {"type": "GPT", "description": "GPT partition table detected"}
+                    
+                    # Check for common file system signatures
+                    fs_signatures = [
+                        (b"\xEB\x58\x90", "FAT32"),
+                        (b"NTFS", "NTFS"),
+                        (b"\x53\xEF", "ext2/3/4"),
+                        (b"FAT12", "FAT12"),
+                        (b"FAT16", "FAT16"),
+                    ]
+                    
+                    for sig_bytes, fs_type in fs_signatures:
+                        if sig_bytes in sample[:1024]:
+                            return {"type": fs_type, "description": f"{fs_type} file system signature detected"}
+        except Exception:
+            pass
+        
+        return None
+
+    def _navigate_file_systems(self, path: Path, summary: Dict[str, object], partition_idx: Optional[int]) -> Dict[str, object]:
+        """Navigate and list files in detected file systems."""
+        filesystems: Dict[str, object] = {}
+        
+        partitions = summary.get("partitions", [])
+        if not isinstance(partitions, list):
+            return filesystems
+        
+        # If specific partition index provided, only analyze that
+        partitions_to_analyze = []
+        if partition_idx is not None and 0 <= partition_idx < len(partitions):
+            partitions_to_analyze = [partitions[partition_idx]]
+        else:
+            partitions_to_analyze = partitions[:10]  # Limit to first 10
+        
+        for part in partitions_to_analyze:
+            if not isinstance(part, dict):
+                continue
+            
+            idx = part.get("index", -1)
+            start_val = part.get("start_bytes", 0)
+            size_val = part.get("size_bytes", 0)
+            part_type = str(part.get("label", "")).lower()
+            
+            start = int(start_val) if start_val else 0
+            size = int(size_val) if size_val else 0
+            
+            if start == 0 or size == 0:
+                continue
+            
+            # Detect file system type
+            fs_type = self._detect_file_system(path, start, size)
+            if not fs_type:
+                continue
+            
+            # List files (basic implementation)
+            files = self._list_files_in_partition(path, start, size, fs_type)
+            
+            partition_key = f"partition_{idx}"
+            filesystems[partition_key] = {
+                "partition_index": idx,
+                "filesystem_type": fs_type,
+                "files": files[:100],  # Limit to 100 files
+                "file_count": len(files),
+            }
+        
+        return filesystems
+
+    def _detect_file_system(self, path: Path, offset: int, size: int) -> Optional[str]:
+        """Detect file system type in a partition."""
+        try:
+            with path.open("rb") as fh:
+                fh.seek(offset)
+                boot_sector = fh.read(1024)
+                
+                # Check for NTFS
+                if boot_sector[3:7] == b"NTFS":
+                    return "NTFS"
+                
+                # Check for FAT32
+                if boot_sector[82:90] == b"FAT32   " or boot_sector[54:62] == b"FAT32   ":
+                    return "FAT32"
+                
+                # Check for FAT16
+                if boot_sector[54:62] == b"FAT16   ":
+                    return "FAT16"
+                
+                # Check for FAT12
+                if boot_sector[54:62] == b"FAT12   ":
+                    return "FAT12"
+                
+                # Check for ext2/3/4 (magic at offset 0x438)
+                if len(boot_sector) > 1080:
+                    ext_magic = boot_sector[1080:1084]
+                    if ext_magic in [b"\x53\xef", b"\xef\x53"]:
+                        return "ext2/3/4"
+                
+        except Exception:
+            pass
+        
+        return None
+
+    def _list_files_in_partition(self, path: Path, offset: int, size: int, fs_type: str) -> List[Dict[str, object]]:
+        """List files in a partition (basic implementation)."""
+        files: List[Dict[str, object]] = []
+        
+        # This is a simplified implementation
+        # Full implementation would require mounting or using libraries like pytsk3
+        
+        # For now, we'll search for file signatures in the partition
+        try:
+            with path.open("rb") as fh:
+                fh.seek(offset)
+                # Sample first 10MB of partition
+                sample = fh.read(min(size, 10 * 1024 * 1024))
+                
+                # Search for common file signatures
+                file_signatures = [
+                    (b"\x89PNG\r\n\x1a\n", ".png"),
+                    (b"\xff\xd8\xff", ".jpg"),
+                    (b"%PDF", ".pdf"),
+                    (b"PK\x03\x04", ".zip"),
+                    (b"<!DOCTYPE html", ".html"),
+                    (b"<?xml", ".xml"),
+                ]
+                
+                for sig, ext in file_signatures:
+                    idx = 0
+                    while True:
+                        idx = sample.find(sig, idx)
+                        if idx == -1:
+                            break
+                        files.append({
+                            "name": f"file{len(files)}{ext}",
+                            "offset": offset + idx,
+                            "type": ext,
+                            "method": "signature_carving",
+                        })
+                        idx += len(sig)
+                        if len(files) >= 50:
+                            break
+                    if len(files) >= 50:
+                        break
+        except Exception:
+            pass
+        
+        return files

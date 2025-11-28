@@ -19,6 +19,7 @@ from .forensics.file_inspector import FileInspectorTool
 from .forensics.memory_analyzer import MemoryAnalyzerTool
 from .forensics.pcap_viewer import PcapViewerTool
 from .forensics.timeline_builder import TimelineBuilderTool
+from .forensics.binwalk import BinwalkTool
 from .forensics.foremost import ForemostTool
 from .forensics.bulk_extractor import BulkExtractorTool
 from .forensics.volatility import VolatilityTool
@@ -47,6 +48,7 @@ from .reverse.pwntools_helper import PwntoolsHelperTool
 from .reverse.angr_helper import AngrHelperTool
 from .reverse.checksec import ChecksecTool
 from .reverse.syscall_tracer import SyscallTracerTool
+from .reverse.objdump_viewer import ObjdumpViewerTool
 from .web.discovery import DirDiscoveryTool
 from .web.file_upload import FileUploadTester
 from .web.jwt_tool import JWTTool
@@ -90,6 +92,7 @@ class ModuleRegistry:
             MemoryAnalyzerTool(),
             DiskImageToolkit(),
             TimelineBuilderTool(),
+            BinwalkTool(),
             ForemostTool(),
             BulkExtractorTool(),
             VolatilityTool(),
@@ -116,6 +119,7 @@ class ModuleRegistry:
             AngrHelperTool(),
             ChecksecTool(),
             SyscallTracerTool(),
+            ObjdumpViewerTool(),
             
             # Miscellaneous
             WordlistGenerator(),

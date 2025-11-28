@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import List
 
 from ..base import ToolResult
 
@@ -23,6 +24,8 @@ class ExeDecompiler:
         engine: str = "auto",
         function: str = "main",
         verbose: str = "false",
+        list_functions: str = "false",
+        address: str = "",
         **kwargs
     ) -> ToolResult:
         """Decompile an executable file.
@@ -46,6 +49,8 @@ class ExeDecompiler:
         engine = engine.lower().strip()
         function = function.strip() or "main"
         is_verbose = verbose.lower() in ("true", "1", "yes")
+        list_funcs = list_functions.lower() in ("true", "1", "yes")
+        addr = address.strip()
         
         # Detect available engines
         available = []
@@ -68,6 +73,14 @@ class ExeDecompiler:
         # Auto-detect best available engine
         if engine == "auto":
             engine = available[0] if available else "objdump"
+        
+        # List functions if requested
+        if list_funcs:
+            return self._list_functions(binary_path, engine)
+        
+        # Use address if provided
+        if addr:
+            function = addr
         
         # Perform decompilation
         try:
@@ -384,6 +397,71 @@ if (targetFunc == null) {{
                 title="objdump Error",
                 body=f"Error running objdump: {str(e)}"
             )
+
+    def _list_functions(self, binary_path: Path, engine: str) -> ToolResult:
+        """List all functions in the binary."""
+        functions: List[str] = []
+        
+        if engine == "rizin":
+            rizin_bin = shutil.which("rizin") or shutil.which("r2")
+            if rizin_bin:
+                try:
+                    cmd = [rizin_bin, "-q", "-c", "aaa; afl", str(binary_path)]
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=30
+                    )
+                    if result.stdout:
+                        lines = result.stdout.splitlines()
+                        for line in lines:
+                            if line.strip() and not line.startswith("[0x"):
+                                # Extract function name and address
+                                parts = line.split()
+                                if len(parts) >= 2:
+                                    addr = parts[0]
+                                    func_name = parts[-1] if len(parts) > 1 else ""
+                                    functions.append(f"{addr:>16} {func_name}")
+                except Exception:
+                    pass
+        
+        # Fallback to objdump/nm
+        if not functions:
+            if shutil.which("nm"):
+                try:
+                    cmd = ["nm", "-C", str(binary_path)]
+                    result = subprocess.run(
+                        cmd,
+                        capture_output=True,
+                        text=True,
+                        timeout=30
+                    )
+                    if result.stdout:
+                        for line in result.stdout.splitlines():
+                            parts = line.split()
+                            if len(parts) >= 3 and parts[1] in ("T", "t", "W", "w"):
+                                addr = parts[0]
+                                func_name = " ".join(parts[2:])
+                                functions.append(f"{addr:>16} {func_name}")
+                except Exception:
+                    pass
+        
+        if not functions:
+            return ToolResult(
+                title="Function Listing Failed",
+                body="Could not list functions. Try using a different engine or ensure the binary has symbols."
+            )
+        
+        body = f"Found {len(functions)} functions:\n\n"
+        body += "\n".join(functions[:200])  # Limit to 200 functions
+        if len(functions) > 200:
+            body += f"\n\n... (showing first 200 of {len(functions)} functions)"
+        
+        return ToolResult(
+            title=f"Functions in {binary_path.name}",
+            body=body
+        )
 
 
 __all__ = ["ExeDecompiler"]

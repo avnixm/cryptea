@@ -72,6 +72,8 @@ class Sublist3rTool:
         ports: str = "",
         engines: str = "",
         threads: str = "",
+        data_sources: str = "all",
+        analyze_results: str = "true",
         extra: str = "",
     ) -> ToolResult:
         if not network_consent_enabled():

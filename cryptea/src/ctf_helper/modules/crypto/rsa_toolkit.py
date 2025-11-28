@@ -30,7 +30,13 @@ class RSAToolkit:
             return self._analyse_modulus(n, e, ciphertext, known_factors, factor_limit)
         if mode_normalised == "crt":
             return self._hastad_crt(instances, e)
-        raise ValueError("mode must be 'analyse' or 'crt'")
+        if mode_normalised == "wiener":
+            return self._wiener_attack(n, e, ciphertext)
+        if mode_normalised == "fermat":
+            return self._fermat_factorization(n, e, ciphertext)
+        if mode_normalised == "common_modulus":
+            return self._common_modulus_attack(n, instances, e)
+        raise ValueError("mode must be 'analyse', 'crt', 'wiener', 'fermat', or 'common_modulus'")
 
     # ------------------------------------------------------------------
     # Analyse mode
@@ -247,3 +253,249 @@ class RSAToolkit:
         except UnicodeDecodeError:
             decoded = data.decode("utf-8", errors="replace")
         return ''.join(char if 32 <= ord(char) < 127 else '.' for char in decoded)
+
+    # ------------------------------------------------------------------
+    # Wiener Attack
+    # ------------------------------------------------------------------
+    def _wiener_attack(self, n_value: str, e_value: str, ciphertext: str) -> ToolResult:
+        """Wiener's attack for small private exponents using continued fractions."""
+        n = self._parse_int(n_value)
+        e = self._parse_int(e_value or "65537")
+        
+        if not n or not e:
+            raise ValueError("Provide modulus n and public exponent e")
+        
+        # Compute continued fraction expansion of e/n
+        convergents = self._continued_fraction_convergents(e, n)
+        
+        d_candidate = None
+        for k, d_guess in convergents:
+            # Check if d_guess is a valid private key
+            phi_guess = (e * d_guess - 1) // k
+            if phi_guess <= 0:
+                continue
+            
+            # Try to factor n using phi_guess
+            # n = p*q, phi = (p-1)*(q-1) = p*q - p - q + 1 = n - p - q + 1
+            # So: p + q = n - phi + 1
+            # And: p*q = n
+            # We can solve: x^2 - (n - phi + 1)*x + n = 0
+            b = n - phi_guess + 1
+            discriminant = b * b - 4 * n
+            if discriminant >= 0:
+                sqrt_disc = self._integer_root(discriminant, 2)
+                if sqrt_disc is not None and sqrt_disc * sqrt_disc == discriminant:
+                    p = (b + sqrt_disc) // 2
+                    q = (b - sqrt_disc) // 2
+                    if p * q == n and p > 1 and q > 1:
+                        d_candidate = d_guess
+                        factors = [p, q]
+                        break
+        
+        payload: Dict[str, object] = {
+            "n": str(n),
+            "e": str(e),
+            "success": d_candidate is not None,
+        }
+        
+        if d_candidate:
+            payload["d"] = str(d_candidate)
+            payload["factors"] = [str(f) for f in factors]
+            
+            # Decrypt if ciphertext provided
+            if ciphertext:
+                c = self._parse_int(ciphertext)
+                plaintext_int = pow(c, d_candidate, n)
+                plaintext_bytes = self._int_to_bytes(plaintext_int)
+                payload["plaintext"] = {
+                    "hex": plaintext_bytes.hex(),
+                    "text": self._safe_ascii(plaintext_bytes),
+                }
+        else:
+            payload["message"] = "Wiener attack failed - private exponent may not be small enough"
+        
+        return ToolResult(
+            title="RSA Wiener attack",
+            body=json.dumps(payload, indent=2),
+            mime_type="application/json"
+        )
+
+    def _continued_fraction_convergents(self, num: int, den: int) -> List[Tuple[int, int]]:
+        """Compute continued fraction convergents for num/den."""
+        convergents: List[Tuple[int, int]] = []
+        a_vals: List[int] = []
+        
+        # Compute continued fraction expansion
+        a, b = num, den
+        while b != 0:
+            a_vals.append(a // b)
+            a, b = b, a % b
+        
+        # Compute convergents
+        h_prev2, h_prev1 = 0, 1
+        k_prev2, k_prev1 = 1, 0
+        
+        for a_i in a_vals:
+            h = a_i * h_prev1 + h_prev2
+            k = a_i * k_prev1 + k_prev2
+            convergents.append((k, h))
+            h_prev2, h_prev1 = h_prev1, h
+            k_prev2, k_prev1 = k_prev1, k
+        
+        return convergents
+
+    # ------------------------------------------------------------------
+    # Fermat Factorization
+    # ------------------------------------------------------------------
+    def _fermat_factorization(self, n_value: str, e_value: str, ciphertext: str) -> ToolResult:
+        """Fermat factorization for moduli with close primes."""
+        n = self._parse_int(n_value)
+        e = self._parse_int(e_value or "65537")
+        
+        if not n:
+            raise ValueError("Provide modulus n")
+        
+        # Fermat: if n = p*q and p≈q, then n = a^2 - b^2 = (a-b)(a+b)
+        # Start with a = ceil(sqrt(n))
+        a = self._integer_root(n, 2)
+        if a is None or a * a < n:
+            a = a + 1 if a is not None else int(n ** 0.5) + 1
+        
+        max_iterations = 100000
+        factors = None
+        
+        for _ in range(max_iterations):
+            b_squared = a * a - n
+            if b_squared < 0:
+                a += 1
+                continue
+            
+            b = self._integer_root(b_squared, 2)
+            if b is not None and b * b == b_squared:
+                p = a - b
+                q = a + b
+                if p * q == n and p > 1 and q > 1:
+                    factors = [p, q]
+                    break
+            a += 1
+        
+        payload: Dict[str, object] = {
+            "n": str(n),
+            "e": str(e),
+            "success": factors is not None,
+        }
+        
+        if factors:
+            payload["factors"] = [str(f) for f in factors]
+            p, q = factors
+            phi = (p - 1) * (q - 1)
+            
+            if math.gcd(e, phi) == 1:
+                d = pow(e, -1, phi)
+                payload["d"] = str(d)
+                
+                if ciphertext:
+                    c = self._parse_int(ciphertext)
+                    plaintext_int = pow(c, d, n)
+                    plaintext_bytes = self._int_to_bytes(plaintext_int)
+                    payload["plaintext"] = {
+                        "hex": plaintext_bytes.hex(),
+                        "text": self._safe_ascii(plaintext_bytes),
+                    }
+        else:
+            payload["message"] = "Fermat factorization failed - primes may not be close enough"
+        
+        return ToolResult(
+            title="RSA Fermat factorization",
+            body=json.dumps(payload, indent=2),
+            mime_type="application/json"
+        )
+
+    # ------------------------------------------------------------------
+    # Common Modulus Attack
+    # ------------------------------------------------------------------
+    def _common_modulus_attack(self, n_value: str, instances: str, e_value: str) -> ToolResult:
+        """Common modulus attack when multiple ciphertexts share the same n."""
+        n = self._parse_int(n_value)
+        
+        if not n:
+            raise ValueError("Provide common modulus n")
+        
+        # Parse instances: each line should have ciphertext,e pairs
+        lines = [line.strip() for line in instances.splitlines() if line.strip()]
+        if len(lines) < 2:
+            raise ValueError("Provide at least two ciphertext,exponent pairs")
+        
+        pairs: List[Tuple[int, int]] = []
+        for line in lines:
+            if "," in line:
+                c_str, e_str = line.split(",", 1)
+            elif " " in line:
+                parts = line.split()
+                if len(parts) >= 2:
+                    c_str, e_str = parts[0], parts[1]
+                else:
+                    raise ValueError("Each line must contain ciphertext and exponent")
+            else:
+                raise ValueError("Each line must contain ciphertext,exponent separated by comma or space")
+            
+            c = self._parse_int(c_str.strip())
+            e = self._parse_int(e_str.strip())
+            pairs.append((c, e))
+        
+        # Check if all moduli are the same (we only have one n, so assume they all use it)
+        # Common modulus attack: if gcd(e1, e2) = 1, we can recover plaintext
+        if len(pairs) < 2:
+            raise ValueError("Need at least two ciphertexts")
+        
+        c1, e1 = pairs[0]
+        c2, e2 = pairs[1]
+        
+        # Extended Euclidean algorithm to find a, b such that a*e1 + b*e2 = 1
+        gcd_val, a, b = self._extended_gcd(e1, e2)
+        
+        if gcd_val != 1:
+            raise ValueError(f"gcd(e1, e2) = {gcd_val}, must be 1 for common modulus attack")
+        
+        # Recover plaintext: m = (c1^a * c2^b) mod n
+        # Handle negative exponents
+        if a < 0:
+            c1_inv = pow(c1, -1, n)
+            c1_part = pow(c1_inv, -a, n)
+        else:
+            c1_part = pow(c1, a, n)
+        
+        if b < 0:
+            c2_inv = pow(c2, -1, n)
+            c2_part = pow(c2_inv, -b, n)
+        else:
+            c2_part = pow(c2, b, n)
+        
+        plaintext_int = (c1_part * c2_part) % n
+        plaintext_bytes = self._int_to_bytes(plaintext_int)
+        
+        payload = {
+            "n": str(n),
+            "ciphertexts": [str(c) for c, _ in pairs],
+            "exponents": [str(e) for _, e in pairs],
+            "coefficients": {"a": a, "b": b},
+            "plaintext": {
+                "hex": plaintext_bytes.hex(),
+                "text": self._safe_ascii(plaintext_bytes),
+            },
+        }
+        
+        return ToolResult(
+            title="RSA common modulus attack",
+            body=json.dumps(payload, indent=2),
+            mime_type="application/json"
+        )
+
+    def _extended_gcd(self, a: int, b: int) -> Tuple[int, int, int]:
+        """Extended Euclidean algorithm: returns (gcd, x, y) such that gcd = a*x + b*y."""
+        if a == 0:
+            return b, 0, 1
+        gcd, x1, y1 = self._extended_gcd(b % a, a)
+        x = y1 - (b // a) * x1
+        y = x1
+        return gcd, x, y

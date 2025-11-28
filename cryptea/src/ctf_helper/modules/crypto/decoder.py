@@ -36,6 +36,11 @@ class DecoderWorkbenchTool:
             "gzip_compress": self._op_gzip_compress,
             "reverse": self._op_reverse,
             "xor": self._op_xor,
+            "caesar": self._op_caesar,
+            "vigenere": self._op_vigenere,
+            "morse_decode": self._op_morse_decode,
+            "binary_decode": self._op_binary_decode,
+            "binary_encode": self._op_binary_encode,
         }
 
     def run(self, data: str, operations: str = "", input_format: str = "text") -> ToolResult:
@@ -206,3 +211,106 @@ class DecoderWorkbenchTool:
         except ValueError:
             pass
         return candidate.encode("utf-8")
+
+    def _op_caesar(self, data: bytes, arg: Optional[str]) -> Tuple[bytes, Optional[str]]:
+        """Caesar cipher decode/encode."""
+        if not arg:
+            raise ValueError("caesar operation requires a shift amount (integer)")
+        try:
+            shift = int(arg)
+        except ValueError as exc:
+            raise ValueError("caesar argument must be an integer") from exc
+
+        text = self._safe_text(data)
+        result_chars: List[str] = []
+        
+        for char in text:
+            if 'a' <= char <= 'z':
+                idx = (ord(char) - ord('a') - shift) % 26
+                result_chars.append(chr(ord('a') + idx))
+            elif 'A' <= char <= 'Z':
+                idx = (ord(char) - ord('A') - shift) % 26
+                result_chars.append(chr(ord('A') + idx))
+            else:
+                result_chars.append(char)
+        
+        return ''.join(result_chars).encode("utf-8"), f"Caesar shift: {shift}"
+
+    def _op_vigenere(self, data: bytes, arg: Optional[str]) -> Tuple[bytes, Optional[str]]:
+        """Vigenère cipher decode (keyword-based)."""
+        if not arg:
+            raise ValueError("vigenere operation requires a keyword")
+
+        keyword = arg.upper()
+        text = self._safe_text(data)
+        result_chars: List[str] = []
+        key_idx = 0
+
+        for char in text:
+            if 'a' <= char <= 'z':
+                shift = ord(keyword[key_idx % len(keyword)]) - ord('A')
+                idx = (ord(char) - ord('a') - shift) % 26
+                result_chars.append(chr(ord('a') + idx))
+                key_idx += 1
+            elif 'A' <= char <= 'Z':
+                shift = ord(keyword[key_idx % len(keyword)]) - ord('A')
+                idx = (ord(char) - ord('A') - shift) % 26
+                result_chars.append(chr(ord('A') + idx))
+                key_idx += 1
+            else:
+                result_chars.append(char)
+
+        return ''.join(result_chars).encode("utf-8"), f"Vigenère keyword: {keyword}"
+
+    def _op_morse_decode(self, data: bytes, _arg: Optional[str]) -> Tuple[bytes, Optional[str]]:
+        """Decode Morse code to text."""
+        morse_to_char = {
+            '.-': 'A', '-...': 'B', '-.-.': 'C', '-..': 'D', '.': 'E',
+            '..-.': 'F', '--.': 'G', '....': 'H', '..': 'I', '.---': 'J',
+            '-.-': 'K', '.-..': 'L', '--': 'M', '-.': 'N', '---': 'O',
+            '.--.': 'P', '--.-': 'Q', '.-.': 'R', '...': 'S', '-': 'T',
+            '..-': 'U', '...-': 'V', '.--': 'W', '-..-': 'X', '-.--': 'Y',
+            '--..': 'Z',
+            '-----': '0', '.----': '1', '..---': '2', '...--': '3', '....-': '4',
+            '.....': '5', '-....': '6', '--...': '7', '---..': '8', '----.': '9',
+            '.-.-.-': '.', '--..--': ',', '..--..': '?', '.----.': "'", '-.-.--': '!',
+            '-..-.': '/', '-.--.': '(', '-.--.-': ')', '.-...': '&', '---...': ':',
+            '-.-.-.': ';', '-...-': '=', '.-.-.': '+', '-....-': '-', '..--.-': '_',
+            '.-..-.': '"', '...-..-': '$', '.--.-.': '@', '...---...': 'SOS',
+        }
+
+        text = self._safe_text(data).strip()
+        # Replace common separators with spaces
+        text = text.replace('/', ' ').replace('|', ' ')
+        
+        words = text.split('   ')  # Triple space = word separator
+        result_words: List[str] = []
+
+        for word in words:
+            letters = word.split()
+            decoded_word = ''.join(morse_to_char.get(letter.upper(), '?') for letter in letters)
+            result_words.append(decoded_word)
+
+        result = ' '.join(result_words)
+        return result.encode("utf-8"), "Morse code decoded"
+
+    def _op_binary_decode(self, data: bytes, _arg: Optional[str]) -> Tuple[bytes, Optional[str]]:
+        """Decode binary (ASCII 0s and 1s) to bytes."""
+        text = self._safe_text(data)
+        # Remove whitespace and non-binary characters
+        binary_str = ''.join(c for c in text if c in '01')
+        
+        if len(binary_str) % 8 != 0:
+            raise ValueError("Binary string length must be multiple of 8")
+        
+        result_bytes = bytearray()
+        for i in range(0, len(binary_str), 8):
+            byte_str = binary_str[i:i+8]
+            result_bytes.append(int(byte_str, 2))
+        
+        return bytes(result_bytes), f"Decoded {len(result_bytes)} bytes from binary"
+
+    def _op_binary_encode(self, data: bytes, _arg: Optional[str]) -> Tuple[bytes, Optional[str]]:
+        """Encode bytes to binary (ASCII 0s and 1s)."""
+        binary_str = ''.join(format(byte, '08b') for byte in data)
+        return binary_str.encode("ascii"), f"Encoded {len(data)} bytes to binary"

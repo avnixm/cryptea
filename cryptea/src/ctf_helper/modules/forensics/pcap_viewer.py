@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+import math
 import os
+import re
 import shutil
 import struct
 import subprocess
@@ -33,6 +35,9 @@ class PcapViewerTool:
         extract_tcp_streams: str = "false",
         extract_ftp_files: str = "false",
         extraction_dir: str = "",
+        detect_credentials: str = "false",
+        detect_payloads: str = "false",
+        detect_anomalies: str = "false",
     ) -> ToolResult:
         path = Path(file_path).expanduser()
         if not path.exists():
@@ -43,6 +48,10 @@ class PcapViewerTool:
         extract_http = self._truthy(extract_http_objects)
         extract_tcp = self._truthy(extract_tcp_streams)
         extract_ftp = self._truthy(extract_ftp_files)
+        detect_creds = self._truthy(detect_credentials)
+        detect_pay = self._truthy(detect_payloads)
+        detect_anom = self._truthy(detect_anomalies)
+        
         extraction_base: Optional[Path] = None
         if extraction_dir.strip():
             extraction_base = Path(extraction_dir).expanduser()
@@ -65,6 +74,15 @@ class PcapViewerTool:
                 tempfile.mkdtemp(prefix="pcap_ftp_")
             )
             artifacts["ftp_files"] = self._extract_ftp_files(path, ftp_dir)
+        
+        # Add detection features
+        if detect_creds:
+            summary["credentials"] = self._detect_credentials(path)
+        if detect_pay:
+            summary["hidden_payloads"] = self._detect_hidden_payloads(path)
+        if detect_anom:
+            summary["anomalies"] = self._detect_anomalies(path, summary)
+        
         if artifacts:
             summary["artifacts"] = artifacts
         body = json.dumps(summary, indent=2)
@@ -627,6 +645,326 @@ class PcapViewerTool:
             "stdout": (proc.stdout or "").strip(),
             "stderr": (proc.stderr or "").strip(),
         }
+
+    def _detect_credentials(self, path: Path) -> Dict[str, object]:
+        """Detect credentials in packet payloads."""
+        command = self._resolve_command("tshark", "CTF_HELPER_TSHARK")
+        if not command:
+            return {
+                "available": False,
+                "message": "tshark required for credential detection",
+            }
+        
+        credentials: List[Dict[str, object]] = []
+        
+        # Common credential patterns
+        credential_patterns = [
+            (r"(?i)password\s*[=:]\s*([^\s&;\"'<>]{4,50})", "password"),
+            (r"(?i)passwd\s*[=:]\s*([^\s&;\"'<>]{4,50})", "password"),
+            (r"(?i)pwd\s*[=:]\s*([^\s&;\"'<>]{4,50})", "password"),
+            (r"(?i)pass\s*[=:]\s*([^\s&;\"'<>]{4,50})", "password"),
+            (r"(?i)api[_-]?key\s*[=:]\s*([a-zA-Z0-9_\-]{10,100})", "api_key"),
+            (r"(?i)apikey\s*[=:]\s*([a-zA-Z0-9_\-]{10,100})", "api_key"),
+            (r"(?i)token\s*[=:]\s*([a-zA-Z0-9_\-]{10,200})", "token"),
+            (r"(?i)auth[_-]?token\s*[=:]\s*([a-zA-Z0-9_\-]{10,200})", "token"),
+            (r"(?i)bearer\s+([a-zA-Z0-9_\-\.]{20,200})", "bearer_token"),
+            (r"(?i)authorization:\s*(?:basic|bearer)\s+([a-zA-Z0-9_\-/=+]{10,200})", "authorization"),
+            (r"(?i)session[_-]?id\s*[=:]\s*([a-zA-Z0-9]{10,100})", "session_id"),
+            (r"(?i)sessionid\s*[=:]\s*([a-zA-Z0-9]{10,100})", "session_id"),
+            (r"(?i)secret[_-]?key\s*[=:]\s*([a-zA-Z0-9_\-]{10,100})", "secret_key"),
+            (r"(?i)access[_-]?key\s*[=:]\s*([a-zA-Z0-9_\-]{10,100})", "access_key"),
+            (r"(?i)username\s*[=:]\s*([^\s&;\"'<>]{3,50})", "username"),
+            (r"(?i)user\s*[=:]\s*([^\s&;\"'<>]{3,50})", "username"),
+            (r"(?i)login\s*[=:]\s*([^\s&;\"'<>]{3,50})", "username"),
+        ]
+        
+        try:
+            # Extract HTTP payloads using tshark
+            proc = subprocess.run(
+                [
+                    command,
+                    "-r", str(path),
+                    "-Y", "http",
+                    "-T", "fields",
+                    "-e", "http.request.uri",
+                    "-e", "http.request.method",
+                    "-e", "http.file_data",
+                    "-e", "http.cookie",
+                    "-e", "http.request.header",
+                    "-e", "http.response.header",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=300,
+                check=False,
+            )
+            
+            import re
+            lines = (proc.stdout or "").splitlines()
+            packet_data = "\n".join(lines)
+            
+            for pattern, cred_type in credential_patterns:
+                matches = re.finditer(pattern, packet_data, re.MULTILINE)
+                for match in matches:
+                    value = match.group(1) if match.lastindex else match.group(0)
+                    # Filter out common false positives
+                    if value and len(value) >= 4:
+                        credentials.append({
+                            "type": cred_type,
+                            "value": value[:100],  # Truncate long values
+                            "pattern": pattern[:50],
+                            "packet_context": "HTTP",
+                        })
+            
+            # Also check for base64 encoded credentials
+            b64_pattern = r"(?i)(?:password|pass|pwd|token|key)\s*[=:]\s*([A-Za-z0-9+/]{20,}={0,2})"
+            b64_matches = re.finditer(b64_pattern, packet_data)
+            for match in b64_matches:
+                value = match.group(1)
+                try:
+                    import base64
+                    decoded = base64.b64decode(value).decode('utf-8', errors='ignore')
+                    if decoded.isprintable() and len(decoded) >= 4:
+                        credentials.append({
+                            "type": "base64_encoded",
+                            "value": decoded[:100],
+                            "encoded": value[:50],
+                            "packet_context": "HTTP",
+                        })
+                except Exception:
+                    pass
+            
+            # Limit results
+            credentials = credentials[:100]
+            
+        except Exception as e:
+            return {
+                "available": True,
+                "error": str(e),
+                "credentials": [],
+            }
+        
+        return {
+            "available": True,
+            "count": len(credentials),
+            "credentials": credentials[:50],  # Return top 50
+        }
+
+    def _detect_hidden_payloads(self, path: Path) -> Dict[str, object]:
+        """Detect hidden payloads, steganography, and data exfiltration."""
+        command = self._resolve_command("tshark", "CTF_HELPER_TSHARK")
+        if not command:
+            return {
+                "available": False,
+                "message": "tshark required for payload detection",
+            }
+        
+        payloads: List[Dict[str, object]] = []
+        
+        try:
+            # Extract TCP payloads
+            proc = subprocess.run(
+                [
+                    command,
+                    "-r", str(path),
+                    "-Y", "tcp.payload",
+                    "-T", "fields",
+                    "-e", "tcp.stream",
+                    "-e", "tcp.payload",
+                    "-e", "ip.src",
+                    "-e", "ip.dst",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=300,
+                check=False,
+            )
+            
+            streams_data: Dict[int, Dict[str, object]] = {}
+            lines = (proc.stdout or "").splitlines()
+            
+            for line in lines[:1000]:  # Limit analysis
+                parts = line.split("\t")
+                if len(parts) < 2:
+                    continue
+                try:
+                    stream_id = int(parts[0])
+                    payload_hex = parts[1].replace(":", "")
+                    src = parts[2] if len(parts) > 2 else "unknown"
+                    dst = parts[3] if len(parts) > 3 else "unknown"
+                    
+                    try:
+                        payload_bytes = bytes.fromhex(payload_hex)
+                    except ValueError:
+                        continue
+                    
+                    if stream_id not in streams_data:
+                        streams_data[stream_id] = {
+                            "stream_id": stream_id,
+                            "source": src,
+                            "destination": dst,
+                            "total_bytes": 0,
+                            "chunks": [],
+                        }
+                    
+                    stream_info_val = streams_data[stream_id]
+                    if isinstance(stream_info_val, dict):
+                        total_bytes_val = stream_info_val.get("total_bytes", 0)
+                        if isinstance(total_bytes_val, int):
+                            stream_info_val["total_bytes"] = total_bytes_val + len(payload_bytes)
+                        
+                        chunks_val = stream_info_val.get("chunks")
+                        if isinstance(chunks_val, list):
+                            chunks_val.append(payload_bytes[:256])  # Sample
+                    
+                except (ValueError, IndexError):
+                    continue
+            
+            # Analyze streams for suspicious patterns
+            for stream_id, stream_info in list(streams_data.items())[:50]:
+                if not isinstance(stream_info, dict):
+                    continue
+                chunks_val = stream_info.get("chunks")
+                if not isinstance(chunks_val, list):
+                    continue
+                chunks: List[bytes] = [b for b in chunks_val if isinstance(b, bytes)]
+                combined = b"".join(chunks[:10])  # Analyze first 10 chunks
+                
+                if len(combined) < 16:
+                    continue
+                
+                # Check for high entropy (encrypted/compressed data)
+                entropy = self._calculate_entropy(combined)
+                
+                # Check for base64-like patterns
+                import base64
+                import string
+                printable_ratio = sum(1 for b in combined if 32 <= b < 127) / len(combined)
+                b64_chars = set(string.ascii_letters + string.digits + "+/=")
+                b64_ratio = sum(1 for b in combined if chr(b) in b64_chars) / len(combined)
+                
+                suspicious = False
+                reasons = []
+                
+                if entropy > 7.5:
+                    suspicious = True
+                    reasons.append("high_entropy")
+                
+                if b64_ratio > 0.8 and len(combined) > 50:
+                    suspicious = True
+                    reasons.append("base64_like")
+                
+                if printable_ratio > 0.9 and len(combined) > 100:
+                    suspicious = True
+                    reasons.append("high_printable")
+                
+                if suspicious:
+                    payloads.append({
+                        "stream_id": stream_id,
+                        "source": stream_info["source"],
+                        "destination": stream_info["destination"],
+                        "size_bytes": stream_info["total_bytes"],
+                        "entropy": round(entropy, 2),
+                        "reasons": reasons,
+                        "sample": combined[:100].hex(),
+                    })
+        
+        except Exception as e:
+            return {
+                "available": True,
+                "error": str(e),
+                "payloads": [],
+            }
+        
+        return {
+            "available": True,
+            "count": len(payloads),
+            "payloads": payloads[:30],
+        }
+
+    def _detect_anomalies(self, path: Path, summary: Dict[str, object]) -> Dict[str, object]:
+        """Detect unusual traffic patterns and protocol violations."""
+        anomalies: List[Dict[str, object]] = []
+        
+        # Analyze protocol distribution
+        proto_counts_val = summary.get("protocol_counts", {})
+        total_packets_val = summary.get("packet_count", 0)
+        
+        total_packets = int(total_packets_val) if isinstance(total_packets_val, (int, float)) else 0
+        
+        if total_packets > 0 and isinstance(proto_counts_val, dict):
+            # Check for unusual protocol ratios
+            common_protos = {"TCP", "UDP", "ICMP", "ARP", "HTTP", "DNS"}
+            unusual_protos: Dict[str, int] = {}
+            for k, v in proto_counts_val.items():
+                if isinstance(k, str) and k not in common_protos:
+                    count_int = int(v) if isinstance(v, (int, float)) else 0
+                    if count_int > 0:
+                        unusual_protos[k] = count_int
+            
+            for proto, count in unusual_protos.items():
+                ratio = count / total_packets
+                if ratio > 0.1:  # More than 10% unusual protocol
+                    anomalies.append({
+                        "type": "unusual_protocol",
+                        "severity": "medium",
+                        "protocol": proto,
+                        "packets": count,
+                        "percentage": round(ratio * 100, 2),
+                        "message": f"Unusual protocol {proto} represents {ratio*100:.1f}% of traffic",
+                    })
+        
+        # Check for port scanning patterns
+        conversations = summary.get("conversations", [])
+        if isinstance(conversations, list):
+            # Count connections per destination
+            dst_counts: Dict[str, int] = {}
+            for conv in conversations:
+                if isinstance(conv, dict):
+                    dst = str(conv.get("destination", ""))
+                    if dst:
+                        dst_counts[dst] = dst_counts.get(dst, 0) + 1
+            
+            # Find destinations with many connections (potential scan)
+            for dst, count in dst_counts.items():
+                if count > 50:
+                    anomalies.append({
+                        "type": "potential_port_scan",
+                        "severity": "high",
+                        "target": dst,
+                        "connections": count,
+                        "message": f"High connection count ({count}) to {dst} suggests port scanning",
+                    })
+        
+        # Check for large payloads
+        if "total_bytes" in summary:
+            total_bytes_val = summary.get("total_bytes", 0)
+            packet_count_val = summary.get("packet_count", 1)
+            total_bytes = int(total_bytes_val) if isinstance(total_bytes_val, (int, float)) else 0
+            packet_count = int(packet_count_val) if isinstance(packet_count_val, (int, float)) else 1
+            avg_packet_size = total_bytes / packet_count if packet_count > 0 else 0
+            
+            if avg_packet_size > 1500:  # Larger than typical MTU
+                anomalies.append({
+                    "type": "large_packets",
+                    "severity": "low",
+                    "avg_size": round(avg_packet_size, 0),
+                    "message": f"Unusually large average packet size ({avg_packet_size:.0f} bytes)",
+                })
+        
+        return {
+            "count": len(anomalies),
+            "anomalies": anomalies[:50],
+        }
+
+    def _calculate_entropy(self, data: bytes) -> float:
+        """Calculate Shannon entropy of data."""
+        if not data:
+            return 0.0
+        from collections import Counter
+        counts = Counter(data)
+        total = len(data)
+        return -sum((count / total) * math.log2(count / total) for count in counts.values())
 
     def _resolve_command(self, name: str, env_var: str) -> Optional[str]:
         explicit = os.environ.get(env_var)

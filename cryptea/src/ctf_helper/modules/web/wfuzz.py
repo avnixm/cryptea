@@ -6,7 +6,7 @@ import json
 import shutil
 import subprocess
 from pathlib import Path
-from typing import List, NamedTuple, Sequence
+from typing import Dict, List, NamedTuple, Sequence
 
 from ..base import ToolResult
 from ...data_paths import user_config_dir, user_data_dir
@@ -80,7 +80,13 @@ class WfuzzTool:
         hide_codes: str = "",
         show_codes: str = "",
         hide_lines: str = "",
+        hide_words: str = "",
+        hide_chars: str = "",
         threads: str = "100",
+        cookie: str = "",
+        header: str = "",
+        post_data: str = "",
+        parse_results: str = "true",
         extra: str = "",
     ) -> ToolResult:
         if not network_consent_enabled():
@@ -132,6 +138,27 @@ class WfuzzTool:
         
         if hide_lines.strip():
             args.extend(["--hl", hide_lines.strip()])
+        
+        if hide_words.strip():
+            args.extend(["--hw", hide_words.strip()])
+        
+        if hide_chars.strip():
+            args.extend(["--hh", hide_chars.strip()])
+        
+        # Cookie fuzzing
+        if cookie.strip():
+            cookie_fuzz = cookie.replace("FUZZ", fuzz_keyword) if "FUZZ" not in cookie else cookie.replace("FUZZ", fuzz_keyword)
+            args.extend(["-H", f"Cookie: {cookie_fuzz}"])
+
+        # Header fuzzing
+        if header.strip():
+            header_fuzz = header.replace("FUZZ", fuzz_keyword) if "FUZZ" not in header else header.replace("FUZZ", fuzz_keyword)
+            args.extend(["-H", header_fuzz])
+
+        # POST data fuzzing
+        if post_data.strip():
+            post_fuzz = post_data.replace("FUZZ", fuzz_keyword)
+            args.extend(["-d", post_fuzz, "-X", "POST"])
 
         # Threads
         if threads.strip():
@@ -158,21 +185,79 @@ class WfuzzTool:
         body_lines.append(f"Command: {' '.join(args)}")
         body_lines.append("")
         
-        if proc.stdout.strip():
+        stdout_text = proc.stdout.strip()
+        
+        if stdout_text:
+            if self._is_truthy(parse_results):
+                parsed = self._parse_wfuzz_output(stdout_text)
+                if parsed:
+                    body_lines.append("Parsed Results:")
+                    body_lines.append(json.dumps(parsed, indent=2))
+                    body_lines.append("")
+                    body_lines.append("Raw Output:")
+            
             body_lines.append("Results:")
-            body_lines.append(proc.stdout.strip())
+            body_lines.append(stdout_text)
         
         if proc.stderr.strip():
             body_lines.append("")
             body_lines.append("Errors/Warnings:")
             body_lines.append(proc.stderr.strip())
 
-        if proc.returncode != 0 and not proc.stdout.strip():
+        if proc.returncode != 0 and not stdout_text:
             raise RuntimeError(f"Wfuzz failed: {proc.stderr.strip()}")
 
         return ToolResult(
             title=f"Wfuzz: {target}",
             body="\n".join(body_lines).strip(),
-            mime_type="text/plain",
+            mime_type="application/json" if self._is_truthy(parse_results) and stdout_text else "text/plain",
         )
+    
+    def _parse_wfuzz_output(self, output: str) -> Dict[str, object]:
+        """Parse wfuzz output into structured format."""
+        results: List[Dict[str, object]] = []
+        lines = output.splitlines()
+        
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith("Total"):
+                continue
+            
+            # Parse wfuzz table format
+            # Format: Code    Lines    Word    Chars    Payload
+            parts = line.split()
+            if len(parts) >= 5:
+                try:
+                    code = int(parts[0])
+                    lines_count = int(parts[1])
+                    words_count = int(parts[2])
+                    chars_count = int(parts[3])
+                    payload = " ".join(parts[4:])
+                    
+                    results.append({
+                        "code": code,
+                        "lines": lines_count,
+                        "words": words_count,
+                        "chars": chars_count,
+                        "payload": payload,
+                    })
+                except (ValueError, IndexError):
+                    continue
+        
+        summary = {
+            "total_requests": len(results),
+            "by_status_code": {},
+        }
+        
+        for result in results:
+            code = str(result.get("code", 0))
+            summary["by_status_code"][code] = summary["by_status_code"].get(code, 0) + 1
+        
+        return {
+            "summary": summary,
+            "results": results,
+        }
+
+    def _is_truthy(self, value: str) -> bool:
+        return value.lower() in {"1", "true", "yes", "y", "on"}
 

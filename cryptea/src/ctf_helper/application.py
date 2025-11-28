@@ -103,6 +103,7 @@ TOOL_ICON_MAP: Dict[str, str] = {
     "binary diff": "view-dual-symbolic",
     "pe/elf inspector": "text-x-generic-symbolic",
     "decompiler": "accessories-text-editor-symbolic",
+    "objdump viewer": "utilities-terminal-symbolic",
     "symbol resolver": "view-grid-symbolic",
     "http request builder": "network-server-symbolic",
     "cookie inspector": "applications-web-symbolic",
@@ -140,6 +141,7 @@ TOOL_ICON_MAP: Dict[str, str] = {
     "volatility": "utilities-system-monitor-symbolic",
     "sleuthkit": "drive-harddisk-symbolic",
     "scalpel": "drive-harddisk-symbolic",
+    "binwalk": "drive-harddisk-symbolic",
     # New crypto tools
     "rsactftool": "emblem-locked-symbolic",
     "featherduster": "emblem-locked-symbolic",
@@ -732,10 +734,22 @@ class MainWindow:
         # Binary Inspector page
         inspector_reverse_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
         self._build_binary_inspector_detail(inspector_reverse_box)
+        self.tool_detail_stack.add_named(inspector_reverse_box, "binary_inspector")
 
         # EXE Decompiler page
         exe_decompiler_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
         self._build_exe_decompiler_detail(exe_decompiler_box)
+        self.tool_detail_stack.add_named(exe_decompiler_box, "exe_decompiler")
+
+        # objdump Viewer page
+        objdump_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_objdump_viewer_detail(objdump_box)
+        self.tool_detail_stack.add_named(objdump_box, "objdump_viewer")
+
+        # Binwalk page
+        binwalk_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_binwalk_detail(binwalk_box)
+        self.tool_detail_stack.add_named(binwalk_box, "binwalk")
 
         # Wordlist Generator page
         wordlist_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
@@ -796,6 +810,11 @@ class MainWindow:
         bulk_extractor_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
         self._build_bulk_extractor_detail(bulk_extractor_box)
         self.tool_detail_stack.add_named(bulk_extractor_box, "bulk_extractor")
+
+        # Binwalk page
+        binwalk_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
+        self._build_binwalk_detail(binwalk_box)
+        self.tool_detail_stack.add_named(binwalk_box, "binwalk")
 
         # Foremost page
         foremost_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12, margin_top=16, margin_bottom=16, margin_start=16, margin_end=16)
@@ -1879,6 +1898,7 @@ class MainWindow:
             "memory analyzer": self._open_memory_analyzer,
             "disk image tools": self._open_disk_image_tools,
             "timeline builder": self._open_timeline_builder,
+            "binwalk": self._open_binwalk,
             "bulk extractor": self._open_bulk_extractor,
             "foremost": self._open_foremost,
             "scalpel": self._open_scalpel,
@@ -1915,6 +1935,7 @@ class MainWindow:
             "binary diff": self._open_binary_diff,
             "pe/elf inspector": self._open_binary_inspector,
             "exe decompiler": self._open_exe_decompiler,
+            "objdump viewer": self._open_objdump_viewer,
         }
         return handlers.get(name)
 
@@ -7766,6 +7787,386 @@ class MainWindow:
         buffer = self.bulk_extractor_result_view.get_buffer()
         start, end = buffer.get_bounds()
         clipboard.set_text(buffer.get_text(start, end, True))
+
+    # ---------------------- Binwalk detail ----------------------
+    def _build_binwalk_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("Binwalk")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        # Input file section
+        input_label = Gtk.Label(label="Input File", xalign=0)
+        input_label.add_css_class("title-4")
+        form.append(input_label)
+
+        file_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.binwalk_file_entry = Gtk.Entry()
+        self.binwalk_file_entry.add_css_class("modern-entry")
+        self.binwalk_file_entry.set_placeholder_text("Select a firmware or binary file...")
+        self.binwalk_file_entry.set_hexpand(True)
+        file_row.append(self.binwalk_file_entry)
+        browse_file_btn = Gtk.Button(label="Browse…")
+        browse_file_btn.connect("clicked", self._on_binwalk_file_browse)
+        file_row.append(browse_file_btn)
+        form.append(file_row)
+
+        # Scan options section
+        options_label = Gtk.Label(label="Scan Options", xalign=0)
+        options_label.add_css_class("title-4")
+        form.append(options_label)
+
+        # Extract option
+        extract_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.binwalk_extract_check = Gtk.CheckButton(label="Extract embedded data automatically")
+        self.binwalk_extract_check.set_tooltip_text("Automatically extract detected files and archives")
+        extract_row.append(self.binwalk_extract_check)
+        form.append(extract_row)
+
+        # Scan depth
+        depth_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        depth_row.append(Gtk.Label(label="Scan Depth (1-5)", xalign=0))
+        self.binwalk_depth_spin = Gtk.SpinButton()
+        self.binwalk_depth_spin.set_adjustment(Gtk.Adjustment(value=1, lower=1, upper=5, step_increment=1))
+        self.binwalk_depth_spin.set_value(1)
+        self.binwalk_depth_spin.set_tooltip_text("Depth for recursive extraction (1 = single level, 5 = deep recursive)")
+        depth_row.append(self.binwalk_depth_spin)
+        form.append(depth_row)
+
+        # Custom signatures
+        custom_sig_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        custom_sig_row.append(Gtk.Label(label="Custom Signatures (optional)", xalign=0))
+        self.binwalk_custom_sig_entry = Gtk.Entry()
+        self.binwalk_custom_sig_entry.add_css_class("modern-entry")
+        self.binwalk_custom_sig_entry.set_placeholder_text("Hex signatures (e.g., ff d8 ff)")
+        custom_sig_row.append(self.binwalk_custom_sig_entry)
+        form.append(custom_sig_row)
+
+        # Output directory
+        output_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        output_row.append(Gtk.Label(label="Output Directory (optional)", xalign=0))
+        self.binwalk_output_entry = Gtk.Entry()
+        self.binwalk_output_entry.add_css_class("modern-entry")
+        self.binwalk_output_entry.set_placeholder_text("Leave empty for temporary directory...")
+        output_row.append(self.binwalk_output_entry)
+        browse_output_btn = Gtk.Button(label="Browse…")
+        browse_output_btn.connect("clicked", self._on_binwalk_output_browse)
+        output_row.append(browse_output_btn)
+        form.append(output_row)
+
+        # Action buttons
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.binwalk_run_btn = Gtk.Button(label="Run Binwalk")
+        self.binwalk_run_btn.add_css_class("suggested-action")
+        self.binwalk_run_btn.connect("clicked", self._on_binwalk_run)
+        actions_row.append(self.binwalk_run_btn)
+        self.binwalk_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.binwalk_copy_btn.set_tooltip_text("Copy result")
+        self.binwalk_copy_btn.set_sensitive(False)
+        self.binwalk_copy_btn.connect("clicked", self._on_binwalk_copy)
+        actions_row.append(self.binwalk_copy_btn)
+        form.append(actions_row)
+
+        # Result section
+        result_label = Gtk.Label(label="Result", xalign=0)
+        result_label.add_css_class("title-4")
+        form.append(result_label)
+
+        self.binwalk_result_view = Gtk.TextView()
+        self.binwalk_result_view.add_css_class("output-text")
+        self.binwalk_result_view.set_editable(False)
+        self.binwalk_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.binwalk_result_view)
+        form.append(result_scroller)
+
+    def _open_binwalk(self, tool) -> None:
+        self._active_tool = tool
+        self.binwalk_file_entry.set_text("")
+        self.binwalk_extract_check.set_active(False)
+        self.binwalk_depth_spin.set_value(1)
+        self.binwalk_custom_sig_entry.set_text("")
+        self.binwalk_output_entry.set_text("")
+        self._set_text_view_text(self.binwalk_result_view, "")
+        self.binwalk_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("binwalk")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_binwalk_file_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select firmware or binary file", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.binwalk_file_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_binwalk_output_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select output directory", self.window, Gtk.FileChooserAction.SELECT_FOLDER, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.binwalk_output_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_binwalk_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        
+        input_file = self.binwalk_file_entry.get_text().strip()
+        if not input_file:
+            self.toast_overlay.add_toast(Adw.Toast.new("Input file is required"))
+            return
+        
+        extract = "true" if self.binwalk_extract_check.get_active() else "false"
+        depth = str(int(self.binwalk_depth_spin.get_value()))
+        custom_sig = self.binwalk_custom_sig_entry.get_text().strip()
+        output_dir = self.binwalk_output_entry.get_text().strip()
+        
+        self.binwalk_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.binwalk_result_view, "Running Binwalk analysis…")
+
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(
+                    file_path=input_file,
+                    extract=extract,
+                    output_dir=output_dir,
+                    scan_depth=depth,
+                    custom_signatures=custom_sig,
+                )
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.binwalk_result_view, body)
+                GLib.idle_add(self.binwalk_copy_btn.set_sensitive, bool(body.strip()))
+            except Exception as exc:
+                error_msg = str(exc)
+                GLib.idle_add(self._set_text_view_text, self.binwalk_result_view, f"Error: {error_msg}")
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(f"Error: {exc}"))
+            finally:
+                GLib.idle_add(self.binwalk_run_btn.set_sensitive, True)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_binwalk_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.binwalk_result_view.get_buffer()
+        if buffer:
+            start = buffer.get_start_iter()
+            end = buffer.get_end_iter()
+            text = buffer.get_text(start, end, False)
+            clipboard.set(text)
+            self.toast_overlay.add_toast(Adw.Toast.new("Result copied to clipboard"))
+
+    # ---------------------- objdump Viewer detail ----------------------
+    def _build_objdump_viewer_detail(self, root: Gtk.Box) -> None:
+        header_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        back_btn = Gtk.Button.new_from_icon_name("go-previous-symbolic")
+        back_btn.set_tooltip_text("Back to tools")
+        back_btn.connect("clicked", lambda *_: self._navigate_back_to_tools())
+        header_row.append(back_btn)
+        title = Gtk.Label(xalign=0)
+        title.add_css_class("title-3")
+        title.set_text("objdump Viewer")
+        header_row.append(title)
+        root.append(header_row)
+
+        clamp = Adw.Clamp(maximum_size=760, tightening_threshold=620)
+        root.append(clamp)
+        form = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
+        clamp.set_child(form)
+
+        # Input file section
+        input_label = Gtk.Label(label="Input File", xalign=0)
+        input_label.add_css_class("title-4")
+        form.append(input_label)
+
+        file_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.objdump_file_entry = Gtk.Entry()
+        self.objdump_file_entry.add_css_class("modern-entry")
+        self.objdump_file_entry.set_placeholder_text("Select a binary file...")
+        self.objdump_file_entry.set_hexpand(True)
+        file_row.append(self.objdump_file_entry)
+        browse_file_btn = Gtk.Button(label="Browse…")
+        browse_file_btn.connect("clicked", self._on_objdump_file_browse)
+        file_row.append(browse_file_btn)
+        form.append(file_row)
+
+        # View options section
+        options_label = Gtk.Label(label="View Options", xalign=0)
+        options_label.add_css_class("title-4")
+        form.append(options_label)
+
+        # View type
+        view_type_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        view_type_row.append(Gtk.Label(label="View Type", xalign=0))
+        self.objdump_view_type_combo = Gtk.ComboBoxText()
+        self.objdump_view_type_combo.append("sections", "Sections")
+        self.objdump_view_type_combo.append("symbols", "Symbols")
+        self.objdump_view_type_combo.append("disassembly", "Disassembly")
+        self.objdump_view_type_combo.append("relocations", "Relocations")
+        self.objdump_view_type_combo.append("all", "All")
+        self.objdump_view_type_combo.set_active_id("sections")
+        view_type_row.append(self.objdump_view_type_combo)
+        form.append(view_type_row)
+
+        # Syntax
+        syntax_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        syntax_row.append(Gtk.Label(label="Syntax", xalign=0))
+        self.objdump_syntax_combo = Gtk.ComboBoxText()
+        self.objdump_syntax_combo.append("intel", "Intel")
+        self.objdump_syntax_combo.append("att", "AT&T")
+        self.objdump_syntax_combo.set_active_id("intel")
+        syntax_row.append(self.objdump_syntax_combo)
+        form.append(syntax_row)
+
+        # Function (for disassembly)
+        function_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        function_row.append(Gtk.Label(label="Function (optional)", xalign=0))
+        self.objdump_function_entry = Gtk.Entry()
+        self.objdump_function_entry.add_css_class("modern-entry")
+        self.objdump_function_entry.set_placeholder_text("Function name or address...")
+        self.objdump_function_entry.set_hexpand(True)
+        function_row.append(self.objdump_function_entry)
+        form.append(function_row)
+
+        # Address range (for disassembly)
+        address_range_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        address_range_row.append(Gtk.Label(label="Address Range (optional)", xalign=0))
+        self.objdump_address_range_entry = Gtk.Entry()
+        self.objdump_address_range_entry.add_css_class("modern-entry")
+        self.objdump_address_range_entry.set_placeholder_text("start-end (e.g., 0x400000-0x400100)")
+        self.objdump_address_range_entry.set_hexpand(True)
+        address_range_row.append(self.objdump_address_range_entry)
+        form.append(address_range_row)
+
+        # Max lines
+        max_lines_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        max_lines_row.append(Gtk.Label(label="Max Lines", xalign=0))
+        self.objdump_max_lines_spin = Gtk.SpinButton()
+        self.objdump_max_lines_spin.set_adjustment(Gtk.Adjustment(value=1000, lower=100, upper=5000, step_increment=100))
+        self.objdump_max_lines_spin.set_value(1000)
+        max_lines_row.append(self.objdump_max_lines_spin)
+        form.append(max_lines_row)
+
+        # Action buttons
+        actions_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.objdump_run_btn = Gtk.Button(label="View")
+        self.objdump_run_btn.add_css_class("suggested-action")
+        self.objdump_run_btn.connect("clicked", self._on_objdump_run)
+        actions_row.append(self.objdump_run_btn)
+        self.objdump_copy_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        self.objdump_copy_btn.set_tooltip_text("Copy result")
+        self.objdump_copy_btn.set_sensitive(False)
+        self.objdump_copy_btn.connect("clicked", self._on_objdump_copy)
+        actions_row.append(self.objdump_copy_btn)
+        form.append(actions_row)
+
+        # Result section
+        result_label = Gtk.Label(label="Result", xalign=0)
+        result_label.add_css_class("title-4")
+        form.append(result_label)
+
+        self.objdump_result_view = Gtk.TextView()
+        self.objdump_result_view.add_css_class("output-text")
+        self.objdump_result_view.set_editable(False)
+        self.objdump_result_view.set_monospace(True)
+        result_scroller = Gtk.ScrolledWindow()
+        result_scroller.add_css_class("output-box")
+        result_scroller.set_min_content_height(550)
+        result_scroller.set_child(self.objdump_result_view)
+        form.append(result_scroller)
+
+    def _open_objdump_viewer(self, tool) -> None:
+        self._active_tool = tool
+        self.objdump_file_entry.set_text("")
+        self.objdump_view_type_combo.set_active_id("sections")
+        self.objdump_syntax_combo.set_active_id("intel")
+        self.objdump_function_entry.set_text("")
+        self.objdump_address_range_entry.set_text("")
+        self.objdump_max_lines_spin.set_value(1000)
+        self._set_text_view_text(self.objdump_result_view, "")
+        self.objdump_copy_btn.set_sensitive(False)
+        self.tool_detail_stack.set_visible_child_name("objdump_viewer")
+        self.content_stack.set_visible_child_name("tool_detail")
+
+    def _on_objdump_file_browse(self, _btn: Gtk.Button) -> None:
+        dialog = Gtk.FileChooserNative.new("Select binary file", self.window, Gtk.FileChooserAction.OPEN, None, None)
+        dialog.set_modal(True)
+        response = self._run_native_dialog(dialog)
+        if response == Gtk.ResponseType.ACCEPT:
+            file = dialog.get_file()
+            if file:
+                self.objdump_file_entry.set_text(file.get_path() or "")
+        dialog.destroy()
+
+    def _on_objdump_run(self, _btn: Gtk.Button) -> None:
+        if not getattr(self, "_active_tool", None):
+            return
+        
+        input_file = self.objdump_file_entry.get_text().strip()
+        if not input_file:
+            self.toast_overlay.add_toast(Adw.Toast.new("Input file is required"))
+            return
+        
+        view_type = self.objdump_view_type_combo.get_active_id() or "sections"
+        syntax = self.objdump_syntax_combo.get_active_id() or "intel"
+        function = self.objdump_function_entry.get_text().strip()
+        address_range = self.objdump_address_range_entry.get_text().strip()
+        max_lines = str(int(self.objdump_max_lines_spin.get_value()))
+
+        self.objdump_run_btn.set_sensitive(False)
+        self._set_text_view_text(self.objdump_result_view, "Loading...")
+
+        def worker() -> None:
+            try:
+                result = self._active_tool.run(
+                    file_path=input_file,
+                    view_type=view_type,
+                    function=function,
+                    address_range=address_range,
+                    syntax=syntax,
+                    max_lines=max_lines,
+                )
+                body = getattr(result, "body", str(result))
+                GLib.idle_add(self._set_text_view_text, self.objdump_result_view, body)
+                GLib.idle_add(self.objdump_copy_btn.set_sensitive, True)
+            except Exception as exc:
+                error_msg = f"Error: {exc}"
+                GLib.idle_add(self._set_text_view_text, self.objdump_result_view, error_msg)
+                GLib.idle_add(self.toast_overlay.add_toast, Adw.Toast.new(error_msg))
+            finally:
+                GLib.idle_add(self.objdump_run_btn.set_sensitive, True)
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _on_objdump_copy(self, _btn: Gtk.Button) -> None:
+        display = self.window.get_display()
+        if display is None:
+            return
+        clipboard = display.get_clipboard()
+        buffer = self.objdump_result_view.get_buffer()
+        start, end = buffer.get_bounds()
+        clipboard.set_text(buffer.get_text(start, end, True))
+        self.toast_overlay.add_toast(Adw.Toast.new("Result copied to clipboard"))
 
     # ---------------------- Foremost detail ----------------------
     def _build_foremost_detail(self, root: Gtk.Box) -> None:

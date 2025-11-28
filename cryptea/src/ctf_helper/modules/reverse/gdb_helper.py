@@ -28,6 +28,9 @@ class GDBHelper:
         stop_on_entry: str = "false",
         attach_pid: str = "",
         additional_files: str = "",
+        dump_memory: str = "",
+        dump_registers: str = "false",
+        dump_stack: str = "false",
     ) -> ToolResult:
         binary = shutil.which("gdb")
         if not binary:
@@ -44,6 +47,9 @@ class GDBHelper:
             stop_on_entry=stop_on_entry,
             attach_pid=attach_pid,
             additional_files=additional_files,
+            dump_memory=dump_memory,
+            dump_registers=dump_registers,
+            dump_stack=dump_stack,
         )
 
         with tempfile.NamedTemporaryFile("w", suffix=".gdb", delete=False) as script:
@@ -74,6 +80,9 @@ class GDBHelper:
         stop_on_entry: str,
         attach_pid: str,
         additional_files: str,
+        dump_memory: str,
+        dump_registers: str,
+        dump_stack: str,
     ) -> List[str]:
         lines: List[str] = ["set pagination off"]
         if self._truthy(stop_on_entry):
@@ -88,6 +97,30 @@ class GDBHelper:
         if run_args.strip():
             quoted = " ".join(shlex.quote(arg) for arg in shlex.split(run_args))
             lines.append(f"set args {quoted}")
+        
+        # Enhanced memory/register dumping
+        if self._truthy(dump_registers):
+            lines.append("info registers")
+            lines.append("info all-registers")
+        
+        if self._truthy(dump_stack):
+            lines.append("bt")
+            lines.append("info frame")
+            lines.append("x/20 $sp")
+        
+        if dump_memory.strip():
+            # Parse memory dump specifications (format: addr:size or addr:size:file)
+            for mem_spec in self._split_lines(dump_memory):
+                parts = mem_spec.split(":")
+                if len(parts) >= 2:
+                    addr = parts[0].strip()
+                    size = parts[1].strip()
+                    if len(parts) >= 3:
+                        filename = parts[2].strip()
+                        lines.append(f"dump binary memory {filename} {addr} {addr}+{size}")
+                    else:
+                        lines.append(f"x/{size}xg {addr}")
+        
         default_cmds = _DEFAULT_COMMANDS if not commands.strip() else self._split_lines(commands)
         for cmd in default_cmds:
             lines.append(cmd)

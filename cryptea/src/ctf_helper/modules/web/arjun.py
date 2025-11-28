@@ -72,6 +72,9 @@ class ArjunTool:
         headers: str = "",
         delay: str = "",
         threads: str = "",
+        json_data: str = "",
+        xml_data: str = "",
+        analyze_structure: str = "true",
         extra: str = "",
     ) -> ToolResult:
         if not network_consent_enabled():
@@ -97,8 +100,28 @@ class ArjunTool:
         args.extend(selected_profile.args)
 
         # HTTP method
-        if method.strip().upper() in ["GET", "POST", "JSON"]:
-            args.extend(["-m", method.strip().upper()])
+        method_upper = method.strip().upper()
+        if method_upper in ["GET", "POST", "JSON", "XML"]:
+            args.extend(["-m", method_upper])
+
+        # JSON data
+        if json_data.strip():
+            args.extend(["-j", json_data.strip()])
+            if method_upper != "JSON":
+                args = [a for a in args if not (a == "-m")]
+                args.extend(["-m", "JSON"])
+
+        # XML data
+        if xml_data.strip():
+            args.extend(["-x", xml_data.strip()])
+            if method_upper != "XML":
+                args = [a for a in args if not (a == "-m")]
+                args.extend(["-m", "XML"])
+
+        # Structure analysis hint (Arjun handles this internally, but we document it)
+        if _is_truthy(analyze_structure) and (json_data.strip() or xml_data.strip()):
+            # Arjun automatically analyzes JSON/XML structures when -j or -x is used
+            pass
 
         # Headers
         if headers.strip():
@@ -149,4 +172,8 @@ class ArjunTool:
             body="\n".join(body_lines).strip(),
             mime_type="text/plain",
         )
+
+
+def _is_truthy(value: str) -> bool:
+    return value.lower() in {"1", "true", "yes", "y", "on"}
 

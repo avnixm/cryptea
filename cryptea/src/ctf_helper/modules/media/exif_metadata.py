@@ -27,7 +27,13 @@ class ExifMetadataTool:
     description = "Inspect metadata, detect GPS hints, and prepare mapping links."
     category = "Stego & Media"
 
-    def run(self, file_path: str, prefer_exiftool: str = "true") -> ToolResult:
+    def run(
+        self,
+        file_path: str,
+        prefer_exiftool: str = "true",
+        detect_flags: str = "true",
+        summary_format: str = "categorized",
+    ) -> ToolResult:
         path = Path(file_path).expanduser()
         if not path.exists():
             raise FileNotFoundError(path)
@@ -55,13 +61,36 @@ class ExifMetadataTool:
         basic_stats = self._basic_file_stats(path)
         sources.append({"source": "filesystem", "data": basic_stats})
 
+        # Extract organized metadata
+        all_metadata = self._merge_metadata_sources(sources)
+        organized = self._organize_metadata(all_metadata)
         gps = self._extract_gps_from_sources(sources)
-        body = {
+        
+        # Add altitude to GPS if available
+        if gps:
+            altitude = self._extract_altitude(all_metadata)
+            if altitude is not None:
+                gps["altitude"] = altitude
+
+        # Flag detection
+        flags_found: List[Dict[str, str]] = []
+        if self._truthy(detect_flags):
+            flags_found = self._detect_flags(all_metadata)
+
+        # Build result body
+        body: Dict[str, Any] = {
             "file": str(path.resolve()),
-            "sources": sources,
-            "gps": gps,
             "warnings": warnings,
+            "gps": gps,
+            "flags_detected": flags_found,
         }
+
+        if summary_format == "categorized":
+            body["metadata"] = organized
+            body["raw_sources"] = sources
+        else:
+            body["sources"] = sources
+
         return ToolResult(
             title=f"Metadata for {path.name}",
             body=json.dumps(body, indent=2),
@@ -222,6 +251,132 @@ class ExifMetadataTool:
         if explicit:
             return explicit
         return shutil.which(name)
+
+    def _merge_metadata_sources(self, sources: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Merge metadata from all sources into a single dictionary."""
+        merged: Dict[str, Any] = {}
+        for source in sources:
+            data = source.get("data")
+            if isinstance(data, dict):
+                merged.update(data)
+        return merged
+
+    def _organize_metadata(self, metadata: Dict[str, Any]) -> Dict[str, Any]:
+        """Organize metadata into categorized sections."""
+        organized: Dict[str, Any] = {
+            "camera": {},
+            "author": {},
+            "timestamps": {},
+            "orientation": {},
+            "comments": {},
+            "technical": {},
+            "other": {},
+        }
+
+        # Camera model fields
+        camera_fields = ["Make", "Model", "LensModel", "Lens", "LensID", "LensSerialNumber"]
+        for field in camera_fields:
+            value = self._find_first(metadata, list(metadata.keys()), [field, f"EXIF:{field}", f"Composite:{field}"])
+            if value is not None:
+                organized["camera"][field] = value
+
+        # Author/Artist fields
+        author_fields = ["Artist", "Copyright", "Creator", "CreatorTool", "By-line", "By-lineTitle", "Credit"]
+        for field in author_fields:
+            value = self._find_first(metadata, list(metadata.keys()), [field, f"XMP:{field}", f"IPTC:{field}"])
+            if value is not None:
+                organized["author"][field] = value
+
+        # Timestamps
+        timestamp_fields = [
+            "DateTime", "DateTimeOriginal", "CreateDate", "ModifyDate",
+            "DateCreated", "DateModified", "TimeCreated", "TimeModified",
+        ]
+        for field in timestamp_fields:
+            value = self._find_first(metadata, list(metadata.keys()), [field, f"EXIF:{field}", f"XMP:{field}"])
+            if value is not None:
+                organized["timestamps"][field] = value
+
+        # Orientation
+        orientation_fields = ["Orientation", "Rotation", "ImageRotation"]
+        for field in orientation_fields:
+            value = self._find_first(metadata, list(metadata.keys()), [field, f"EXIF:{field}"])
+            if value is not None:
+                organized["orientation"][field] = value
+
+        # Comments
+        comment_fields = ["Comment", "UserComment", "ImageDescription", "XPComment", "Description", "Caption"]
+        for field in comment_fields:
+            value = self._find_first(metadata, list(metadata.keys()), [field, f"EXIF:{field}", f"XMP:{field}"])
+            if value is not None:
+                organized["comments"][field] = value
+
+        # Technical metadata
+        technical_fields = [
+            "ISO", "ExposureTime", "FNumber", "FocalLength", "WhiteBalance",
+            "Flash", "ExposureMode", "ExposureProgram", "MeteringMode",
+            "ImageWidth", "ImageHeight", "BitDepth", "ColorSpace",
+        ]
+        for field in technical_fields:
+            value = self._find_first(metadata, list(metadata.keys()), [field, f"EXIF:{field}"])
+            if value is not None:
+                organized["technical"][field] = value
+
+        # Remove empty categories
+        return {k: v for k, v in organized.items() if v}
+
+    def _extract_altitude(self, metadata: Dict[str, Any]) -> Optional[float]:
+        """Extract GPS altitude from metadata."""
+        altitude = self._find_first(
+            metadata,
+            list(metadata.keys()),
+            ["GPSAltitude", "Composite:GPSAltitude", "GPS:GPSAltitude"],
+        )
+        if altitude is None:
+            return None
+        try:
+            if isinstance(altitude, (int, float)):
+                return float(altitude)
+            if isinstance(altitude, str):
+                # Handle formats like "100 m" or "328.08 ft"
+                match = re.search(r"([\d.]+)", str(altitude))
+                if match:
+                    return float(match.group(1))
+        except (ValueError, TypeError):
+            pass
+        return None
+
+    def _detect_flags(self, metadata: Dict[str, Any]) -> List[Dict[str, str]]:
+        """Scan metadata for common flag patterns."""
+        flags: List[Dict[str, str]] = []
+        flag_patterns = [
+            re.compile(rb"flag\{[^}]+\}", re.IGNORECASE),
+            re.compile(rb"FLAG\{[^}]+\}", re.IGNORECASE),
+            re.compile(rb"ctf\{[^}]+\}", re.IGNORECASE),
+            re.compile(rb"CTF\{[^}]+\}", re.IGNORECASE),
+            re.compile(rb"[A-Za-z0-9_]{20,}"),  # Long suspicious strings
+        ]
+
+        for key, value in metadata.items():
+            if value is None:
+                continue
+            value_str = str(value)
+            value_bytes = value_str.encode("utf-8", errors="ignore")
+            
+            for pattern in flag_patterns:
+                matches = pattern.findall(value_bytes)
+                for match in matches:
+                    try:
+                        match_str = match.decode("utf-8", errors="ignore")
+                        flags.append({
+                            "field": key,
+                            "value": match_str[:100],  # Truncate long values
+                            "pattern": pattern.pattern.decode("utf-8", errors="ignore") if isinstance(pattern.pattern, bytes) else str(pattern.pattern),
+                        })
+                    except Exception:
+                        pass
+
+        return flags
 
     def _truthy(self, value: str | bool | None) -> bool:
         if isinstance(value, bool):

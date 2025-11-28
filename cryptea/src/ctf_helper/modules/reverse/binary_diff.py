@@ -7,6 +7,7 @@ import json
 import shutil
 import subprocess
 from pathlib import Path
+from typing import Dict, List
 
 from ..base import ToolResult
 
@@ -22,6 +23,7 @@ class BinaryDiffTool:
         modified: str,
         tool: str = "auto",
         extra: str = "",
+        show_stats: str = "true",
     ) -> ToolResult:
         src = Path(original).expanduser()
         dst = Path(modified).expanduser()
@@ -31,9 +33,20 @@ class BinaryDiffTool:
             raise FileNotFoundError(dst)
 
         executor, label = self._select_tool(tool)
-        body = executor(src, dst, extra)
+        show_statistics = show_stats.lower() in ("true", "1", "yes")
+        
+        diff_output = executor(src, dst, extra)
+        
+        # Add statistics if requested
+        if show_statistics:
+            stats = self._calculate_diff_stats(src, dst)
+            if stats:
+                stats_text = "\n\n=== Statistics ===\n"
+                stats_text += json.dumps(stats, indent=2)
+                diff_output = diff_output + stats_text
+        
         title = f"{label} diff: {src.name} vs {dst.name}"
-        return ToolResult(title=title, body=body)
+        return ToolResult(title=title, body=diff_output)
 
     def _select_tool(self, requested: str):
         requested = requested.strip().lower()
@@ -92,6 +105,52 @@ class BinaryDiffTool:
         sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
         size = path.stat().st_size
         return {"file": str(path), "size": size, "sha256": sha256}
+
+    def _calculate_diff_stats(self, src: Path, dst: Path) -> Dict[str, object]:
+        """Calculate statistics about the differences between two binaries."""
+        stats: Dict[str, object] = {}
+        
+        try:
+            src_data = src.read_bytes()
+            dst_data = dst.read_bytes()
+            
+            src_size = len(src_data)
+            dst_size = len(dst_data)
+            
+            # Calculate byte-level differences
+            min_size = min(src_size, dst_size)
+            max_size = max(src_size, dst_size)
+            
+            differences = 0
+            for i in range(min_size):
+                if src_data[i] != dst_data[i]:
+                    differences += 1
+            
+            # Add size difference
+            if src_size != dst_size:
+                differences += abs(src_size - dst_size)
+            
+            stats = {
+                "source_size": src_size,
+                "target_size": dst_size,
+                "size_difference": abs(src_size - dst_size),
+                "size_difference_percent": round((abs(src_size - dst_size) / max_size) * 100, 2) if max_size > 0 else 0,
+                "byte_differences": differences,
+                "similarity_percent": round((1 - (differences / max_size)) * 100, 2) if max_size > 0 else 100,
+                "identical": differences == 0 and src_size == dst_size,
+            }
+            
+            # Hash comparison
+            src_hash = hashlib.sha256(src_data).hexdigest()
+            dst_hash = hashlib.sha256(dst_data).hexdigest()
+            stats["source_sha256"] = src_hash
+            stats["target_sha256"] = dst_hash
+            stats["hashes_match"] = src_hash == dst_hash
+            
+        except Exception:
+            pass
+        
+        return stats
 
 
 __all__ = ["BinaryDiffTool"]

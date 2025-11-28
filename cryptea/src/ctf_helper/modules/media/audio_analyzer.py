@@ -12,6 +12,27 @@ from typing import Dict, List, Optional, Sequence
 
 from ..base import ToolResult
 
+try:
+    import numpy as np  # type: ignore
+    HAS_NUMPY = True
+except ImportError:
+    np = None  # type: ignore
+    HAS_NUMPY = False
+
+try:
+    from scipy import signal  # type: ignore
+    HAS_SCIPY = True
+except ImportError:
+    signal = None  # type: ignore
+    HAS_SCIPY = False
+
+try:
+    from PIL import Image  # type: ignore
+    HAS_PIL = True
+except ImportError:
+    Image = None  # type: ignore
+    HAS_PIL = False
+
 
 @dataclass(slots=True)
 class AudioSummary:
@@ -38,6 +59,9 @@ class AudioAnalyzerTool:
         detect_morse: str = "false",
         channel: str = "mixed",
         window_ms: str = "80",
+        generate_spectrogram: str = "false",
+        analyze_frequency_patterns: str = "false",
+        detect_modulations: str = "false",
     ) -> ToolResult:
         path = Path(file_path).expanduser()
         if not path.exists():
@@ -47,6 +71,9 @@ class AudioAnalyzerTool:
         dtmf_enabled = self._truthy(detect_dtmf)
         morse_enabled = self._truthy(detect_morse)
         channel_mode = (channel or "mixed").strip().lower()
+        spectrogram_enabled = self._truthy(generate_spectrogram)
+        frequency_analysis_enabled = self._truthy(analyze_frequency_patterns)
+        modulations_enabled = self._truthy(detect_modulations)
 
         summary, samples = self._load_samples(path, channel_mode)
         payload: Dict[str, object] = {
@@ -60,6 +87,21 @@ class AudioAnalyzerTool:
             morse = self._detect_morse(samples, summary.sample_rate)
             if morse:
                 payload["morse"] = morse
+
+        # Spectrogram analysis
+        if spectrogram_enabled and samples and HAS_NUMPY and HAS_SCIPY:
+            spectrogram_data = self._generate_spectrogram(samples, summary.sample_rate)
+            payload["spectrogram"] = spectrogram_data
+
+        # Frequency pattern analysis
+        if frequency_analysis_enabled and samples and HAS_NUMPY:
+            freq_patterns = self._analyze_frequency_patterns(samples, summary.sample_rate)
+            payload["frequency_patterns"] = freq_patterns
+
+        # Modulation detection
+        if modulations_enabled and samples and HAS_NUMPY:
+            modulations = self._detect_modulations(samples, summary.sample_rate)
+            payload["modulations"] = modulations
 
         body = json.dumps(payload, indent=2)
         return ToolResult(title=f"Audio analysis for {path.name}", body=body, mime_type="application/json")
@@ -362,6 +404,187 @@ class AudioAnalyzerTool:
         if total <= 0:
             return 0.0
         return math.sqrt(total / length)
+
+    def _generate_spectrogram(self, samples: Sequence[int], sample_rate: int) -> Dict[str, object]:
+        """Generate spectrogram data using FFT."""
+        if not HAS_NUMPY or not HAS_SCIPY:
+            return {"available": False, "message": "numpy and scipy required for spectrogram analysis"}
+
+        try:
+            # Convert samples to numpy array
+            np_samples = np.array(samples, dtype=np.float32)
+            
+            # Normalize
+            if np_samples.max() > 0:
+                np_samples = np_samples / np.abs(np_samples).max()
+
+            # Generate spectrogram
+            nperseg = min(2048, len(np_samples) // 4)  # Window size
+            if nperseg < 32:
+                nperseg = 32
+            
+            frequencies, times, spectrogram = signal.spectrogram(
+                np_samples, sample_rate, nperseg=nperseg, noverlap=nperseg // 2
+            )
+
+            # Analyze spectrogram for patterns
+            max_freq_idx = np.argmax(spectrogram, axis=0)
+            dominant_frequencies = frequencies[max_freq_idx]
+
+            # Detect potential hidden messages (high-energy regions)
+            energy_threshold = np.percentile(spectrogram, 95)
+            high_energy_regions = []
+            for i, time in enumerate(times):
+                for j, freq in enumerate(frequencies):
+                    if spectrogram[j, i] > energy_threshold:
+                        high_energy_regions.append({
+                            "time": float(time),
+                            "frequency": float(freq),
+                            "magnitude": float(spectrogram[j, i]),
+                        })
+
+            return {
+                "available": True,
+                "frequencies": frequencies.tolist(),
+                "times": times.tolist(),
+                "dominant_frequencies": {
+                    "min": float(np.min(dominant_frequencies)),
+                    "max": float(np.max(dominant_frequencies)),
+                    "mean": float(np.mean(dominant_frequencies)),
+                },
+                "high_energy_regions": high_energy_regions[:100],  # Limit to top 100
+                "max_frequency": float(np.max(frequencies)),
+                "spectrogram_shape": list(spectrogram.shape),
+            }
+        except Exception as exc:
+            return {"available": False, "message": f"Spectrogram generation failed: {exc}"}
+
+    def _analyze_frequency_patterns(self, samples: Sequence[int], sample_rate: int) -> Dict[str, object]:
+        """Analyze frequency domain for patterns and anomalies."""
+        if not HAS_NUMPY:
+            return {"available": False, "message": "numpy required for frequency analysis"}
+
+        try:
+            np_samples = np.array(samples, dtype=np.float32)
+            
+            # Normalize
+            if np_samples.max() > 0:
+                np_samples = np_samples / np.abs(np_samples).max()
+
+            # Compute FFT
+            fft = np.fft.fft(np_samples)
+            frequencies = np.fft.fftfreq(len(np_samples), 1.0 / sample_rate)
+            
+            # Only use positive frequencies
+            positive_freq_idx = frequencies > 0
+            frequencies_positive = frequencies[positive_freq_idx]
+            magnitude = np.abs(fft[positive_freq_idx])
+
+            # Find dominant frequencies
+            top_indices = np.argsort(magnitude)[-10:][::-1]
+            dominant_freqs = [
+                {
+                    "frequency": float(frequencies_positive[idx]),
+                    "magnitude": float(magnitude[idx]),
+                }
+                for idx in top_indices
+            ]
+
+            # Detect anomalies (unusual spikes)
+            mean_magnitude = np.mean(magnitude)
+            std_magnitude = np.std(magnitude)
+            threshold = mean_magnitude + 3 * std_magnitude
+            
+            anomalies = []
+            for i, freq in enumerate(frequencies_positive):
+                if magnitude[i] > threshold:
+                    anomalies.append({
+                        "frequency": float(freq),
+                        "magnitude": float(magnitude[i]),
+                        "deviation": float((magnitude[i] - mean_magnitude) / std_magnitude if std_magnitude > 0 else 0),
+                    })
+
+            return {
+                "available": True,
+                "dominant_frequencies": dominant_freqs,
+                "anomalies": sorted(anomalies, key=lambda x: x["magnitude"], reverse=True)[:20],
+                "frequency_range": {
+                    "min": float(np.min(frequencies_positive)),
+                    "max": float(np.max(frequencies_positive)),
+                },
+                "mean_magnitude": float(mean_magnitude),
+            }
+        except Exception as exc:
+            return {"available": False, "message": f"Frequency analysis failed: {exc}"}
+
+    def _detect_modulations(self, samples: Sequence[int], sample_rate: int) -> Dict[str, object]:
+        """Detect hidden modulations (AM, PM, sidebands)."""
+        if not HAS_NUMPY:
+            return {"available": False, "message": "numpy required for modulation detection"}
+
+        try:
+            np_samples = np.array(samples, dtype=np.float32)
+            
+            # Normalize
+            if np_samples.max() > 0:
+                np_samples = np_samples / np.abs(np_samples).max()
+
+            # Amplitude modulation detection
+            # Envelope detection using Hilbert transform
+            from scipy.signal import hilbert  # type: ignore
+            
+            analytic_signal = hilbert(np_samples)
+            amplitude_envelope = np.abs(analytic_signal)
+            
+            # Detect envelope variations
+            envelope_variance = float(np.var(amplitude_envelope))
+            envelope_mean = float(np.mean(amplitude_envelope))
+            
+            # Phase modulation detection
+            instantaneous_phase = np.unwrap(np.angle(analytic_signal))
+            instantaneous_frequency = np.diff(instantaneous_phase) / (2.0 * np.pi) * sample_rate
+            
+            phase_variance = float(np.var(instantaneous_frequency))
+            phase_mean = float(np.mean(instantaneous_frequency))
+
+            # Detect sidebands (frequencies that appear alongside dominant frequencies)
+            fft = np.fft.fft(np_samples)
+            frequencies = np.fft.fftfreq(len(np_samples), 1.0 / sample_rate)
+            magnitude = np.abs(fft)
+            
+            positive_freq_idx = frequencies > 0
+            frequencies_positive = frequencies[positive_freq_idx]
+            magnitude_positive = magnitude[positive_freq_idx]
+            
+            # Find sideband patterns (frequencies near dominant ones)
+            dominant_idx = np.argmax(magnitude_positive)
+            dominant_freq = frequencies_positive[dominant_idx]
+            
+            sidebands = []
+            for i, freq in enumerate(frequencies_positive):
+                if abs(freq - dominant_freq) < sample_rate * 0.1 and i != dominant_idx:  # Within 10% of sample rate
+                    sidebands.append({
+                        "frequency": float(freq),
+                        "magnitude": float(magnitude_positive[i]),
+                        "offset_from_dominant": float(abs(freq - dominant_freq)),
+                    })
+
+            return {
+                "available": True,
+                "amplitude_modulation": {
+                    "detected": envelope_variance > envelope_mean * 0.1,  # Significant variation
+                    "variance": envelope_variance,
+                    "mean_envelope": envelope_mean,
+                },
+                "phase_modulation": {
+                    "detected": phase_variance > 100.0,  # Significant frequency variation
+                    "variance": phase_variance,
+                    "mean_frequency": phase_mean,
+                },
+                "sidebands": sorted(sidebands, key=lambda x: x["magnitude"], reverse=True)[:10],
+            }
+        except Exception as exc:
+            return {"available": False, "message": f"Modulation detection failed: {exc}"}
 
     def _truthy(self, value: str | bool | None) -> bool:
         if isinstance(value, bool):

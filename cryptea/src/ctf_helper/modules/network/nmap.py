@@ -148,6 +148,12 @@ class NmapTool:
         default_scripts: str = "0",
         skip_ping: str = "0",
         ports: str = "",
+        scan_type: str = "default",
+        nse_scripts: str = "",
+        output_format: str = "text",
+        analyze_results: str = "true",
+        traceroute: str = "false",
+        port_range: str = "",
     ) -> ToolResult:
         if not network_consent_enabled():
             raise RuntimeError("Network modules disabled. Enable in settings.")
@@ -155,17 +161,72 @@ class NmapTool:
             raise RuntimeError("nmap not found in PATH. Install nmap locally.")
         if not target.strip():
             raise ValueError("Target is required")
-        args: List[str] = ["nmap", "-oX", "-"]
+        
+        # Determine output format
+        output_format_lower = output_format.lower().strip()
+        if output_format_lower == "json":
+            args: List[str] = ["nmap", "-oJ", "-"]
+        elif output_format_lower == "grepable":
+            args = ["nmap", "-oG", "-"]
+        else:
+            args = ["nmap", "-oX", "-"]  # XML for parsing
+        
         args.extend(PROFILE_ARGS.get(profile, ()))
+        
+        # Scan type selection
+        scan_type_lower = scan_type.lower().strip()
+        if scan_type_lower == "syn":
+            args.append("-sS")
+        elif scan_type_lower == "udp":
+            args.append("-sU")
+        elif scan_type_lower == "ack":
+            args.append("-sA")
+        elif scan_type_lower == "fin":
+            args.append("-sF")
+        elif scan_type_lower == "null":
+            args.append("-sN")
+        elif scan_type_lower == "xmas":
+            args.append("-sX")
+        
         if _is_truthy(version_detect):
             args.append("-sV")
         if _is_truthy(os_detect):
             args.append("-O")
         if _is_truthy(default_scripts):
             args.append("-sC")
+        
+        # NSE script selection
+        if nse_scripts.strip():
+            scripts = nse_scripts.strip()
+            if scripts.startswith("default") or scripts == "default":
+                args.append("-sC")
+            else:
+                args.extend(["--script", scripts])
+        
         if _is_truthy(skip_ping):
             args.append("-Pn")
-        if ports.strip():
+        
+        # Traceroute
+        if _is_truthy(traceroute):
+            args.append("--traceroute")
+        
+        # Port range utilities
+        if port_range.strip():
+            port_ranges = {
+                "top-100": "--top-ports 100",
+                "top-1000": "--top-ports 1000",
+                "web": "80,443,8080,8443,8000,8888",
+                "database": "3306,5432,1433,27017,6379",
+            }
+            if port_range.strip() in port_ranges:
+                range_value = port_ranges[port_range.strip()]
+                if range_value.startswith("--"):
+                    args.extend(range_value.split())
+                else:
+                    args.extend(["-p", range_value])
+            else:
+                args.extend(["-p", port_range.strip()])
+        elif ports.strip():
             args.extend(["-p", ports.strip()])
         if extra.strip():
             try:
@@ -177,20 +238,124 @@ class NmapTool:
         proc = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         if proc.returncode != 0 and not proc.stdout.strip():
             raise RuntimeError(proc.stderr.strip() or "nmap failed")
-        rows = _parse_nmap_xml(proc.stdout)
-        body_lines: List[str] = []
-        body_lines.append(f"Command: {' '.join(args)}")
-        body_lines.append("")
-        body_lines.append(_format_rows(rows))
-        if proc.stderr.strip():
+        
+        # Parse results based on format
+        if output_format_lower == "json":
+            body = proc.stdout
+            mime_type = "application/json"
+        elif output_format_lower == "grepable":
+            body = proc.stdout
+            mime_type = "text/plain"
+        else:
+            # XML format - parse and analyze
+            rows = _parse_nmap_xml(proc.stdout)
+            body_lines: List[str] = []
+            body_lines.append(f"Command: {' '.join(args)}")
             body_lines.append("")
-            body_lines.append("Warnings/Notes:")
-            body_lines.append(proc.stderr.strip())
+            
+            # Result analysis
+            if _is_truthy(analyze_results):
+                analysis = self._analyze_results(proc.stdout, rows)
+                if analysis:
+                    body_lines.append("Scan Analysis:")
+                    body_lines.append(json.dumps(analysis, indent=2))
+                    body_lines.append("")
+            
+            body_lines.append(_format_rows(rows))
+            if proc.stderr.strip():
+                body_lines.append("")
+                body_lines.append("Warnings/Notes:")
+                body_lines.append(proc.stderr.strip())
+            body = "\n".join(body_lines).strip()
+            mime_type = "application/json" if _is_truthy(analyze_results) else "text/plain"
+        
         return ToolResult(
             title=f"nmap results for {target}",
-            body="\n".join(body_lines).strip(),
-            mime_type="text/plain",
+            body=body,
+            mime_type=mime_type,
         )
+    
+    def _analyze_results(self, xml_output: str, rows: List[NmapRow]) -> Dict[str, object]:
+        """Analyze nmap scan results and provide summary."""
+        # Count by protocol
+        protocols: Dict[str, int] = {}
+        services_count: Dict[str, int] = {}
+        
+        services_list: List[Dict[str, str]] = []
+        vulnerabilities_list: List[Dict[str, str]] = []
+        common_ports_list: List[str] = []
+        
+        for row in rows:
+            proto = row.proto.lower()
+            protocols[proto] = protocols.get(proto, 0) + 1
+            if row.service and row.service != "?":
+                services_count[row.service.lower()] = services_count.get(row.service.lower(), 0) + 1
+        
+        # Extract services
+        seen_services: set[str] = set()
+        for row in rows:
+            if row.service and row.service != "?":
+                service_key = f"{row.service}:{row.port}"
+                if service_key not in seen_services:
+                    seen_services.add(service_key)
+                    services_list.append({
+                        "port": row.port,
+                        "protocol": row.proto,
+                        "service": row.service,
+                        "banner": row.banner,
+                    })
+        
+        # Parse XML for vulnerabilities and OS info
+        try:
+            root = ET.fromstring(xml_output)
+            for host in root.findall("host"):
+                # OS detection
+                os_matches = host.find("os")
+                if os_matches is not None:
+                    for osmatch in os_matches.findall("osmatch"):
+                        name = osmatch.get("name", "")
+                        if name:
+                            common_ports_list.append(f"OS: {name}")
+                
+                # Vulnerability scripts
+                ports = host.find("ports")
+                if ports is not None:
+                    for port in ports.findall("port"):
+                        for script in port.findall("script"):
+                            script_id = script.get("id", "")
+                            if any(keyword in script_id.lower() for keyword in ["vuln", "exploit", "cve"]):
+                                output = script.get("output", "")
+                                if output:
+                                    vulnerabilities_list.append({
+                                        "port": port.get("portid", "?"),
+                                        "script": script_id,
+                                        "output": output[:200],  # Limit length
+                                    })
+        except ET.ParseError:
+            pass
+        
+        # Parse host count from XML
+        total_hosts = 1
+        try:
+            root = ET.fromstring(xml_output)
+            hosts = root.findall("host")
+            total_hosts = len(hosts)
+        except ET.ParseError:
+            pass
+        
+        analysis: Dict[str, object] = {
+            "summary": {
+                "total_hosts": total_hosts,
+                "total_ports": len(rows),
+                "ports_by_protocol": protocols,
+                "ports_by_service": services_count,
+            },
+            "services": services_list,
+            "vulnerabilities": vulnerabilities_list,
+            "common_ports": common_ports_list,
+        }
+        
+        return analysis
 
 
 def _is_truthy(value: str) -> bool:

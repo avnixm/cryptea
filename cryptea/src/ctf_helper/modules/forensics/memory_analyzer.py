@@ -27,6 +27,9 @@ class MemoryAnalyzerTool:
         strings_limit: str = "200",
         keywords: str = "flag,password,secret",
         include_hashes: str = "false",
+        detect_processes: str = "false",
+        detect_injected_code: str = "false",
+        detect_decrypted: str = "false",
     ) -> ToolResult:
         path = Path(file_path).expanduser()
         if not path.exists():
@@ -35,7 +38,19 @@ class MemoryAnalyzerTool:
         sample_limit = max(10, int(strings_limit or "200"))
         keyword_tokens = [token.strip() for token in (keywords or "").split(",") if token.strip()]
         include_hash = self._truthy(include_hashes)
-        summary = self._analyze_memory(path, sample_limit=sample_limit, keywords=keyword_tokens, include_hashes=include_hash)
+        detect_proc = self._truthy(detect_processes)
+        detect_inject = self._truthy(detect_injected_code)
+        detect_decrypt = self._truthy(detect_decrypted)
+        
+        summary = self._analyze_memory(
+            path,
+            sample_limit=sample_limit,
+            keywords=keyword_tokens,
+            include_hashes=include_hash,
+            detect_processes=detect_proc,
+            detect_injected_code=detect_inject,
+            detect_decrypted=detect_decrypt,
+        )
         body = json.dumps(summary, indent=2)
         title = f"Memory insights for {path.name}"
         return ToolResult(title=title, body=body, mime_type="application/json")
@@ -50,6 +65,9 @@ class MemoryAnalyzerTool:
         sample_limit: int,
         keywords: List[str],
         include_hashes: bool,
+        detect_processes: bool = False,
+        detect_injected_code: bool = False,
+        detect_decrypted: bool = False,
     ) -> Dict[str, object]:
         stats = path.stat()
         keyword_map = {token.lower(): token for token in keywords}
@@ -185,6 +203,23 @@ class MemoryAnalyzerTool:
             "modified": datetime.fromtimestamp(stats.st_mtime, tz=timezone.utc).isoformat(),
             "analysis": analysis,
         }
+        
+        # Add advanced detection features
+        if detect_processes:
+            processes = self._detect_processes(path)
+            if processes:
+                payload["processes"] = processes
+        
+        if detect_injected_code:
+            injected = self._detect_injected_code(path)
+            if injected:
+                payload["injected_code"] = injected
+        
+        if detect_decrypted:
+            decrypted = self._detect_decrypted_content(path)
+            if decrypted:
+                payload["decrypted_content"] = decrypted
+        
         if notes:
             payload["notes"] = notes
         if include_hashes and hashers:
@@ -242,3 +277,240 @@ class MemoryAnalyzerTool:
         if value is None:
             return False
         return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+    def _detect_processes(self, path: Path) -> Dict[str, object]:
+        """Detect running processes from memory structures."""
+        processes: List[Dict[str, object]] = []
+        
+        # Windows EPROCESS structure signatures
+        # EPROCESS typically contains process name, PID, parent PID
+        epprocess_patterns = [
+            b".exe\x00",  # Executable name
+            b"cmd.exe",
+            b"explorer.exe",
+            b"notepad.exe",
+            b"winlogon.exe",
+            b"lsass.exe",
+            b"svchost.exe",
+        ]
+        
+        # Linux task_struct patterns (process name)
+        linux_process_patterns = [
+            b"/bin/sh",
+            b"/bin/bash",
+            b"init",
+            b"systemd",
+            b"sshd",
+            b"apache2",
+            b"nginx",
+        ]
+        
+        chunk_size = 1 << 20  # 1MB chunks
+        offset = 0
+        process_names_found: Dict[str, List[int]] = {}
+        
+        with path.open("rb") as fh:
+            while offset < min(100 * (1 << 20), path.stat().st_size):  # Scan first 100MB
+                chunk = fh.read(chunk_size)
+                if not chunk:
+                    break
+                
+                # Search for Windows process names
+                for pattern in epprocess_patterns:
+                    idx = 0
+                    while True:
+                        idx = chunk.find(pattern, idx)
+                        if idx == -1:
+                            break
+                        name = pattern.rstrip(b"\x00").decode("ascii", errors="ignore")
+                        absolute_offset = offset + idx
+                        if name not in process_names_found:
+                            process_names_found[name] = []
+                        if len(process_names_found[name]) < 10:
+                            process_names_found[name].append(absolute_offset)
+                        idx += len(pattern)
+                
+                # Search for Linux process names
+                for pattern in linux_process_patterns:
+                    idx = 0
+                    while True:
+                        idx = chunk.find(pattern, idx)
+                        if idx == -1:
+                            break
+                        name = pattern.decode("ascii", errors="ignore")
+                        absolute_offset = offset + idx
+                        if name not in process_names_found:
+                            process_names_found[name] = []
+                        if len(process_names_found[name]) < 10:
+                            process_names_found[name].append(absolute_offset)
+                        idx += len(pattern)
+                
+                offset += len(chunk)
+        
+        # Convert to process list
+        for name, offsets in list(process_names_found.items())[:50]:
+            processes.append({
+                "name": name,
+                "offsets": offsets[:5],  # First 5 occurrences
+                "occurrence_count": len(offsets),
+                "confidence": "medium" if len(offsets) > 1 else "low",
+            })
+        
+        return {
+            "count": len(processes),
+            "processes": processes,
+            "note": "Process detection based on executable name signatures. Use Volatility for detailed analysis.",
+        }
+
+    def _detect_injected_code(self, path: Path) -> Dict[str, object]:
+        """Detect shellcode and injected malicious code patterns."""
+        injected_regions: List[Dict[str, object]] = []
+        
+        chunk_size = 64 * 1024  # 64KB chunks for analysis
+        offset = 0
+        min_region_size = 512
+        
+        with path.open("rb") as fh:
+            while offset < min(500 * (1 << 20), path.stat().st_size):  # Scan first 500MB
+                chunk = fh.read(chunk_size)
+                if not chunk:
+                    break
+                
+                # Calculate entropy for chunk
+                entropy = self._entropy(Counter(chunk), len(chunk))
+                
+                # Check for common shellcode patterns
+                shellcode_patterns = [
+                    b"\x90" * 10,  # NOP sled
+                    b"\x48\x31\xc0",  # xor rax, rax (x64)
+                    b"\x31\xc0",  # xor eax, eax (x32)
+                    b"\xeb\xfe",  # Infinite loop
+                    b"\xcd\x80",  # int 0x80 (Linux syscall)
+                    b"\x0f\x05",  # syscall (x64)
+                ]
+                
+                has_shellcode_pattern = False
+                for pattern in shellcode_patterns:
+                    if pattern in chunk:
+                        has_shellcode_pattern = True
+                        break
+                
+                # High entropy + shellcode pattern = likely injected code
+                if entropy > 7.0 and has_shellcode_pattern:
+                    injected_regions.append({
+                        "offset": offset,
+                        "size": len(chunk),
+                        "entropy": round(entropy, 2),
+                        "indicators": ["high_entropy", "shellcode_pattern"],
+                        "confidence": "high" if entropy > 7.5 else "medium",
+                    })
+                elif entropy > 7.8:  # Very high entropy (likely encrypted/compressed)
+                    injected_regions.append({
+                        "offset": offset,
+                        "size": len(chunk),
+                        "entropy": round(entropy, 2),
+                        "indicators": ["very_high_entropy"],
+                        "confidence": "medium",
+                        "note": "Very high entropy may indicate encrypted payload or packed code",
+                    })
+                
+                offset += chunk_size
+        
+        # Merge nearby regions
+        merged_regions: List[Dict[str, object]] = []
+        for region in injected_regions[:30]:  # Limit to 30
+            if not merged_regions:
+                merged_regions.append(region)
+                continue
+            
+            last = merged_regions[-1]
+            last_offset_val = last.get("offset", 0)
+            last_size_val = last.get("size", 0)
+            current_offset_val = region.get("offset", 0)
+            
+            last_offset = int(str(last_offset_val)) if last_offset_val is not None else 0
+            last_size = int(str(last_size_val)) if last_size_val is not None else 0
+            current_offset = int(str(current_offset_val)) if current_offset_val is not None else 0
+            region_size_val = region.get("size", 0)
+            region_size = int(str(region_size_val)) if region_size_val is not None else 0
+            
+            # If regions are close, merge them
+            if current_offset - (last_offset + last_size) < chunk_size:
+                last["size"] = (current_offset + region_size) - last_offset
+                if "indicators" in last and "indicators" in region:
+                    indicators_list_val = last.get("indicators", [])
+                    region_indicators_val = region.get("indicators", [])
+                    if isinstance(indicators_list_val, list) and isinstance(region_indicators_val, list):
+                        indicators_list_val.extend(region_indicators_val)
+            else:
+                merged_regions.append(region)
+        
+        return {
+            "count": len(merged_regions),
+            "regions": merged_regions[:20],
+            "note": "Injected code detection based on entropy and shellcode pattern analysis",
+        }
+
+    def _detect_decrypted_content(self, path: Path) -> Dict[str, object]:
+        """Detect decrypted content that wouldn't appear on disk."""
+        decrypted_candidates: List[Dict[str, object]] = []
+        
+        # Patterns that suggest decrypted data
+        decrypted_indicators = [
+            (b"BEGIN PRIVATE KEY", "RSA private key"),
+            (b"BEGIN PUBLIC KEY", "RSA public key"),
+            (b"BEGIN CERTIFICATE", "X.509 certificate"),
+            (b"-----BEGIN", "PEM encoded data"),
+            (b"<html>", "HTML content"),
+            (b"<!DOCTYPE", "HTML/XML document"),
+            (b"<?xml", "XML document"),
+            (b"{\"", "JSON data"),
+            (b"SELECT ", "SQL query"),
+            (b"FROM ", "SQL query"),
+            (b"CREATE TABLE", "SQL DDL"),
+        ]
+        
+        chunk_size = 1 << 20  # 1MB
+        offset = 0
+        max_candidates = 30
+        
+        with path.open("rb") as fh:
+            while offset < min(200 * (1 << 20), path.stat().st_size):  # First 200MB
+                chunk = fh.read(chunk_size)
+                if not chunk:
+                    break
+                
+                for pattern, label in decrypted_indicators:
+                    if len(decrypted_candidates) >= max_candidates:
+                        break
+                    
+                    idx = chunk.find(pattern)
+                    if idx != -1:
+                        # Extract surrounding context
+                        start = max(0, idx - 100)
+                        end = min(len(chunk), idx + 500)
+                        context = chunk[start:end]
+                        
+                        # Check if it looks like decrypted plaintext
+                        printable_ratio = sum(1 for b in context if 32 <= b < 127) / len(context)
+                        
+                        if printable_ratio > 0.8:  # High printable content
+                            absolute_offset = offset + idx
+                            decrypted_candidates.append({
+                                "offset": absolute_offset,
+                                "type": label,
+                                "pattern": pattern.decode("ascii", errors="ignore"),
+                                "printable_ratio": round(printable_ratio, 2),
+                                "sample": context[:200].decode("utf-8", errors="replace")[:100],
+                                "confidence": "high" if printable_ratio > 0.9 else "medium",
+                            })
+                
+                offset += len(chunk)
+                if len(decrypted_candidates) >= max_candidates:
+                    break
+        
+        return {
+            "count": len(decrypted_candidates),
+            "candidates": decrypted_candidates,
+            "note": "Decrypted content detection based on plaintext pattern matching",
+        }

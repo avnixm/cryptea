@@ -212,6 +212,179 @@ def _record(http_status: int, url: str, size: Optional[int]) -> dict:
     }
 
 
+class DirDiscoveryTool:
+    name = "Dir Discovery"
+    description = "Run dirb/gobuster/ffuf with curated SecLists wordlists or offline fallback."
+    category = "Web"
+
+    def _parse_tool_output(self, output: str, tool: str, base_url: str) -> List[dict]:
+        """Parse output from different directory discovery tools."""
+        results: List[dict] = []
+        lines = output.splitlines()
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Parse ffuf output (JSON or table format)
+            if tool == "ffuf":
+                if line.startswith("{"):
+                    try:
+                        data = json.loads(line)
+                        if "url" in data and "status" in data:
+                            results.append({
+                                "url": data["url"],
+                                "status": int(data["status"]),
+                                "size": data.get("size", 0),
+                                "path": urlparse(data["url"]).path or "/",
+                            })
+                    except json.JSONDecodeError:
+                        pass
+                elif "Status:" in line and "Size:" in line:
+                    # Table format
+                    parts = line.split()
+                    try:
+                        status_idx = parts.index("Status:") + 1
+                        size_idx = parts.index("Size:") + 1
+                        url_idx = parts.index("URL:") + 1 if "URL:" in parts else -1
+                        if status_idx < len(parts) and size_idx < len(parts):
+                            status = int(parts[status_idx])
+                            size = int(parts[size_idx])
+                            url = parts[url_idx] if url_idx > 0 and url_idx < len(parts) else ""
+                            if url:
+                                results.append({
+                                    "url": url,
+                                    "status": status,
+                                    "size": size,
+                                    "path": urlparse(url).path or "/",
+                                })
+                    except (ValueError, IndexError):
+                        pass
+            
+            # Parse gobuster output
+            elif tool == "gobuster":
+                if "Status:" in line and "(Status:" in line:
+                    try:
+                        # Format: /path (Status: 200) [Size: 1234]
+                        import re
+                        match = re.search(r"(.+?)\s+\(Status:\s+(\d+)\)\s+\[Size:\s+(\d+)\]", line)
+                        if match:
+                            path = match.group(1).strip()
+                            status = int(match.group(2))
+                            size = int(match.group(3))
+                            url = urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
+                            results.append({
+                                "url": url,
+                                "status": status,
+                                "size": size,
+                                "path": path,
+                            })
+                    except (ValueError, AttributeError):
+                        pass
+            
+            # Parse dirb output
+            elif tool == "dirb":
+                if "+ " in line and "(" in line:
+                    try:
+                        # Format: + /path (CODE: 200) (SIZE: 1234)
+                        import re
+                        match = re.search(r"\+ (.+?)\s+\(CODE:\s+(\d+)\)", line)
+                        if match:
+                            path = match.group(1).strip()
+                            status = int(match.group(2))
+                            size_match = re.search(r"\(SIZE:\s+(\d+)\)", line)
+                            size = int(size_match.group(1)) if size_match else 0
+                            url = urljoin(base_url.rstrip("/") + "/", path.lstrip("/"))
+                            results.append({
+                                "url": url,
+                                "status": status,
+                                "size": size,
+                                "path": path,
+                            })
+                    except (ValueError, AttributeError):
+                        pass
+        
+        return results
+
+    def _analyze_results(self, results: List[dict]) -> Dict[str, object]:
+        """Analyze and categorize discovery results."""
+        by_status_code: Dict[str, int] = {}
+        by_category: Dict[str, List[dict]] = {
+            "admin_panels": [],
+            "backup_files": [],
+            "api_endpoints": [],
+            "sensitive_files": [],
+            "directories": [],
+            "other": [],
+        }
+        interesting_findings: List[str] = []
+
+        admin_keywords = ["admin", "administrator", "login", "dashboard", "panel", "cpanel", "wp-admin", "phpmyadmin"]
+        backup_keywords = [".bak", ".backup", ".old", ".orig", ".save", ".swp", ".tmp", "backup", "old"]
+        api_keywords = ["api", "/api/", "v1", "v2", "rest", "graphql", "json", "xml"]
+        sensitive_keywords = [".env", ".git", "config", "password", "secret", "key", "credentials", ".htaccess", "web.config"]
+
+        for result in results:
+            url = result.get("url", "")
+            path = result.get("path", "").lower()
+            status = result.get("status", 0)
+            
+            # Count by status code
+            status_key = str(status)
+            by_status_code[status_key] = by_status_code.get(status_key, 0) + 1
+
+            # Categorize
+            categorized = False
+            
+            # Admin panels
+            if any(kw in path for kw in admin_keywords):
+                by_category["admin_panels"].append(result)
+                categorized = True
+                interesting_findings.append(f"Admin panel: {url}")
+            
+            # Backup files
+            elif any(kw in path for kw in backup_keywords):
+                by_category["backup_files"].append(result)
+                categorized = True
+                interesting_findings.append(f"Backup file: {url}")
+            
+            # API endpoints
+            elif any(kw in path for kw in api_keywords):
+                by_category["api_endpoints"].append(result)
+                categorized = True
+            
+            # Sensitive files
+            elif any(kw in path for kw in sensitive_keywords):
+                by_category["sensitive_files"].append(result)
+                categorized = True
+                interesting_findings.append(f"Sensitive file: {url}")
+            
+            # Directories (status 200, 301, 302, 403)
+            elif status in [200, 301, 302, 403] and path.endswith("/") or "/" in path:
+                by_category["directories"].append(result)
+                categorized = True
+            
+            if not categorized:
+                by_category["other"].append(result)
+
+        # Limit interesting findings
+        interesting_findings = interesting_findings[:20]
+
+        return {
+            "by_status_code": by_status_code,
+            "by_category": by_category,
+            "interesting_findings": interesting_findings,
+        }
+
+    def _truthy(self, value: str | bool | None) -> bool:
+        if isinstance(value, bool):
+            return value
+        if value is None:
+            return False
+        return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
 def fallback_fuzz(target: str, wordlist: str) -> List[dict]:
     # Offline-safe fallback using file read of saved site or HEAD requests to localhost only
     results: List[dict] = []
@@ -265,11 +438,6 @@ def fallback_fuzz(target: str, wordlist: str) -> List[dict]:
     return results
 
 
-class DirDiscoveryTool:
-    name = "Dir Discovery"
-    description = "Run dirb/gobuster/ffuf with curated SecLists wordlists or offline fallback."
-    category = "Web"
-
     def run(
         self,
         target: str,
@@ -278,6 +446,10 @@ class DirDiscoveryTool:
         threads: str = "20",
         wordlist_choice: str = "common",
         download_missing: str = "true",
+        analyze_results: str = "true",
+        filter_status_codes: str = "",
+        recursive: str = "false",
+        combine_wordlists: str = "false",
     ) -> ToolResult:
         wl_path = wordlist.strip()
         if not wl_path:
@@ -293,20 +465,73 @@ class DirDiscoveryTool:
         if not Path(wl_path).exists():
             return ToolResult(title="Dir Discovery", body=f"Wordlist not found: {wl_path}")
 
+        # Combine wordlists if requested
+        wordlists_to_use = [wl_path]
+        if self._truthy(combine_wordlists) and wordlist_choice != "custom":
+            # Get additional wordlists to combine
+            available = available_wordlists()
+            for slug, path, _label in available:
+                if path.exists() and path != Path(wl_path):
+                    wordlists_to_use.append(str(path))
+                    if len(wordlists_to_use) >= 3:  # Limit to 3 wordlists
+                        break
+
         # prefer selected binary
         tools = [tool] if tool not in {"", "auto"} else ["ffuf", "gobuster", "dirb"]
+        recursive_scan = self._truthy(recursive)
+        filter_codes = [int(c.strip()) for c in filter_status_codes.split(",") if c.strip().isdigit()] if filter_status_codes else []
+        
+        all_results: List[dict] = []
+        tool_used = None
+        
         for candidate in tools:
             binary = shutil.which(candidate)
             if not binary:
                 continue
+            
+            tool_used = candidate
             if candidate == "ffuf":
-                out = run_external(binary, ["-u", f"{target}/FUZZ", "-w", wl_path, "-t", threads])
+                args = ["-u", f"{target}/FUZZ", "-w", wl_path, "-t", threads]
+                if recursive_scan:
+                    args.append("-recursion")
+                if filter_codes:
+                    args.extend(["-fc", ",".join(str(c) for c in filter_codes)])
+                out = run_external(binary, args)
             elif candidate == "gobuster":
-                out = run_external(binary, ["dir", "-u", target, "-w", wl_path, "-t", threads])
+                args = ["dir", "-u", target, "-w", wl_path, "-t", threads]
+                if recursive_scan:
+                    args.append("-r")
+                if filter_codes:
+                    args.extend(["-b", ",".join(str(c) for c in filter_codes)])
+                out = run_external(binary, args)
             else:  # dirb
-                out = run_external(binary, [target, wl_path])
-            return ToolResult(title=f"{candidate} results", body=out)
+                args = [target, wl_path]
+                out = run_external(binary, args)
+            
+            # Parse results
+            parsed_results = self._parse_tool_output(out, candidate, target)
+            all_results.extend(parsed_results)
+            break  # Use first available tool
 
-        # fallback
-        rows = fallback_fuzz(target, wl_path)
-        return ToolResult(title="Fallback results", body=json.dumps(rows, indent=2), mime_type="application/json")
+        # Fallback if no tool available
+        if not all_results:
+            all_results = fallback_fuzz(target, wl_path)
+
+        # Filter by status codes if specified
+        if filter_codes:
+            all_results = [r for r in all_results if r.get("status", 0) in filter_codes]
+
+        # Analyze and categorize results
+        result_body: Dict[str, object] = {
+            "target": target,
+            "tool_used": tool_used or "fallback",
+            "total_found": len(all_results),
+            "results": all_results,
+        }
+
+        if self._truthy(analyze_results):
+            analysis = self._analyze_results(all_results)
+            result_body["analysis"] = analysis
+
+        body = json.dumps(result_body, indent=2)
+        return ToolResult(title=f"Directory Discovery: {target}", body=body, mime_type="application/json")

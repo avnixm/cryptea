@@ -14,6 +14,14 @@ from typing import Any, Dict, Iterable, List, Optional, Tuple
 from ..base import ToolResult
 from ...utils.extraction_manager import ExtractionManager
 
+try:
+    from PIL import Image, ImageOps  # type: ignore
+    HAS_PIL = True
+except ImportError:
+    Image = None  # type: ignore
+    ImageOps = None  # type: ignore
+    HAS_PIL = False
+
 
 class ImageStegoTool:
     """Expose zsteg, steghide, and stegsolve conveniences."""
@@ -52,6 +60,10 @@ class ImageStegoTool:
             operations["signature_scan"] = self._detect_embedded_files(path)
         if normalized_choice == "all":
             operations["stegsolve"] = self._stegsolve_hint(path, stegsolve_jar)
+
+        # Color channel analysis (Python-based stegsolve-like features)
+        if normalized_choice in {"color_channels", "all"}:
+            operations["color_channels"] = self._analyze_color_channels(path)
 
         if should_extract:
             operations["extraction"] = self._extract_all_hidden_files(
@@ -242,10 +254,16 @@ class ImageStegoTool:
             }
 
         parsed_entries = self._parse_binwalk_output(proc.stdout or "")
+        
+        # Categorize entries for better organization
+        categorized = self._categorize_binwalk_entries(parsed_entries)
+        
         response: Dict[str, object] = {
             "available": True,
             "exit_code": proc.returncode,
             "entries": parsed_entries,
+            "categories": categorized,
+            "total_findings": len(parsed_entries),
             "raw_output": self._truncate_output((proc.stdout or "") + (f"\n{proc.stderr}" if proc.stderr else "")),
         }
         if not extract:
@@ -257,6 +275,7 @@ class ImageStegoTool:
             command,
             "--quiet",
             "--extract",
+            "--matryoshka",  # Recursive extraction for nested archives
             "--directory",
             str(extract_dir),
             str(path),
@@ -326,6 +345,31 @@ class ImageStegoTool:
                 }
             )
         return {"matches": entries, "count": len(entries)}
+
+    def _categorize_binwalk_entries(self, entries: List[Dict[str, object]]) -> Dict[str, List[Dict[str, object]]]:
+        """Categorize binwalk entries by type."""
+        categorized: Dict[str, List[Dict[str, object]]] = {}
+        
+        for entry in entries:
+            desc = str(entry.get("description", "")).lower()
+            entry_type = "unknown"
+            
+            if any(x in desc for x in ["zip", "gzip", "bzip2", "lzma", "7zip", "rar"]):
+                entry_type = "archive"
+            elif any(x in desc for x in ["filesystem", "squashfs", "cramfs", "jffs2", "romfs"]):
+                entry_type = "filesystem"
+            elif any(x in desc for x in ["elf", "pe", "mach-o", "executable"]):
+                entry_type = "executable"
+            elif any(x in desc for x in ["png", "jpeg", "gif", "image"]):
+                entry_type = "image"
+            elif any(x in desc for x in ["lzma", "zlib", "deflate", "compressed"]):
+                entry_type = "compressed"
+            
+            if entry_type not in categorized:
+                categorized[entry_type] = []
+            categorized[entry_type].append(entry)
+        
+        return categorized
 
     _EMBEDDED_SIGNATURES: Tuple[Tuple[bytes, str, str], ...] = (
         (b"\x50\x4b\x03\x04", "ZIP archive", ".zip"),
@@ -628,6 +672,237 @@ class ImageStegoTool:
             lines.append(f"{key}: {pretty_value}")
 
         return "\n".join(lines)
+
+    def _analyze_color_channels(self, path: Path) -> Dict[str, object]:
+        """Perform comprehensive color channel analysis (stegsolve-like features)."""
+        if not HAS_PIL:
+            return {
+                "available": False,
+                "message": "Pillow (PIL) is required for color channel analysis. Install it with: pip install Pillow",
+            }
+
+        try:
+            with Image.open(path) as img:
+                # Convert to RGB if needed
+                if img.mode not in ("RGB", "RGBA"):
+                    img = img.convert("RGB")
+
+                width, height = img.size
+                pixels = img.load()
+
+                results: Dict[str, object] = {
+                    "available": True,
+                    "image_mode": img.mode,
+                    "image_size": {"width": width, "height": height},
+                    "channels": {},
+                    "lsb_extraction": {},
+                    "channel_operations": {},
+                }
+
+                # Extract individual RGB channels
+                r_channel, g_channel, b_channel = self._extract_rgb_channels(pixels, width, height)
+                results["channels"]["red"] = self._analyze_channel(r_channel, "Red")
+                results["channels"]["green"] = self._analyze_channel(g_channel, "Green")
+                results["channels"]["blue"] = self._analyze_channel(b_channel, "Blue")
+
+                # Extract alpha channel if available
+                if img.mode == "RGBA":
+                    alpha_channel = self._extract_alpha_channel(pixels, width, height)
+                    results["channels"]["alpha"] = self._analyze_channel(alpha_channel, "Alpha")
+
+                # LSB extraction
+                results["lsb_extraction"] = self._extract_lsb_planes(r_channel, g_channel, b_channel)
+
+                # Channel operations (subtraction, etc.)
+                results["channel_operations"] = self._perform_channel_operations(r_channel, g_channel, b_channel)
+
+                # Histogram analysis
+                results["histogram"] = self._analyze_histogram(r_channel, g_channel, b_channel)
+
+                return results
+
+        except Exception as exc:
+            return {
+                "available": False,
+                "message": f"Failed to analyze color channels: {exc}",
+            }
+
+    def _extract_rgb_channels(self, pixels: Any, width: int, height: int) -> Tuple[List[int], List[int], List[int]]:
+        """Extract R, G, B channel values."""
+        r_channel: List[int] = []
+        g_channel: List[int] = []
+        b_channel: List[int] = []
+
+        for y in range(height):
+            for x in range(width):
+                pixel = pixels[x, y]
+                if len(pixel) >= 3:
+                    r_channel.append(pixel[0])
+                    g_channel.append(pixel[1])
+                    b_channel.append(pixel[2])
+
+        return r_channel, g_channel, b_channel
+
+    def _extract_alpha_channel(self, pixels: Any, width: int, height: int) -> List[int]:
+        """Extract alpha channel values."""
+        alpha_channel: List[int] = []
+        for y in range(height):
+            for x in range(width):
+                pixel = pixels[x, y]
+                if len(pixel) >= 4:
+                    alpha_channel.append(pixel[3])
+        return alpha_channel
+
+    def _analyze_channel(self, channel: List[int], name: str) -> Dict[str, object]:
+        """Analyze a single channel."""
+        if not channel:
+            return {"name": name, "empty": True}
+
+        return {
+            "name": name,
+            "min": min(channel),
+            "max": max(channel),
+            "mean": sum(channel) / len(channel) if channel else 0,
+            "unique_values": len(set(channel)),
+        }
+
+    def _extract_lsb_planes(self, r_channel: List[int], g_channel: List[int], b_channel: List[int]) -> Dict[str, object]:
+        """Extract LSB (Least Significant Bit) planes."""
+        if not (r_channel and g_channel and b_channel):
+            return {"available": False, "message": "Channel data required"}
+
+        results: Dict[str, object] = {
+            "available": True,
+            "planes": {},
+        }
+
+        # Extract LSB from each channel (bit 0)
+        r_lsb = [pixel & 1 for pixel in r_channel]
+        g_lsb = [pixel & 1 for pixel in g_channel]
+        b_lsb = [pixel & 1 for pixel in b_channel]
+
+        # Extract all 8 bit planes for each channel
+        for channel_name, channel_data in [("red", r_channel), ("green", g_channel), ("blue", b_channel)]:
+            planes: Dict[str, object] = {}
+            for bit in range(8):
+                plane = [(pixel >> bit) & 1 for pixel in channel_data]
+                planes[f"bit_{bit}"] = {
+                    "ones_count": sum(plane),
+                    "zeros_count": len(plane) - sum(plane),
+                    "entropy": self._calculate_entropy(plane),
+                }
+            results["planes"][channel_name] = planes
+
+        # LSB XOR patterns
+        results["xor_patterns"] = {
+            "r_xor_g": self._xor_channels(r_lsb, g_lsb),
+            "r_xor_b": self._xor_channels(r_lsb, b_lsb),
+            "g_xor_b": self._xor_channels(g_lsb, b_lsb),
+            "r_xor_g_xor_b": self._xor_channels(self._xor_channels(r_lsb, g_lsb), b_lsb),
+        }
+
+        # Combine all LSBs
+        combined_lsb = [r_lsb[i] | (g_lsb[i] << 1) | (b_lsb[i] << 2) for i in range(min(len(r_lsb), len(g_lsb), len(b_lsb)))]
+        results["combined_lsb"] = {
+            "ones_count": sum(combined_lsb),
+            "entropy": self._calculate_entropy(combined_lsb),
+        }
+
+        return results
+
+    def _perform_channel_operations(self, r_channel: List[int], g_channel: List[int], b_channel: List[int]) -> Dict[str, object]:
+        """Perform channel subtraction and other operations."""
+        if not (r_channel and g_channel and b_channel):
+            return {"available": False}
+
+        min_len = min(len(r_channel), len(g_channel), len(b_channel))
+        results: Dict[str, object] = {}
+
+        # Channel subtractions
+        r_minus_g = [r_channel[i] - g_channel[i] for i in range(min_len)]
+        r_minus_b = [r_channel[i] - b_channel[i] for i in range(min_len)]
+        g_minus_b = [g_channel[i] - b_channel[i] for i in range(min_len)]
+
+        results["subtractions"] = {
+            "r_minus_g": {
+                "min": min(r_minus_g),
+                "max": max(r_minus_g),
+                "mean": sum(r_minus_g) / len(r_minus_g) if r_minus_g else 0,
+            },
+            "r_minus_b": {
+                "min": min(r_minus_b),
+                "max": max(r_minus_b),
+                "mean": sum(r_minus_b) / len(r_minus_b) if r_minus_b else 0,
+            },
+            "g_minus_b": {
+                "min": min(g_minus_b),
+                "max": max(g_minus_b),
+                "mean": sum(g_minus_b) / len(g_minus_b) if g_minus_b else 0,
+            },
+        }
+
+        return results
+
+    def _analyze_histogram(self, r_channel: List[int], g_channel: List[int], b_channel: List[int]) -> Dict[str, object]:
+        """Analyze histogram for anomalies."""
+        histograms = {
+            "red": self._compute_histogram(r_channel),
+            "green": self._compute_histogram(g_channel),
+            "blue": self._compute_histogram(b_channel),
+        }
+
+        # Detect anomalies (unusual spikes or gaps)
+        anomalies: Dict[str, List[int]] = {}
+        for channel_name, histogram in histograms.items():
+            anomalies_list: List[int] = []
+            max_count = max(histogram.values()) if histogram else 0
+            threshold = max_count * 0.1  # Flag values with more than 10% of max count as potentially interesting
+            for value, count in histogram.items():
+                if count > threshold and count < max_count * 0.9:  # Interesting but not the dominant value
+                    anomalies_list.append(value)
+            anomalies[channel_name] = sorted(anomalies_list)[:20]  # Limit to top 20
+
+        return {
+            "histograms": histograms,
+            "anomalies": anomalies,
+        }
+
+    def _compute_histogram(self, channel: List[int]) -> Dict[int, int]:
+        """Compute histogram of channel values."""
+        histogram: Dict[int, int] = {}
+        for value in channel:
+            histogram[value] = histogram.get(value, 0) + 1
+        return histogram
+
+    def _calculate_entropy(self, data: List[int]) -> float:
+        """Calculate Shannon entropy of binary data."""
+        if not data:
+            return 0.0
+        count_0 = data.count(0)
+        count_1 = len(data) - count_0
+        total = len(data)
+        if total == 0:
+            return 0.0
+
+        entropy = 0.0
+        if count_0 > 0:
+            p0 = count_0 / total
+            entropy -= p0 * (p0.bit_length() - 1) if p0 > 0 else 0
+        if count_1 > 0:
+            p1 = count_1 / total
+            entropy -= p1 * (p1.bit_length() - 1) if p1 > 0 else 0
+
+        return entropy
+
+    def _xor_channels(self, ch1: List[int], ch2: List[int]) -> Dict[str, object]:
+        """XOR two channels and analyze result."""
+        min_len = min(len(ch1), len(ch2))
+        xored = [ch1[i] ^ ch2[i] for i in range(min_len)]
+        return {
+            "ones_count": sum(xored),
+            "zeros_count": len(xored) - sum(xored),
+            "entropy": self._calculate_entropy(xored),
+        }
 
     def _truthy(self, value: str | bool | None) -> bool:
         if isinstance(value, bool):

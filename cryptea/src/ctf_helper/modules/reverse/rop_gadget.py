@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -37,6 +39,8 @@ class ROPGadgetTool:
         arch_key, arch_meta = self._normalise_architecture(architecture)
 
         sections: List[str] = []
+        all_gadgets: List[Dict[str, object]] = []
+        
         for slug, executor in tools:
             try:
                 output = executor(target, search, depth_value, arch_key, arch_meta, limit_value)
@@ -45,8 +49,20 @@ class ROPGadgetTool:
             label = self._tool_label(slug)
             trimmed = self._limit_output(output, limit_value)
             sections.append(f"== {label} ==\n{trimmed.strip() or '(no output)'}")
+            
+            # Parse gadgets for categorization
+            gadgets = self._parse_gadgets(output, slug)
+            all_gadgets.extend(gadgets)
 
         body = "\n\n".join(sections) if sections else "No output produced by the selected tools."
+        
+        # Add gadget statistics if we found any
+        if all_gadgets:
+            stats = self._categorize_gadgets(all_gadgets)
+            if stats:
+                body += "\n\n=== Gadget Statistics ===\n"
+                body += json.dumps(stats, indent=2)
+        
         title = f"ROP results for {target.name}"
         return ToolResult(title=title, body=body)
 
@@ -241,6 +257,68 @@ class ROPGadgetTool:
         truncated = lines[:limit]
         truncated.append(f"... (truncated, showing first {limit} lines)")
         return "\n".join(truncated)
+
+    def _parse_gadgets(self, output: str, tool_slug: str) -> List[Dict[str, object]]:
+        """Parse gadget output into structured format."""
+        gadgets: List[Dict[str, object]] = []
+        lines = output.splitlines()
+        
+        for line in lines:
+            if not line.strip():
+                continue
+            
+            # Try to extract address and instruction
+            # Pattern: 0xADDR : instruction ; ret
+            match = re.search(r'(0x[0-9a-fA-F]+)\s*:\s*(.+?)(?:\s*;\s*(.+))?$', line)
+            if match:
+                addr = match.group(1)
+                instruction = match.group(2).strip()
+                ending = match.group(3).strip() if match.group(3) else ""
+                
+                gadgets.append({
+                    "address": addr,
+                    "instruction": instruction,
+                    "ending": ending,
+                    "tool": tool_slug,
+                    "line": line.strip(),
+                })
+        
+        return gadgets
+
+    def _categorize_gadgets(self, gadgets: List[Dict[str, object]]) -> Dict[str, object]:
+        """Categorize gadgets by type."""
+        stats: Dict[str, object] = {
+            "total": len(gadgets),
+            "by_ending": {},
+            "by_instruction": {},
+            "ret_gadgets": 0,
+            "pop_gadgets": 0,
+            "jmp_gadgets": 0,
+            "call_gadgets": 0,
+        }
+        
+        for gadget in gadgets:
+            if not isinstance(gadget, dict):
+                continue
+            
+            ending = str(gadget.get("ending", "")).lower()
+            instruction = str(gadget.get("instruction", "")).lower()
+            
+            # Count by ending
+            if ending:
+                stats["by_ending"][ending] = stats["by_ending"].get(ending, 0) + 1
+            
+            # Count instruction types
+            if "ret" in ending or "ret" in instruction:
+                stats["ret_gadgets"] = stats.get("ret_gadgets", 0) + 1
+            if "pop" in instruction:
+                stats["pop_gadgets"] = stats.get("pop_gadgets", 0) + 1
+            if "jmp" in instruction or "j" in instruction:
+                stats["jmp_gadgets"] = stats.get("jmp_gadgets", 0) + 1
+            if "call" in instruction:
+                stats["call_gadgets"] = stats.get("call_gadgets", 0) + 1
+        
+        return stats
 
 
 __all__ = ["ROPGadgetTool"]

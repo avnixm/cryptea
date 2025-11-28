@@ -223,7 +223,13 @@ class MorseDecoderTool:
     # ------------------------------------------------------------------
     # Audio helpers
     # ------------------------------------------------------------------
-    def _morse_from_audio(self, audio_file: str, window_seconds: float = 0.01) -> str:
+    def _morse_from_audio(
+        self,
+        audio_file: str,
+        window_seconds: float = 0.01,
+        manual_threshold: float = 0.0,
+        dit_duration: float = 0.0,
+    ) -> str:
         path = Path(audio_file)
         if not path.exists():
             raise ValueError(f"Audio file not found: {audio_file}")
@@ -242,17 +248,18 @@ class MorseDecoderTool:
         if not mono:
             raise ValueError("Unable to read audio samples")
 
-        max_amplitude = max(abs(sample) for sample in mono)
-        if max_amplitude == 0:
-            raise ValueError("Audio does not contain detectable tone")
-        threshold = max_amplitude * 0.3
+        # Adaptive threshold detection
+        threshold = self._adaptive_threshold(mono, manual_threshold)
 
         window_size = max(1, int(frame_rate * window_seconds))
         window_duration = window_size / frame_rate
 
+        # Apply noise filtering
+        mono_filtered = self._filter_noise(mono, threshold)
+
         windows: List[bool] = []
-        for index in range(0, len(mono), window_size):
-            chunk = mono[index:index + window_size]
+        for index in range(0, len(mono_filtered), window_size):
+            chunk = mono_filtered[index:index + window_size]
             if not chunk:
                 continue
             average = sum(abs(value) for value in chunk) / len(chunk)
@@ -280,7 +287,12 @@ class MorseDecoderTool:
         if not durations:
             raise ValueError("Audio did not yield Morse segments")
 
-        base_unit = self._infer_time_unit(durations)
+        # Automatic timing ratio detection
+        if dit_duration > 0:
+            base_unit = dit_duration
+        else:
+            base_unit = self._infer_time_unit_advanced(durations)
+        
         if base_unit <= 0:
             raise ValueError("Could not infer Morse timing from audio")
 
@@ -361,3 +373,84 @@ class MorseDecoderTool:
         if not candidates:
             return 0.0
         return min(candidates)
+
+    def _adaptive_threshold(self, samples: List[float], manual: float = 0.0) -> float:
+        """Calculate adaptive threshold using histogram analysis."""
+        if manual > 0.0:
+            max_amplitude = max(abs(s) for s in samples)
+            return max_amplitude * manual
+
+        # Use Otsu's method-like approach: find threshold that separates signal from noise
+        amplitudes = [abs(s) for s in samples]
+        max_amp = max(amplitudes) if amplitudes else 1.0
+        
+        if max_amp == 0:
+            raise ValueError("Audio does not contain detectable tone")
+
+        # Simple adaptive threshold: use percentile-based approach
+        sorted_amps = sorted(amplitudes)
+        # Try to find where signal starts (top 30% is likely signal)
+        percentile_70 = sorted_amps[int(len(sorted_amps) * 0.7)] if sorted_amps else 0
+        
+        # Use minimum of percentile-based and fixed ratio
+        threshold1 = max_amp * 0.3
+        threshold2 = percentile_70 * 0.5
+        
+        # Return the more conservative threshold
+        return min(threshold1, threshold2) if threshold2 > 0 else threshold1
+
+    def _filter_noise(self, samples: List[float], threshold: float) -> List[float]:
+        """Apply simple noise filtering using moving average."""
+        if len(samples) < 3:
+            return samples
+        
+        filtered: List[float] = []
+        window_size = 3
+        
+        for i in range(len(samples)):
+            start = max(0, i - window_size // 2)
+            end = min(len(samples), i + window_size // 2 + 1)
+            window = samples[start:end]
+            avg = sum(window) / len(window)
+            
+            # Only pass through if significantly above threshold or part of a tone
+            if abs(avg) >= threshold * 0.7:
+                filtered.append(samples[i])
+            else:
+                # Reduce noise
+                filtered.append(samples[i] * 0.3)
+        
+        return filtered
+
+    def _infer_time_unit_advanced(self, durations: Sequence[Tuple[bool, float]]) -> float:
+        """Advanced timing inference using dit/dah ratio analysis."""
+        tone_durations = [duration for state, duration in durations if state and duration > 0]
+        silence_durations = [duration for state, duration in durations if not state and duration > 0]
+
+        if not tone_durations:
+            if silence_durations:
+                return min(silence_durations)
+            return 0.0
+
+        # Sort tone durations to find patterns
+        sorted_tones = sorted(tone_durations)
+        
+        # Find clusters for dit vs dah
+        # Standard Morse: dit : dah = 1 : 3
+        # Find the smallest tone duration (likely dit)
+        dit_candidate = sorted_tones[0]
+        
+        # Look for dah candidates (should be ~3x dit)
+        dah_candidates = [d for d in sorted_tones if d >= dit_candidate * 2.5 and d <= dit_candidate * 4.0]
+        
+        if dah_candidates:
+            # Verify ratio
+            avg_dah = sum(dah_candidates) / len(dah_candidates)
+            ratio = avg_dah / dit_candidate
+            
+            # If ratio is close to 3, dit_candidate is correct
+            if 2.0 <= ratio <= 4.5:
+                return dit_candidate
+        
+        # Fallback: use smallest tone duration
+        return dit_candidate

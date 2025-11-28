@@ -71,7 +71,11 @@ class CommixTool:
         method: str = "GET",
         data: str = "",
         cookie: str = "",
+        headers: str = "",
         level: str = "",
+        os_detection: str = "true",
+        shell: str = "",
+        injection_points: str = "parameter",
         extra: str = "",
     ) -> ToolResult:
         if not network_consent_enabled():
@@ -107,6 +111,27 @@ class CommixTool:
         # Cookie
         if cookie.strip():
             args.extend(["--cookie", cookie.strip()])
+
+        # Headers
+        if headers.strip():
+            for header in headers.split(";"):
+                if header.strip():
+                    args.extend(["--headers", header.strip()])
+
+        # OS detection
+        if _is_truthy(os_detection):
+            args.append("--os-cmd")
+
+        # Shell selection
+        if shell.strip() in ["bash", "sh", "cmd", "powershell"]:
+            args.extend(["--shellshock", "--os-cmd", shell.strip()])
+
+        # Injection points
+        if injection_points.strip():
+            if "header" in injection_points.lower():
+                args.append("--header")
+            if "cookie" in injection_points.lower():
+                args.append("--cookie")
 
         # Level override
         if level.strip():
@@ -147,4 +172,8 @@ class CommixTool:
             body="\n".join(body_lines).strip(),
             mime_type="text/plain",
         )
+
+
+def _is_truthy(value: str) -> bool:
+    return value.lower() in {"1", "true", "yes", "y", "on"}
 

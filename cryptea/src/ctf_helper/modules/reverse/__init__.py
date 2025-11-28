@@ -13,6 +13,7 @@ from .pwntools_helper import PwntoolsHelperTool
 from .angr_helper import AngrHelperTool
 from .checksec import ChecksecTool
 from .syscall_tracer import SyscallTracerTool
+from .objdump_viewer import ObjdumpViewerTool
 
 __all__ = [
     "StringsExtractTool",
@@ -28,4 +29,5 @@ __all__ = [
     "AngrHelperTool",
     "ChecksecTool",
     "SyscallTracerTool",
+    "ObjdumpViewerTool",
 ]

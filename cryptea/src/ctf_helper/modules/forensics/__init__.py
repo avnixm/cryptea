@@ -1,5 +1,6 @@
 """Forensics helper tools."""
 
+from .binwalk import BinwalkTool
 from .foremost import ForemostTool
 from .bulk_extractor import BulkExtractorTool
 from .volatility import VolatilityTool
@@ -7,6 +8,7 @@ from .sleuthkit import SleuthkitTool
 from .scalpel import ScalpelTool
 
 __all__ = [
+    "BinwalkTool",
     "ForemostTool",
     "BulkExtractorTool",
     "VolatilityTool",
